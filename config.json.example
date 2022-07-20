@@ -9,6 +9,7 @@
             "name": "efnet",
             "enabled": true,
             "nick": "aibird",
+            "throttle": 550,
             "channels": [
                 "#birdnest"
             ],
@@ -29,69 +30,9 @@
                     "ssl": false
                 },
                 {
-                    "host": "irc.inet.tele.dk",
-                    "port": 6667,
-                    "ssl": false
-                },
-                {
                     "host": "irc.underworld.no",
                     "port": 6667,
                     "ssl": false
-                },
-                {
-                    "host": "irc.homelien.no",
-                    "port": 6667,
-                    "ssl": false
-                },
-                {
-                    "host": "irc.colosolutions.net",
-                    "port": 6667,
-                    "ssl": false
-                },
-                {
-                    "host": "irc.mzima.net",
-                    "port": 6667,
-                    "ssl": false
-                },
-                {
-                    "host": "irc.choopa.net",
-                    "port": 6667,
-                    "ssl": false
-                },
-                {
-                    "host": "irc.homelien.no",
-                    "port": 6667,
-                    "ssl": false
-                },
-                {
-                    "host": "irc.du.se",
-                    "port": 6667,
-                    "ssl": false
-                },
-                {
-                    "host": "irc.swepipe.se",
-                    "port": 6667,
-                    "ssl": false
-                },
-                {
-                    "host": "irc.prison.net",
-                    "port": 6667,
-                    "ssl": false
-                }
-            ]
-        },
-        {
-            "name": "birdnest irc",
-            "enabled": false,
-            "nick": "aibird",
-            "channels": [
-                "#birdnest"
-            ],
-            "servers": [
-                {
-                    "host": "irc.birdnest.chat",
-                    "port": 6697,
-                    "ssl": true
                 }
             ]
         }

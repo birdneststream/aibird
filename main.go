@@ -26,11 +26,12 @@ type Config struct {
 }
 
 type Network struct {
-	Name     string   `json:"name"`
-	Nick     string   `json:"nick"`
-	Servers  []Server `json:"servers"`
-	Channels []string `json:"channels"`
-	Enabled  bool     `json:"enabled"`
+	Name     string        `json:"name"`
+	Nick     string        `json:"nick"`
+	Servers  []Server      `json:"servers"`
+	Channels []string      `json:"channels"`
+	Enabled  bool          `json:"enabled"`
+	Throttle time.Duration `json:"throttle"`
 }
 
 type Server struct {
@@ -86,23 +87,33 @@ func main() {
 
 	for _, network := range config.Network {
 		if network.Enabled {
-			ircClient(network)
+			go ircClient(network)
 		}
 	}
+
+	// sleep for 1 year, because I don't know how to go async or concurrency in golang yet LOL
+	time.Sleep(time.Hour * 24 * 365)
 
 	//exit
 	os.Exit(0)
 }
 
-func wait() {
-	// Efnet safe delay
-	time.Sleep(time.Millisecond * 510)
+func wait(delay time.Duration) {
+	// Flood safe delay
+	time.Sleep(time.Millisecond * delay)
 }
 
-var processing = false
-var stringLength int
+// Used to send responseString to IRC
 var sendString string
+
+// Response we get back from API
 var responseString string
+
+// Model we will use
+var model string
+
+// What is passed to the API
+var message string
 
 func ircClient(network Network) {
 	sslConfig := &tls.Config{
@@ -144,8 +155,12 @@ func ircClient(network Network) {
 			switch m.Command {
 			// On successful join attempt to join channels
 			case "001":
-				wait()
-				c.Write("JOIN " + chansList[0])
+				wait(network.Throttle)
+				// iterate over chansList
+				for j := 0; j < len(chansList); j++ {
+					c.Write("JOIN " + chansList[j])
+					wait(network.Throttle)
+				}
 				break
 
 			case "PRIVMSG":
@@ -153,14 +168,24 @@ func ircClient(network Network) {
 					log.Println(m)
 
 					// if m.Trailing() starts with !ai
-					if strings.HasPrefix(m.Trailing(), "!ai") && !processing {
-						// Attempt to prevent overlapping api requests
-						processing = true
+					if strings.HasPrefix(m.Trailing(), "!ai") || strings.HasPrefix(m.Trailing(), "!davinci") || strings.HasPrefix(m.Trailing(), "!babbage") || strings.HasPrefix(m.Trailing(), "!ada") {
 
-						// Get the message after !ai
-						message := strings.TrimPrefix(m.Trailing(), "!ai")
+						// if the m.Trailing starts with !davinci
+						if strings.HasPrefix(m.Trailing(), "!davinci") {
+							model = "text-davinci-002"
+							message = strings.TrimPrefix(m.Trailing(), "!davinci")
+						} else if strings.HasPrefix(m.Trailing(), "!ada") {
+							model = "text-ada-001"
+							message = strings.TrimPrefix(m.Trailing(), "!ada")
+						} else if strings.HasPrefix(m.Trailing(), "!babbage") {
+							model = "text-babbage-001"
+							message = strings.TrimPrefix(m.Trailing(), "!babbage")
+						} else {
+							// Get the message after !ai
+							model = config.Openai.Model
+							message = strings.TrimPrefix(m.Trailing(), "!ai")
+						}
 
-						// trim white space from message
 						message = strings.TrimSpace(message)
 
 						// Can expand this part out with more custom json config stuff
@@ -180,7 +205,7 @@ func ircClient(network Network) {
 						})
 
 						// Perform the actual API request to openAI
-						resp, err := aiClient.CreateCompletion(ctx, config.Openai.Model, req)
+						resp, err := aiClient.CreateCompletion(ctx, model, req)
 						if err != nil {
 							return
 						}
@@ -192,10 +217,9 @@ func ircClient(network Network) {
 
 						// for each new line break in response choices write to channel
 						for _, line := range strings.Split(responseString, "\n") {
-							stringLength = 0
 							sendString = ""
 
-							// if line length is one or less then continue
+							// Remove blank or one/two char lines
 							if len(line) <= 2 {
 								continue
 							}
@@ -205,14 +229,11 @@ func ircClient(network Network) {
 
 							// for each chunk
 							for _, chunk := range chunks {
-								// add length of chunk to stringLength
-								stringLength += len(chunk)
-
 								// append chunk to sendString
 								sendString += chunk + " "
 
-								// if stringLength is greater than 300
-								if stringLength > 300 {
+								// Trim by words for a cleaner output
+								if len(sendString) > 300 {
 									// write message to channel
 									c.WriteMessage(&irc.Message{
 										Command: "PRIVMSG",
@@ -221,8 +242,7 @@ func ircClient(network Network) {
 											sendString,
 										},
 									})
-									wait()
-									stringLength = 0
+									wait(network.Throttle)
 									sendString = ""
 								}
 
@@ -236,9 +256,7 @@ func ircClient(network Network) {
 									sendString,
 								},
 							})
-							wait()
-
-							processing = false
+							wait(network.Throttle)
 						}
 					}
 				}
