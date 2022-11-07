@@ -39,22 +39,6 @@
             ]
         },
         {
-            "name": "artisanal irc",
-            "enabled": true,
-            "nick": "dalebird",
-            "throttle": 50,
-            "channels": [
-                "#dale"
-            ],
-            "servers": [
-                {
-                    "host": "irc.artisanal.chat",
-                    "port": 6697,
-                    "ssl": true
-                }
-            ]
-        },
-        {
             "name": "tcpdirect irc",
             "enabled": false,
             "nick": "aibird",
