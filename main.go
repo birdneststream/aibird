@@ -117,17 +117,17 @@ func daleRequest(prompt string) string {
 
 	posturl := "https://api.openai.com/v1/images/generations"
 
+	// Try to remove problem chars
+	prompt = strings.ReplaceAll(prompt, ":", "")
+	prompt = strings.ReplaceAll(prompt, "/", "")
+	prompt = strings.ReplaceAll(prompt, "\\", "")
+	prompt = strings.ReplaceAll(prompt, ".", "")
+	prompt = strings.ReplaceAll(prompt, "\"", "")
+	prompt = strings.ReplaceAll(prompt, "'", "")
+	prompt = strings.ReplaceAll(prompt, ",", "")
+
 	// new variable that converts prompt to slug
 	slug := strings.ReplaceAll(prompt, " ", "-")
-
-	// convert slug to alphanum only
-	slug = strings.ReplaceAll(slug, ":", "")
-	slug = strings.ReplaceAll(slug, "/", "")
-	slug = strings.ReplaceAll(slug, "\\", "")
-	slug = strings.ReplaceAll(slug, ".", "")
-	slug = strings.ReplaceAll(slug, "\"", "")
-	slug = strings.ReplaceAll(slug, "'", "")
-	slug = strings.ReplaceAll(slug, ",", "")
 
 	// lowercase slug
 	slug = strings.ToLower(slug)
