@@ -1,6 +1,8 @@
 {
     "openai": {
-        "key": "",
+        "key": ["sk-key123",
+                "sk-key123",
+                "sk-key123"],
         "tokens": 256,
         "model": "text-curie-001"
     },
@@ -11,7 +13,7 @@
             "nick": "aibird",
             "throttle": 550,
             "channels": [
-                "#birdnest"
+                "#birdnest",
             ],
             "servers": [
                 {
@@ -33,6 +35,39 @@
                     "host": "irc.underworld.no",
                     "port": 6667,
                     "ssl": false
+                }
+            ]
+        },
+        {
+            "name": "artisanal irc",
+            "enabled": true,
+            "nick": "dalebird",
+            "throttle": 50,
+            "channels": [
+                "#dale"
+            ],
+            "servers": [
+                {
+                    "host": "irc.artisanal.chat",
+                    "port": 6697,
+                    "ssl": true
+                }
+            ]
+        },
+        {
+            "name": "tcpdirect irc",
+            "enabled": false,
+            "nick": "aibird",
+            "throttle": 20,
+            "channels": [
+                "#birdnest",
+                "#tcpdirect"
+            ],
+            "servers": [
+                {
+                    "host": "ircd.chat",
+                    "port": 6697,
+                    "ssl": true
                 }
             ]
         }
