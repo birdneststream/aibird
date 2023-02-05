@@ -353,171 +353,178 @@ func ircClient(network Network) {
 				log.Println("Error: " + m.Command)
 			}
 
-			switch m.Command {
-			// On successful join attempt to join channels
-			case "001":
+			if m.Command == "001" {
+				// On successful connect, attempt to join channels
 				wait(network.Throttle)
 				// iterate over chansList
 				for j := 0; j < len(chansList); j++ {
 					c.Write("JOIN " + chansList[j])
 					wait(network.Throttle)
 				}
-				break
+			} else if m.Command == "PRIVMSG" {
 
-			case "PRIVMSG":
-				if c.FromChannel(m) {
-					// log.Println(m)
+        // only process messages from channels
+				if c.FromChannel(m) == false {
+          return
+        }
+        
+        msg := m.Trailing()
 
-					// if m.Trailing() starts with !ai
-					if strings.HasPrefix(m.Trailing(), "!ai") || strings.HasPrefix(m.Trailing(), "!davinci") || strings.HasPrefix(m.Trailing(), "!babbage") || strings.HasPrefix(m.Trailing(), "!ada") || strings.HasPrefix(m.Trailing(), "!dale") {
-						processing = true
-						cost = 0
-						// if the m.Trailing starts with !davinci
-						if strings.HasPrefix(m.Trailing(), "!davinci") {
-							model = "text-davinci-002"
-							message = strings.TrimPrefix(m.Trailing(), "!davinci")
-							cost = 0.0200
-						} else if strings.HasPrefix(m.Trailing(), "!ada") {
-							model = "text-ada-001"
-							message = strings.TrimPrefix(m.Trailing(), "!ada")
-							cost = 0.0004
-						} else if strings.HasPrefix(m.Trailing(), "!babbage") {
-							model = "text-babbage-001"
-							message = strings.TrimPrefix(m.Trailing(), "!babbage")
-							cost = 0.0005
-						} else if strings.HasPrefix(m.Trailing(), "!dale") {
-							model = "dale"
-							message = strings.TrimPrefix(m.Trailing(), "!dale")
-							cost = 1
-						} else {
-							// Get the message after !ai
-							model = config.Openai.Model
-							message = strings.TrimPrefix(m.Trailing(), "!ai")
-							cost = 0.0020
-						}
+        // don't do anything if message isn't prefixed w/ an exclamation
+        if strings.HasPrefix(msg, "!") == false {
+          return
+        }
 
-						message = strings.TrimSpace(message)
+        // split command & prompt
+        parts := strings.SplitN(msg, " ", 2)
 
-						// if the model is dale
-						if model == "dale" {
-							// Alert the irc chan that the bot is processing
-							c.WriteMessage(&irc.Message{
-								Command: "PRIVMSG",
-								Params: []string{
-									m.Params[0],
-									"Processing Dal-E: " + message,
-								},
-							})
+        // require both command & prompt
+        if len(parts) < 2 {
+          return
+        }
 
-							daleResponse := daleRequest(message) + " - " + message
+        cmd := parts[0]
+        prompt := parts[1]
 
-							c.WriteMessage(&irc.Message{
-								Command: "PRIVMSG",
-								Params: []string{
-									m.Params[0],
-									daleResponse,
-								},
-							})
+        switch cmd {
+        case "!davinci":
+          model = "text-davinci-002"
+          cost = 0.0200
+          break
+        case "!ada":
+          model = "text-ada-001"
+          cost = 0.0004
+          break
+        case "!babbage":
+          model = "text-babbage-001"
+          cost = 0.0005
+          break
+        case "!dale":
+          model = "dale"
+          cost = 1
+          break
+        case "!ai":
+          model = config.Openai.Model
+          cost = 0.0020
+          break
+        default:
+          return
+        }
 
-						} else {
+        message := strings.TrimSpace(prompt)
 
-							// Can expand this part out with more custom json config stuff
-							req := gogpt.CompletionRequest{
-								MaxTokens:   config.Openai.Tokens,
-								Prompt:      message,
-								Temperature: 0.8,
-							}
+        // if the model is dale
+        if model == "dale" {
+          // Alert the irc chan that the bot is processing
+          c.WriteMessage(&irc.Message{
+            Command: "PRIVMSG",
+            Params: []string{
+              m.Params[0],
+              "Processing Dal-E: " + message,
+            },
+          })
 
-							// Alert the irc chan that the bot is processing
-							c.WriteMessage(&irc.Message{
-								Command: "PRIVMSG",
-								Params: []string{
-									m.Params[0],
-									"Processing: " + message,
-								},
-							})
+          daleResponse := daleRequest(message) + " - " + message
 
-							aiClient := gogpt.NewClient(rotateApiKey())
-							// Perform the actual API request to openAI
-							resp, err := aiClient.CreateCompletion(ctx, model, req)
-							if err != nil {
-								return
-							}
+          c.WriteMessage(&irc.Message{
+            Command: "PRIVMSG",
+            Params: []string{
+              m.Params[0],
+              daleResponse,
+            },
+          })
 
-							// resp.Usage.TotalTokens / 1000 * cost
-							total := strconv.FormatFloat((float64(resp.Usage.TotalTokens)/1000)*cost, 'f', 5, 64)
+          return
+        }
 
-							responseString = strings.TrimSpace(resp.Choices[0].Text) + " ($" + total + ")"
+        // non-dale models
+        // Can expand this part out with more custom json config stuff
+        req := gogpt.CompletionRequest{
+          MaxTokens:   config.Openai.Tokens,
+          Prompt:      message,
+          Temperature: 0.8,
+        }
 
-							// for each new line break in response choices write to channel
-							for _, line := range strings.Split(responseString, "\n") {
-								sendString = ""
+        // Alert the irc chan that the bot is processing
+        c.WriteMessage(&irc.Message{
+          Command: "PRIVMSG",
+          Params: []string{
+            m.Params[0],
+            "Processing: " + message,
+          },
+        })
 
-								// Remove blank or one/two char lines
-								if len(line) <= 2 {
-									continue
-								}
+        aiClient := gogpt.NewClient(rotateApiKey())
+        // Perform the actual API request to openAI
+        resp, err := aiClient.CreateCompletion(ctx, model, req)
+        if err != nil {
+          return
+        }
 
-								// split line into chunks slice with space
-								chunks := strings.Split(line, " ")
+        // resp.Usage.TotalTokens / 1000 * cost
+        total := strconv.FormatFloat((float64(resp.Usage.TotalTokens)/1000)*cost, 'f', 5, 64)
 
-								// for each chunk
-								for _, chunk := range chunks {
-									// append chunk to sendString
-									sendString += chunk + " "
+        responseString = strings.TrimSpace(resp.Choices[0].Text) + " ($" + total + ")"
 
-									// Trim by words for a cleaner output
-									if len(sendString) > 300 {
-										// write message to channel
-										c.WriteMessage(&irc.Message{
-											Command: "PRIVMSG",
-											Params: []string{
-												m.Params[0],
-												sendString,
-											},
-										})
-										wait(network.Throttle)
-										sendString = ""
-									}
+        // for each new line break in response choices write to channel
+        for _, line := range strings.Split(responseString, "\n") {
+          sendString = ""
 
-								}
+          // Remove blank or one/two char lines
+          if len(line) <= 2 {
+            continue
+          }
 
-								// Write the final message
-								c.WriteMessage(&irc.Message{
-									Command: "PRIVMSG",
-									Params: []string{
-										m.Params[0],
-										sendString,
-									},
-								})
-								wait(network.Throttle)
-							}
+          // split line into chunks slice with space
+          chunks := strings.Split(line, " ")
 
-							processing = false
+          // for each chunk
+          for _, chunk := range chunks {
+            // append chunk to sendString
+            sendString += chunk + " "
 
-						}
+            // Trim by words for a cleaner output
+            if len(sendString) > 300 {
+              // write message to channel
+              c.WriteMessage(&irc.Message{
+                Command: "PRIVMSG",
+                Params: []string{
+                  m.Params[0],
+                  sendString,
+                },
+              })
+              wait(network.Throttle)
+              sendString = ""
+            }
 
-					}
+          }
 
-				}
+          // Write the final message
+          c.WriteMessage(&irc.Message{
+            Command: "PRIVMSG",
+            Params: []string{
+              m.Params[0],
+              sendString,
+            },
+          })
+          wait(network.Throttle)
+        }
 
-				break
+        processing = false
+    }
+    }),
+  }
 
-			}
+  // Create the client
+  client := irc.NewClient(conn, ircConfig)
+  err = client.Run()
 
-		}),
-	}
+  // log client to console
+  if err != nil {
+    log.Println(err)
+  }
 
-	// Create the client
-	client := irc.NewClient(conn, ircConfig)
-	err = client.Run()
-
-	// log client to console
-	if err != nil {
-		log.Println(err)
-	}
-
-	log.Println("Got to the end, quitting " + network.Nick)
-	processing = false
-	ircClient(network)
+  log.Println("Got to the end, quitting " + network.Nick)
+  processing = false
+  ircClient(network)
 }
