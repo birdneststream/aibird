@@ -71,7 +71,12 @@ func loadConfig() {
 
 	byteValue, _ := ioutil.ReadAll(jsonFile)
 
-	json.Unmarshal(byteValue, &config)
+	err = json.Unmarshal(byteValue, &config)
+	if err != nil {
+		fmt.Println("Error in config.json")
+		fmt.Println(err)
+		os.Exit(1)
+	}
 }
 
 func rotateApiKey() string {
