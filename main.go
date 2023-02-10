@@ -44,6 +44,7 @@ type Network struct {
 type Server struct {
 	Host string `json:"host"`
 	Port int    `json:"port"`
+	Pass string `json:"pass"`
 	Ssl  bool   `json:"ssl"`
 }
 
@@ -346,7 +347,7 @@ func ircClient(network Network) {
 
 	ircConfig := irc.ClientConfig{
 		Nick: network.Nick,
-		Pass: "",
+		Pass: ircServer.Pass,
 		User: network.Nick,
 		Name: network.Nick,
 		Handler: irc.HandlerFunc(func(c *irc.Client, m *irc.Message) {
