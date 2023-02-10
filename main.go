@@ -20,6 +20,7 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	gogpt "github.com/sashabaranov/go-gpt3"
@@ -286,14 +287,15 @@ func main() {
 
 	log.Println("AI bot connecting to IRC, please wait")
 
+	var waitGroup sync.WaitGroup
 	for _, network := range config.Network {
+		waitGroup.Add(1)
 		if network.Enabled {
-			go ircClient(network)
+			go ircClient(network, &waitGroup)
 		}
 	}
 
-	// sleep for 1 year, because I don't know how to go async or concurrency in golang yet LOL
-	time.Sleep(time.Hour * 24 * 365)
+	waitGroup.Wait()
 
 	//exit
 	os.Exit(0)
@@ -320,7 +322,8 @@ var processing bool
 
 var cost float64
 
-func ircClient(network Network) {
+func ircClient(network Network, waitGroup *sync.WaitGroup) {
+	defer waitGroup.Done()
 	sslConfig := &tls.Config{
 		InsecureSkipVerify: true,
 	}
@@ -530,5 +533,6 @@ func ircClient(network Network) {
 
 	log.Println("Got to the end, quitting " + network.Nick)
 	processing = false
-	ircClient(network)
+	waitGroup.Add(1)
+	go ircClient(network, waitGroup)
 }
