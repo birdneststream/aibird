@@ -4,6 +4,8 @@ github.com/go-redis/redis v6.15.9+incompatible/go.mod h1:NAIEuMOZ/fxfXJIrKDQDz8w
 github.com/pmezard/go-difflib v1.0.0/go.mod h1:iKH77koFhYxTK1pcRnkKkqfTogsbg7gZNVY4sRDYZ/4=
 github.com/sashabaranov/go-gpt3 v0.0.0-20220703175102-51f94a6ab38f h1:kaliKMJUviyZ9NFkq2sPZGYpTiGNXPeIcMl8yKUttFg=
 github.com/sashabaranov/go-gpt3 v0.0.0-20220703175102-51f94a6ab38f/go.mod h1:BIZdbwdzxZbCrcKGMGH6u2eyGe1xFuX9Anmh3tCP8lQ=
+github.com/sashabaranov/go-gpt3 v1.0.0 h1:+wOQUqVpX/JVkNwPu2Il5VbCNefnn5FVKlhFIZq3aAU=
+github.com/sashabaranov/go-gpt3 v1.0.0/go.mod h1:BIZdbwdzxZbCrcKGMGH6u2eyGe1xFuX9Anmh3tCP8lQ=
 github.com/stretchr/objx v0.1.0/go.mod h1:HFkY916IF+rwdDfMAkV7OtwuqBVzrE8GR6GFx+wExME=
 github.com/stretchr/testify v1.4.0/go.mod h1:j7eGeouHqKxXV5pUuKE4zz7dFj8WfuZ+81PSLYec5m4=
 golang.org/x/net v0.0.0-20220607020251-c690dde0001d h1:4SFsTMi4UahlKoloni7L4eYzhFRifURQLw+yv0QDCx8=

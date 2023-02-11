@@ -1,10 +1,14 @@
 {
     "openai": {
-        "key": ["sk-key123",
-                "sk-key123",
-                "sk-key123"],
-        "tokens": 256,
-        "model": "text-curie-001"
+        "key": ["sk-aishouldbefreeanyway,
+                "sk-aishouldbefreeanyway,
+                "sk-aishouldbefreeanyway,
+                "sk-aishouldbefreeanyway,
+                "sk-aishouldbefreeanyway"
+            ],
+        "tokens": 2500,
+        "model": "text-davinci-003",
+        "temperature": 0.8
     },
     "networks": [
         {
@@ -12,8 +16,9 @@
             "enabled": true,
             "nick": "aibird",
             "throttle": 550,
+            "burst": 3,
             "channels": [
-                "#birdnest",
+                "#birdnest"
             ],
             "servers": [
                 {
@@ -40,9 +45,10 @@
         },
         {
             "name": "tcpdirect irc",
-            "enabled": false,
+            "enabled": true,
             "nick": "aibird",
-            "throttle": 20,
+            "throttle": 0,
+            "burst": 0,
             "channels": [
                 "#birdnest",
                 "#tcpdirect"

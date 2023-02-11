@@ -40,6 +40,7 @@ type Network struct {
 	Channels []string      `json:"channels"`
 	Enabled  bool          `json:"enabled"`
 	Throttle time.Duration `json:"throttle"`
+	Burst    int           `json:"burst"`
 }
 
 type Server struct {
@@ -50,9 +51,10 @@ type Server struct {
 }
 
 type Openai struct {
-	Key    []string `json:"key"`
-	Tokens int      `json:"tokens"`
-	Model  string   `json:"model"`
+	Key         []string `json:"key"`
+	Tokens      int      `json:"tokens"`
+	Model       string   `json:"model"`
+	Temperature float32  `json:"temperature"`
 }
 
 var config Config
@@ -118,84 +120,19 @@ type content struct {
 	fdata []byte
 }
 
-func daleRequest(prompt string) string {
-
-	// do a POST request to https://api.openai.com/v1/images/generations
-
-	posturl := "https://api.openai.com/v1/images/generations"
-
-	// Try to remove problem chars
-	prompt = strings.ReplaceAll(prompt, ":", "")
-	prompt = strings.ReplaceAll(prompt, "/", "")
-	prompt = strings.ReplaceAll(prompt, "\\", "")
-	prompt = strings.ReplaceAll(prompt, ".", "")
-	prompt = strings.ReplaceAll(prompt, "\"", "")
-	prompt = strings.ReplaceAll(prompt, "'", "")
-	prompt = strings.ReplaceAll(prompt, ",", "")
-
-	// new variable that converts prompt to slug
+func saveDalleRequest(prompt string, url string) string {
 	slug := strings.ReplaceAll(prompt, " ", "-")
-
-	// lowercase slug
-	slug = strings.ToLower(slug)
-
-	if len(slug) > 225 {
-		slug = slug[:225]
-	}
-
-	// JSON body
-	body := []byte(`{
-		"prompt": "` + prompt + `",
-		"n": 1,
-		"size": "512x512"
-	}`)
-
-	// log body
-	log.Println(string(body))
-
-	// Create a HTTP post request
-	r, err := http.NewRequest("POST", posturl, bytes.NewBuffer(body))
-	if err != nil {
-		panic(err)
-	}
-
-	r.Header.Add("Content-Type", "application/json")
-	r.Header.Add("Authorization", "Bearer "+rotateApiKey())
-	client := &http.Client{}
-	res, err := client.Do(r)
-	if err != nil {
-		panic(err)
-	}
-
-	defer res.Body.Close()
-
-	post := &DalE{}
-	derr := json.NewDecoder(res.Body).Decode(post)
-	if derr != nil {
-		panic(derr)
-	}
-
-	if res.StatusCode != http.StatusOK {
-		if res.StatusCode == 400 {
-			return "Bad request, maybe violated Dal-E ToS (No violence, nudity, anything fun, etc). Please keep it G rated!"
-		}
-
-		return (res.Status)
-	}
-
-	// generate random string
-	_, err = crypto_rand.Read(b[:])
-	if err != nil {
-		panic("cannot seed math/rand package with cryptographically secure random number generator")
+	if len(slug) > 220 {
+		slug = slug[:220]
 	}
 
 	rand.Seed(int64(binary.LittleEndian.Uint64(b[:])))
 	randValue = rand.Int63()
-	// generate a random value with length of 4
+	// Place a random number on the end to (maybe almost) avoid overwriting duplicate requests
 	randValue = randValue % 10000
 	fileName := slug + "_" + strconv.FormatInt(randValue, 4) + ".png"
 
-	downloadFile(post.Data[0].Url, fileName)
+	downloadFile(url, fileName)
 
 	// append the current pwd to fileName
 	fileName = filepath.Base(fileName)
@@ -322,6 +259,9 @@ var processing bool
 
 var cost float64
 
+// Size of the Dall-E request image
+var size string
+
 func ircClient(network Network, waitGroup *sync.WaitGroup) {
 	defer waitGroup.Done()
 	sslConfig := &tls.Config{
@@ -349,29 +289,28 @@ func ircClient(network Network, waitGroup *sync.WaitGroup) {
 	processing = false
 
 	ircConfig := irc.ClientConfig{
-		Nick: network.Nick,
-		Pass: ircServer.Pass,
-		User: network.Nick,
-		Name: network.Nick,
+		Nick:      network.Nick,
+		Pass:      ircServer.Pass,
+		User:      network.Nick,
+		Name:      network.Nick,
+		SendLimit: network.Throttle,
+		SendBurst: network.Burst,
 		Handler: irc.HandlerFunc(func(c *irc.Client, m *irc.Message) {
-			// log.Println(m)
-
 			// if m contains string banned
 			if strings.Contains(m.Command, "ERROR") {
 				// Reconnect if we get an error
 				log.Println("Error: " + m.Command)
 			}
 
-			if m.Command == "001" {
-				// On successful connect, attempt to join channels
-				wait(network.Throttle)
-				// iterate over chansList
+			switch m.Command {
+			case "001":
+				// On successful connect, attempt to join channels iterate over chansList
 				for j := 0; j < len(chansList); j++ {
 					c.Write("JOIN " + chansList[j])
-					wait(network.Throttle)
 				}
-			} else if m.Command == "PRIVMSG" {
-				if c.FromChannel(m) == false {
+				break
+			case "PRIVMSG":
+				if c.FromChannel(m) == false || processing {
 					return
 				}
 
@@ -379,6 +318,19 @@ func ircClient(network Network, waitGroup *sync.WaitGroup) {
 
 				// don't do anything if message isn't prefixed w/ an exclamation
 				if strings.HasPrefix(msg, "!") == false {
+					return
+				}
+
+				// Display help message
+				if msg == "!help" {
+					c.WriteMessage(&irc.Message{
+						Command: "PRIVMSG",
+						Params: []string{
+							m.Params[0],
+							"Models: !davinci (best), !davinci2, !davinci1, !codex (code generation), !ada, !babbage, !dale (512x512), !dale256 (256x256), !dale1024 (1024x1024 very slow), !ai (default model) - https://github.com/birdneststream/aibird",
+						},
+					})
+					processing = false
 					return
 				}
 
@@ -391,24 +343,47 @@ func ircClient(network Network, waitGroup *sync.WaitGroup) {
 				}
 
 				cmd := parts[0]
-				prompt := parts[1]
+				message := strings.TrimSpace(parts[1])
 
 				switch cmd {
 				case "!davinci":
-					model = "text-davinci-002"
+					model = gogpt.GPT3TextDavinci003
+					cost = 0.0200
+					break
+				case "!davinci2":
+					model = gogpt.GPT3TextDavinci002
+					cost = 0.0200
+					break
+				case "!davinci1":
+					model = gogpt.GPT3TextDavinci001
+					cost = 0.0200
+					break
+				case "!codex":
+					model = gogpt.CodexCodeDavinci002
 					cost = 0.0200
 					break
 				case "!ada":
-					model = "text-ada-001"
+					model = gogpt.GPT3Ada
 					cost = 0.0004
 					break
 				case "!babbage":
-					model = "text-babbage-001"
+					model = gogpt.GPT3Babbage
 					cost = 0.0005
 					break
 				case "!dale":
-					model = "dale"
-					cost = 1
+					model = "dall-e"
+					size = gogpt.CreateImageSize512x512
+					cost = 0.018
+					break
+				case "!dale256":
+					model = "dall-e"
+					size = gogpt.CreateImageSize256x256
+					cost = 0.016
+					break
+				case "!dale1024":
+					model = "dall-e"
+					size = gogpt.CreateImageSize1024x1024
+					cost = 0.020
 					break
 				case "!ai":
 					model = config.Openai.Model
@@ -418,38 +393,69 @@ func ircClient(network Network, waitGroup *sync.WaitGroup) {
 					return
 				}
 
-				message := strings.TrimSpace(prompt)
+				req := gogpt.CompletionRequest{
+					Model:       model,
+					MaxTokens:   config.Openai.Tokens,
+					Prompt:      message,
+					Temperature: config.Openai.Temperature,
+				}
+
+				if model == gogpt.CodexCodeDavinci002 {
+					req = gogpt.CompletionRequest{
+						Model:            model,
+						MaxTokens:        config.Openai.Tokens,
+						Prompt:           message,
+						Temperature:      0,
+						TopP:             1,
+						FrequencyPenalty: 0,
+						PresencePenalty:  0,
+					}
+				}
+
+				processing = true
+				aiClient := gogpt.NewClient(rotateApiKey())
 
 				// if the model is dale
-				if model == "dale" {
+				if model == "dall-e" {
+					req := gogpt.ImageRequest{
+						Prompt: message,
+						Size:   size,
+						N:      1,
+					}
+
 					// Alert the irc chan that the bot is processing
 					c.WriteMessage(&irc.Message{
 						Command: "PRIVMSG",
 						Params: []string{
 							m.Params[0],
-							"Processing Dal-E: " + message,
+							"Processing Dall-E: " + message,
 						},
 					})
 
-					daleResponse := daleRequest(message) + " - " + message
+					resp, err := aiClient.CreateImage(ctx, req)
+					if err != nil {
+						c.WriteMessage(&irc.Message{
+							Command: "PRIVMSG",
+							Params: []string{
+								m.Params[0],
+								err.Error(),
+							},
+						})
+						processing = false
+						return
+					}
+
+					daleResponse := saveDalleRequest(message, resp.Data[0].URL)
 
 					c.WriteMessage(&irc.Message{
 						Command: "PRIVMSG",
 						Params: []string{
 							m.Params[0],
-							daleResponse,
+							m.Prefix.Name + ": " + daleResponse,
 						},
 					})
 
 					return
-				}
-
-				// non-dale models
-				// Can expand this part out with more custom json config stuff
-				req := gogpt.CompletionRequest{
-					MaxTokens:   config.Openai.Tokens,
-					Prompt:      message,
-					Temperature: 0.8,
 				}
 
 				// Alert the irc chan that the bot is processing
@@ -461,17 +467,24 @@ func ircClient(network Network, waitGroup *sync.WaitGroup) {
 					},
 				})
 
-				aiClient := gogpt.NewClient(rotateApiKey())
 				// Perform the actual API request to openAI
-				resp, err := aiClient.CreateCompletion(ctx, model, req)
+				resp, err := aiClient.CreateCompletion(ctx, req)
 				if err != nil {
+					c.WriteMessage(&irc.Message{
+						Command: "PRIVMSG",
+						Params: []string{
+							m.Params[0],
+							err.Error(),
+						},
+					})
+					processing = false
 					return
 				}
 
 				// resp.Usage.TotalTokens / 1000 * cost
 				total := strconv.FormatFloat((float64(resp.Usage.TotalTokens)/1000)*cost, 'f', 5, 64)
 
-				responseString = strings.TrimSpace(resp.Choices[0].Text) + " ($" + total + ")"
+				responseString = m.Prefix.Name + ": " + strings.TrimSpace(resp.Choices[0].Text) + " ($" + total + ")"
 
 				// for each new line break in response choices write to channel
 				for _, line := range strings.Split(responseString, "\n") {
@@ -491,7 +504,7 @@ func ircClient(network Network, waitGroup *sync.WaitGroup) {
 						sendString += chunk + " "
 
 						// Trim by words for a cleaner output
-						if len(sendString) > 300 {
+						if len(sendString) > 350 {
 							// write message to channel
 							c.WriteMessage(&irc.Message{
 								Command: "PRIVMSG",
@@ -500,7 +513,6 @@ func ircClient(network Network, waitGroup *sync.WaitGroup) {
 									sendString,
 								},
 							})
-							wait(network.Throttle)
 							sendString = ""
 						}
 
@@ -514,11 +526,12 @@ func ircClient(network Network, waitGroup *sync.WaitGroup) {
 							sendString,
 						},
 					})
-					wait(network.Throttle)
 				}
 
 				processing = false
+				break
 			}
+
 		}),
 	}
 
