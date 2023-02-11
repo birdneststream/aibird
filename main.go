@@ -310,7 +310,7 @@ func ircClient(network Network, waitGroup *sync.WaitGroup) {
 				}
 				break
 			case "PRIVMSG":
-				if c.FromChannel(m) == false || processing {
+				if c.FromChannel(m) == false {
 					return
 				}
 
