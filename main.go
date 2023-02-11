@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"context"
 	"crypto/tls"
-	"encoding/binary"
 	"errors"
 	"fmt"
 	"io"
@@ -27,10 +26,7 @@ import (
 )
 
 var config Config
-var b [8]byte
-var randValue int64
 var nickList []string
-var roundRobinKey = 0
 
 func loadConfig() {
 	_, err := toml.DecodeFile("config.toml", &config)
@@ -61,10 +57,8 @@ func saveDalleRequest(prompt string, url string) string {
 		slug = slug[:220]
 	}
 
-	rand.Seed(int64(binary.LittleEndian.Uint64(b[:])))
-	randValue = rand.Int63()
+	randValue := rand.Int63n(10000)
 	// Place a random number on the end to (maybe almost) avoid overwriting duplicate requests
-	randValue = randValue % 10000
 	fileName := slug + "_" + strconv.FormatInt(randValue, 4) + ".png"
 
 	downloadFile(url, fileName)

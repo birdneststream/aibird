@@ -1,8 +1,6 @@
 package main
 
 import (
-	crypto_rand "crypto/rand"
-	"encoding/binary"
 	"math/rand"
 	"time"
 )
@@ -39,15 +37,6 @@ type (
 )
 
 func (network *Network) returnRandomServer() Server {
-	// Better non tine based random number generator
-	_, err := crypto_rand.Read(b[:])
-	if err != nil {
-		panic("cannot seed math/rand package with cryptographically secure random number generator")
-	}
-
-	rand.Seed(int64(binary.LittleEndian.Uint64(b[:])))
-
-	// return random server
 	return network.Servers[rand.Intn(len(network.Servers))]
 }
 
