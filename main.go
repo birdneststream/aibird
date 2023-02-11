@@ -20,6 +20,7 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	gogpt "github.com/sashabaranov/go-gpt3"
@@ -44,6 +45,7 @@ type Network struct {
 type Server struct {
 	Host string `json:"host"`
 	Port int    `json:"port"`
+	Pass string `json:"pass"`
 	Ssl  bool   `json:"ssl"`
 }
 
@@ -71,7 +73,12 @@ func loadConfig() {
 
 	byteValue, _ := ioutil.ReadAll(jsonFile)
 
-	json.Unmarshal(byteValue, &config)
+	err = json.Unmarshal(byteValue, &config)
+	if err != nil {
+		fmt.Println("Error in config.json")
+		fmt.Println(err)
+		os.Exit(1)
+	}
 }
 
 func rotateApiKey() string {
@@ -280,14 +287,15 @@ func main() {
 
 	log.Println("AI bot connecting to IRC, please wait")
 
+	var waitGroup sync.WaitGroup
 	for _, network := range config.Network {
+		waitGroup.Add(1)
 		if network.Enabled {
-			go ircClient(network)
+			go ircClient(network, &waitGroup)
 		}
 	}
 
-	// sleep for 1 year, because I don't know how to go async or concurrency in golang yet LOL
-	time.Sleep(time.Hour * 24 * 365)
+	waitGroup.Wait()
 
 	//exit
 	os.Exit(0)
@@ -314,7 +322,8 @@ var processing bool
 
 var cost float64
 
-func ircClient(network Network) {
+func ircClient(network Network, waitGroup *sync.WaitGroup) {
+	defer waitGroup.Done()
 	sslConfig := &tls.Config{
 		InsecureSkipVerify: true,
 	}
@@ -341,7 +350,7 @@ func ircClient(network Network) {
 
 	ircConfig := irc.ClientConfig{
 		Nick: network.Nick,
-		Pass: "",
+		Pass: ircServer.Pass,
 		User: network.Nick,
 		Name: network.Nick,
 		Handler: irc.HandlerFunc(func(c *irc.Client, m *irc.Message) {
@@ -524,5 +533,6 @@ func ircClient(network Network) {
 
 	log.Println("Got to the end, quitting " + network.Nick)
 	processing = false
-	ircClient(network)
+	waitGroup.Add(1)
+	go ircClient(network, waitGroup)
 }
