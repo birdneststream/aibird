@@ -3,7 +3,6 @@ package main
 import (
 	"bytes"
 	"context"
-	crypto_rand "crypto/rand"
 	"crypto/tls"
 	"encoding/binary"
 	"errors"
@@ -40,29 +39,6 @@ func loadConfig() {
 		fmt.Println(err)
 		os.Exit(1)
 	}
-}
-
-func rotateApiKey() string {
-	// Rotate API key
-	roundRobinKey++
-	if roundRobinKey >= len(config.OpenAI.Keys) {
-		roundRobinKey = 0
-	}
-
-	return config.OpenAI.Keys[roundRobinKey]
-}
-
-func returnRandomServer(network Network) Server {
-	// Better non tine based random number generator
-	_, err := crypto_rand.Read(b[:])
-	if err != nil {
-		panic("cannot seed math/rand package with cryptographically secure random number generator")
-	}
-
-	rand.Seed(int64(binary.LittleEndian.Uint64(b[:])))
-
-	// return random server
-	return network.Servers[rand.Intn(len(network.Servers))]
 }
 
 type DalEUrl struct {
@@ -231,7 +207,7 @@ func ircClient(network Network, name string, waitGroup *sync.WaitGroup) {
 
 	// Choose a random IRC server to connect to within the network
 	var ircServer Server
-	ircServer = returnRandomServer(network)
+	ircServer = network.returnRandomServer()
 
 	conn, err := net.Dial("tcp", fmt.Sprintf("%s:%d", fmt.Sprint(ircServer.Host), ircServer.Port))
 	if err != nil {
@@ -374,7 +350,7 @@ func ircClient(network Network, name string, waitGroup *sync.WaitGroup) {
 				}
 
 				processing = true
-				aiClient := gogpt.NewClient(rotateApiKey())
+				aiClient := gogpt.NewClient(config.OpenAI.nextApiKey())
 
 				// if the model is dale
 				if model == "dall-e" {
