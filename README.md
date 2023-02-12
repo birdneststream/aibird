@@ -1,11 +1,11 @@
 # Open AI Golang IRC Chat bot
 
 * Ensure you have an OpenAI API key from https://openai.com/
-* Copy `config.json.example` to `config.json` and configure to your liking.
+* Copy `example-config.toml` to `config.toml` and configure to your liking.
 * Can connect to many IRC servers and many channels.
 * Supports multiple Open AI API keys and round robins them.
 * Now also supports Dall-E! Type `!dale babies mosh pit` and the results will be uploaded to filehole.org, the worlds best premier file sharing service.
-  * Still need to add these values in the `config.json`
+  * Still need to add these values in the `config.toml`
 
 ## Examples
 

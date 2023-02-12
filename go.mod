@@ -8,4 +8,7 @@ require (
 	gopkg.in/irc.v3 v3.1.4
 )
 
-require golang.org/x/net v0.0.0-20220607020251-c690dde0001d // indirect
+require (
+	github.com/BurntSushi/toml v1.2.1 // indirect
+	golang.org/x/net v0.0.0-20220607020251-c690dde0001d // indirect
+)

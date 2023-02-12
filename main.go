@@ -3,10 +3,7 @@ package main
 import (
 	"bytes"
 	"context"
-	crypto_rand "crypto/rand"
 	"crypto/tls"
-	"encoding/binary"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -23,87 +20,21 @@ import (
 	"sync"
 	"time"
 
+	"github.com/BurntSushi/toml"
 	gogpt "github.com/sashabaranov/go-gpt3"
-
 	"gopkg.in/irc.v3"
 )
 
-type Config struct {
-	Network []Network `json:"networks"`
-	Openai  Openai    `json:"openai"`
-}
-
-type Network struct {
-	Name     string        `json:"name"`
-	Nick     string        `json:"nick"`
-	Servers  []Server      `json:"servers"`
-	Channels []string      `json:"channels"`
-	Enabled  bool          `json:"enabled"`
-	Throttle time.Duration `json:"throttle"`
-	Burst    int           `json:"burst"`
-}
-
-type Server struct {
-	Host string `json:"host"`
-	Port int    `json:"port"`
-	Pass string `json:"pass"`
-	Ssl  bool   `json:"ssl"`
-}
-
-type Openai struct {
-	Key         []string `json:"key"`
-	Tokens      int      `json:"tokens"`
-	Model       string   `json:"model"`
-	Temperature float32  `json:"temperature"`
-}
-
 var config Config
-var b [8]byte
-var randValue int64
 var nickList []string
-var roundRobinKey = 0
 
 func loadConfig() {
-	// Load config.json
-	jsonFile, err := os.Open("config.json")
-
+	_, err := toml.DecodeFile("config.toml", &config)
 	if err != nil {
-		fmt.Println(err)
-	}
-	fmt.Println("Successfully Opened config.json")
-	defer jsonFile.Close()
-
-	byteValue, _ := ioutil.ReadAll(jsonFile)
-
-	err = json.Unmarshal(byteValue, &config)
-	if err != nil {
-		fmt.Println("Error in config.json")
+		fmt.Println("Error in config.toml")
 		fmt.Println(err)
 		os.Exit(1)
 	}
-}
-
-func rotateApiKey() string {
-	// Rotate API key
-	roundRobinKey++
-	if roundRobinKey >= len(config.Openai.Key) {
-		roundRobinKey = 0
-	}
-
-	return config.Openai.Key[roundRobinKey]
-}
-
-func returnRandomServer(network Network) Server {
-	// Better non tine based random number generator
-	_, err := crypto_rand.Read(b[:])
-	if err != nil {
-		panic("cannot seed math/rand package with cryptographically secure random number generator")
-	}
-
-	rand.Seed(int64(binary.LittleEndian.Uint64(b[:])))
-
-	// return random server
-	return network.Servers[rand.Intn(len(network.Servers))]
 }
 
 type DalEUrl struct {
@@ -126,10 +57,8 @@ func saveDalleRequest(prompt string, url string) string {
 		slug = slug[:220]
 	}
 
-	rand.Seed(int64(binary.LittleEndian.Uint64(b[:])))
-	randValue = rand.Int63()
+	randValue := rand.Int63n(10000)
 	// Place a random number on the end to (maybe almost) avoid overwriting duplicate requests
-	randValue = randValue % 10000
 	fileName := slug + "_" + strconv.FormatInt(randValue, 4) + ".png"
 
 	downloadFile(url, fileName)
@@ -225,10 +154,12 @@ func main() {
 	log.Println("AI bot connecting to IRC, please wait")
 
 	var waitGroup sync.WaitGroup
-	for _, network := range config.Network {
-		waitGroup.Add(1)
-		if network.Enabled {
-			go ircClient(network, &waitGroup)
+	for name, network := range config.Networks {
+		if len(network.Servers) == 0 {
+			log.Printf("networks.%s has no servers defined, skipping", name)
+		} else if network.Enabled {
+			waitGroup.Add(1)
+			go ircClient(network, name, &waitGroup)
 		}
 	}
 
@@ -262,7 +193,7 @@ var cost float64
 // Size of the Dall-E request image
 var size string
 
-func ircClient(network Network, waitGroup *sync.WaitGroup) {
+func ircClient(network Network, name string, waitGroup *sync.WaitGroup) {
 	defer waitGroup.Done()
 	sslConfig := &tls.Config{
 		InsecureSkipVerify: true,
@@ -270,7 +201,7 @@ func ircClient(network Network, waitGroup *sync.WaitGroup) {
 
 	// Choose a random IRC server to connect to within the network
 	var ircServer Server
-	ircServer = returnRandomServer(network)
+	ircServer = network.returnRandomServer()
 
 	conn, err := net.Dial("tcp", fmt.Sprintf("%s:%d", fmt.Sprint(ircServer.Host), ircServer.Port))
 	if err != nil {
@@ -386,7 +317,7 @@ func ircClient(network Network, waitGroup *sync.WaitGroup) {
 					cost = 0.020
 					break
 				case "!ai":
-					model = config.Openai.Model
+					model = config.OpenAI.Model
 					cost = 0.0020
 					break
 				default:
@@ -395,15 +326,15 @@ func ircClient(network Network, waitGroup *sync.WaitGroup) {
 
 				req := gogpt.CompletionRequest{
 					Model:       model,
-					MaxTokens:   config.Openai.Tokens,
+					MaxTokens:   config.OpenAI.Tokens,
 					Prompt:      message,
-					Temperature: config.Openai.Temperature,
+					Temperature: config.OpenAI.Temperature,
 				}
 
 				if model == gogpt.CodexCodeDavinci002 {
 					req = gogpt.CompletionRequest{
 						Model:            model,
-						MaxTokens:        config.Openai.Tokens,
+						MaxTokens:        config.OpenAI.Tokens,
 						Prompt:           message,
 						Temperature:      0,
 						TopP:             1,
@@ -413,7 +344,7 @@ func ircClient(network Network, waitGroup *sync.WaitGroup) {
 				}
 
 				processing = true
-				aiClient := gogpt.NewClient(rotateApiKey())
+				aiClient := gogpt.NewClient(config.OpenAI.nextApiKey())
 
 				// if the model is dale
 				if model == "dall-e" {
@@ -547,5 +478,5 @@ func ircClient(network Network, waitGroup *sync.WaitGroup) {
 	log.Println("Got to the end, quitting " + network.Nick)
 	processing = false
 	waitGroup.Add(1)
-	go ircClient(network, waitGroup)
+	go ircClient(network, name, waitGroup)
 }
