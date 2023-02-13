@@ -452,7 +452,7 @@ func ircClient(network Network, name string, waitGroup *sync.WaitGroup) {
 				// resp.Usage.TotalTokens / 1000 * cost
 				total := strconv.FormatFloat((float64(resp.Usage.TotalTokens)/1000)*cost, 'f', 5, 64)
 
-				responseString = m.Prefix.Name + ": " + strings.TrimSpace(resp.Choices[0].Text) + " ($" + total + ")"
+				responseString = strings.TrimSpace(resp.Choices[0].Text) + " ($" + total + ")"
 
 				// for each new line break in response choices write to channel
 				for _, line := range strings.Split(responseString, "\n") {
