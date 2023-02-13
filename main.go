@@ -193,6 +193,11 @@ var cost float64
 // Size of the Dall-E request image
 var size string
 
+// Used for !aiscii
+var asciiName string // ai generated name
+
+var prompt string // prompt
+
 func ircClient(network Network, name string, waitGroup *sync.WaitGroup) {
 	defer waitGroup.Done()
 	sslConfig := &tls.Config{
@@ -220,12 +225,14 @@ func ircClient(network Network, name string, waitGroup *sync.WaitGroup) {
 	processing = false
 
 	ircConfig := irc.ClientConfig{
-		Nick:      network.Nick,
-		Pass:      ircServer.Pass,
-		User:      network.Nick,
-		Name:      network.Nick,
-		SendLimit: network.Throttle,
-		SendBurst: network.Burst,
+		Nick:          network.Nick,
+		Pass:          ircServer.Pass,
+		User:          network.Nick,
+		Name:          network.Nick,
+		SendLimit:     network.Throttle,
+		SendBurst:     network.Burst,
+		PingFrequency: time.Second * 8,
+		PingTimeout:   time.Second * 120,
 		Handler: irc.HandlerFunc(func(c *irc.Client, m *irc.Message) {
 			// if m contains string banned
 			if strings.Contains(m.Command, "ERROR") {
@@ -320,6 +327,10 @@ func ircClient(network Network, name string, waitGroup *sync.WaitGroup) {
 					model = config.OpenAI.Model
 					cost = 0.0020
 					break
+				case "!aiscii":
+					// Custom prompt to make better mirc art
+					model = "aiascii"
+					break
 				default:
 					return
 				}
@@ -385,6 +396,14 @@ func ircClient(network Network, name string, waitGroup *sync.WaitGroup) {
 							m.Prefix.Name + ": " + daleResponse,
 						},
 					})
+
+					return
+				}
+
+				// mIRC ascii art generation, shows without the price and has a pre-loaded prompt for better generation.
+				if model == "aiascii" {
+					// if message = --save
+					go aiscii(m, message, c, aiClient, ctx)
 
 					return
 				}
@@ -479,4 +498,184 @@ func ircClient(network Network, name string, waitGroup *sync.WaitGroup) {
 	processing = false
 	waitGroup.Add(1)
 	go ircClient(network, name, waitGroup)
+}
+
+// aiscii function, hopefully will prevent ping timeouts
+func aiscii(m *irc.Message, message string, c *irc.Client, aiClient *gogpt.Client, ctx context.Context) {
+
+	parts := strings.SplitN(message, " ", 2)
+
+	if parts[0] == "--save" {
+		message = parts[1]
+	}
+
+	prompt = "'{0-16},{0-16}#' use this to create an embedded mirc text art.\n\nReplace the # from the following '▀▁▂▃▄▅▆▇█▉▊▋▌▍▎▏▐░▒▓▔▕▖▗▘▙▚▛▜▝▞'.\n\nThe art must be at least 20 lines and 80 column width of mirc embedded color codes and ascii text art. Ascii text art of " + message + "."
+	req := gogpt.CompletionRequest{
+		Model:            gogpt.GPT3TextDavinci003,
+		MaxTokens:        config.OpenAI.Tokens,
+		Prompt:           prompt,
+		Temperature:      0,
+		TopP:             1,
+		FrequencyPenalty: 0,
+		PresencePenalty:  0,
+	}
+
+	c.WriteMessage(&irc.Message{
+		Command: "PRIVMSG",
+		Params: []string{
+			m.Params[0],
+			"Processing mIRC aiscii art (it can take a while): " + message,
+		},
+	})
+
+	resp, err := aiClient.CreateCompletion(ctx, req)
+
+	if err != nil {
+		c.WriteMessage(&irc.Message{
+			Command: "PRIVMSG",
+			Params: []string{
+				m.Params[0],
+				err.Error(),
+			},
+		})
+		processing = false
+		return
+	}
+
+	responseString = strings.TrimSpace(resp.Choices[0].Text)
+
+	if parts[0] == "--save" {
+		message = parts[1]
+		// Generate a title for the art
+		req = gogpt.CompletionRequest{
+			Model:            gogpt.GPT3TextDavinci002,
+			MaxTokens:        128,
+			Prompt:           "Write a short three word title for your mirc ascii art based on '" + message + "'. Use only alphabetical characters and spaces only.",
+			Temperature:      0.8,
+			TopP:             1,
+			FrequencyPenalty: 0.6,
+			PresencePenalty:  0.3,
+		}
+
+		resp, err := aiClient.CreateCompletion(ctx, req)
+		if err != nil {
+			c.WriteMessage(&irc.Message{
+				Command: "PRIVMSG",
+				Params: []string{
+					m.Params[0],
+					err.Error(),
+				},
+			})
+			processing = false
+			return
+		}
+		asciiName = strings.TrimSpace(resp.Choices[0].Text)
+
+		// get alphabet letters from asciiName only
+		asciiName = strings.ReplaceAll(asciiName, " ", "-")
+		asciiName = strings.ReplaceAll(asciiName, ".", "")
+		// make lowercase asciiName
+		asciiName = strings.ToLower(asciiName)
+
+		c.WriteMessage(&irc.Message{
+			Command: "PRIVMSG",
+			Params: []string{
+				m.Params[0],
+				"@record " + asciiName,
+			},
+		})
+	}
+
+	// for each new line break in response choices write to channel
+	for _, line := range strings.Split(responseString, "\n") {
+		sendString = ""
+
+		// Write the final message
+		c.WriteMessage(&irc.Message{
+			Command: "PRIVMSG",
+			Params: []string{
+				m.Params[0],
+				line,
+			},
+		})
+	}
+
+	message = "As a snobby reddit intellectual artist, shortly explain your new artistic masterpiece '" + message + "'" + " to the masses."
+
+	req = gogpt.CompletionRequest{
+		Model:       gogpt.GPT3TextDavinci002,
+		MaxTokens:   256,
+		Prompt:      message,
+		Temperature: 1.1,
+	}
+
+	resp, err = aiClient.CreateCompletion(ctx, req)
+	if err != nil {
+		c.WriteMessage(&irc.Message{
+			Command: "PRIVMSG",
+			Params: []string{
+				m.Params[0],
+				err.Error(),
+			},
+		})
+		processing = false
+		return
+	}
+
+	responseString = strings.TrimSpace(resp.Choices[0].Text)
+
+	// for each new line break in response choices write to channel
+	for _, line := range strings.Split(responseString, "\n") {
+		sendString = ""
+
+		// Remove blank or one/two char lines
+		if len(line) <= 2 {
+			continue
+		}
+
+		// split line into chunks slice with space
+		chunks := strings.Split(line, " ")
+
+		// for each chunk
+		for _, chunk := range chunks {
+			// append chunk to sendString
+			sendString += chunk + " "
+
+			// Trim by words for a cleaner output
+			if len(sendString) > 350 {
+				// write message to channel
+				c.WriteMessage(&irc.Message{
+					Command: "PRIVMSG",
+					Params: []string{
+						m.Params[0],
+						sendString,
+					},
+				})
+				sendString = ""
+			}
+
+		}
+
+		// Write the final message
+		c.WriteMessage(&irc.Message{
+			Command: "PRIVMSG",
+			Params: []string{
+				m.Params[0],
+				sendString,
+			},
+		})
+	}
+
+	if parts[0] == "--save" {
+		c.WriteMessage(&irc.Message{
+			Command: "PRIVMSG",
+			Params: []string{
+				m.Params[0],
+				"@end",
+			},
+		})
+	}
+	processing = false
+	return
+
 }
