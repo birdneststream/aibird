@@ -243,14 +243,12 @@ func ircClient(network Network, name string, waitGroup *sync.WaitGroup) {
 	processing = false
 
 	ircConfig := irc.ClientConfig{
-		Nick:          network.Nick,
-		Pass:          ircServer.Pass,
-		User:          network.Nick,
-		Name:          network.Nick,
-		SendLimit:     network.Throttle,
-		SendBurst:     network.Burst,
-		PingFrequency: time.Second * 8,
-		PingTimeout:   time.Second * 120,
+		Nick:      network.Nick,
+		Pass:      ircServer.Pass,
+		User:      network.Nick,
+		Name:      network.Nick,
+		SendLimit: network.Throttle,
+		SendBurst: network.Burst,
 		Handler: irc.HandlerFunc(func(c *irc.Client, m *irc.Message) {
 			// if m contains string banned
 			if strings.Contains(m.Command, "ERROR") {
