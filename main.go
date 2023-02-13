@@ -52,7 +52,25 @@ type content struct {
 }
 
 func saveDalleRequest(prompt string, url string) string {
+	// Clean the filename, there has to be a better way to do this
 	slug := strings.ReplaceAll(prompt, " ", "-")
+	slug = strings.ReplaceAll(slug, "/", "-")
+	slug = strings.ReplaceAll(slug, "\\", "-")
+	slug = strings.ReplaceAll(slug, ":", "-")
+	slug = strings.ReplaceAll(slug, "*", "-")
+	slug = strings.ReplaceAll(slug, "?", "-")
+	slug = strings.ReplaceAll(slug, "\"", "-")
+	slug = strings.ReplaceAll(slug, "<", "-")
+	slug = strings.ReplaceAll(slug, ">", "-")
+	slug = strings.ReplaceAll(slug, "|", "-")
+	slug = strings.ReplaceAll(slug, ".", "-")
+	slug = strings.ReplaceAll(slug, ",", "-")
+	slug = strings.ReplaceAll(slug, ";", "-")
+	slug = strings.ReplaceAll(slug, "'", "-")
+	slug = strings.ReplaceAll(slug, "!", "-")
+	slug = strings.ReplaceAll(slug, "@", "-")
+	slug = strings.ReplaceAll(slug, "#", "-")
+
 	if len(slug) > 220 {
 		slug = slug[:220]
 	}
