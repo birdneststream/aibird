@@ -210,7 +210,7 @@ func ircClient(network Network, name string, waitGroup *sync.WaitGroup) {
 					return
 				}
 
-				go completion(m, message, c, aiClient, ctx)
+				go completion(m, message, c, aiClient, ctx, model, cost)
 
 				return
 			}
@@ -227,12 +227,12 @@ func ircClient(network Network, name string, waitGroup *sync.WaitGroup) {
 		log.Println(err)
 	}
 
-	log.Println("Got to the end, quitting " + network.Nick)
+	log.Println("Got to the end, quitting " + name)
 	waitGroup.Add(1)
 	go ircClient(network, name, waitGroup)
 }
 
-func completion(m *irc.Message, message string, c *irc.Client, aiClient *gogpt.Client, ctx context.Context) {
+func completion(m *irc.Message, message string, c *irc.Client, aiClient *gogpt.Client, ctx context.Context, model string, cost float64) {
 	req := gogpt.CompletionRequest{
 		Model:       model,
 		MaxTokens:   config.OpenAI.Tokens,
@@ -331,6 +331,7 @@ func aiscii(m *irc.Message, message string, c *irc.Client, aiClient *gogpt.Clien
 	}
 
 	prompt = "'{0-16},{0-16}#' use this to create an embedded mirc text art.\n\nReplace the # from the following '▀▁▂▃▄▅▆▇█▉▊▋▌▍▎▏▐░▒▓▔▕▖▗▘▙▚▛▜▝▞'.\n\nThe art must be at least 20 lines and 80 column width of mirc embedded color codes and ascii text art. Ascii text art of " + message + "."
+
 	req := gogpt.CompletionRequest{
 		Model:            gogpt.GPT3TextDavinci003,
 		MaxTokens:        config.OpenAI.Tokens,
