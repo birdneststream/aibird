@@ -12,6 +12,7 @@ type (
 		AiBird   AiBird
 	}
 
+	// IRC
 	Network struct {
 		Nick     string
 		Servers  []Server
@@ -28,6 +29,7 @@ type (
 		Ssl  bool
 	}
 
+	// OpenAI
 	OpenAI struct {
 		Keys        []string
 		Tokens      int
@@ -36,15 +38,25 @@ type (
 		currentKey  int
 	}
 
+	// AiBird specific configurations
 	AiBird struct {
-		Admin []Admin
+		Admin   []Admin
+		AutoOps []AutoOps
 	}
 
+	// Auto +o on join
+	AutoOps struct {
+		Host  string
+		Ident string
+	}
+
+	// Auto +o on join and admin features
 	Admin struct {
 		Host  string
 		Ident string
 	}
 
+	// Caching of each channel and their user modes
 	ircMeta struct {
 		Network string
 		Channel string

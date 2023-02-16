@@ -149,23 +149,32 @@ func ircClient(network Network, name string, waitGroup *sync.WaitGroup) {
 
 				// on MODE change
 			case "JOIN":
+				// Cycle over Admins then Auto Ops
 				for i := 0; i < len(config.AiBird.Admin); i++ {
 					if config.AiBird.Admin[i].Host == m.Prefix.Host {
 						c.Write("MODE " + m.Params[0] + " +o " + m.Prefix.Name)
 					}
 				}
 
-				c.Write("NAMES " + m.Params[0])
+				for i := 0; i < len(config.AiBird.AutoOps); i++ {
+					if config.AiBird.AutoOps[i].Host == m.Prefix.Host {
+						c.Write("MODE " + m.Params[0] + " +o " + m.Prefix.Name)
+					}
+				}
 
 				return
 				// on user join or part or quit
-			case "MODE", "PART", "QUIT":
+			case "MODE":
 				c.Write("NAMES " + m.Params[0])
 
 				return
 
 			case "PRIVMSG":
 				if !c.FromChannel(m) {
+					return
+				}
+
+				if !isUserMode(name, m.Params[0], m.Prefix.Name, "@+~") {
 					return
 				}
 
@@ -195,12 +204,8 @@ func ircClient(network Network, name string, waitGroup *sync.WaitGroup) {
 						c.Write("NAMES " + chansList[i])
 					}
 
-					isUserMode(name, m.Params[0], m.Prefix.Name, "@+")
+					isUserMode(name, m.Params[0], m.Prefix.Name, "@+~")
 
-					return
-				}
-
-				if !isUserMode(name, m.Params[0], m.Prefix.Name, "@+") {
 					return
 				}
 
@@ -282,6 +287,7 @@ func ircClient(network Network, name string, waitGroup *sync.WaitGroup) {
 }
 
 var whatModes []string
+var checkNick string
 
 func isUserMode(name string, channel string, user string, modes string) bool {
 	for i := 0; i < len(metaList.ircMeta); i++ {
@@ -293,7 +299,12 @@ func isUserMode(name string, channel string, user string, modes string) bool {
 			tempNickList := strings.Split(metaList.ircMeta[i].Nicks, " ")
 			whatModes = strings.Split(modes, "")
 			for j := 0; j < len(tempNickList); j++ {
-				if strings.Contains(tempNickList[j], user) {
+				// remove the mode from the nick
+				checkNick = strings.ReplaceAll(tempNickList[j], "@", "")
+				checkNick = strings.ReplaceAll(checkNick, "+", "")
+				checkNick = strings.ReplaceAll(checkNick, "~", "")
+
+				if checkNick == user {
 					for k := 0; k < len(whatModes); k++ {
 						if strings.Contains(tempNickList[j], whatModes[k]) {
 							return true

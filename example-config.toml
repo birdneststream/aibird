@@ -12,6 +12,9 @@ temperature = 0.8
 admin = [
     {host = "yourirchost.com", ident = "nicktopluso"},
 ]
+autoOps = [
+    {host = "yourirchost.com", ident = "nicktopluso"},
+]
 
 [networks.efnet]
 nick = "aibird"
