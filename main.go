@@ -191,6 +191,7 @@ func ircClient(network Network, name string, waitGroup *sync.WaitGroup) {
 								c.Write("KICK " + m.Params[0] + " " + m.Prefix.Name + " :Don't mess with the birds!")
 							}
 
+							break
 						}
 					}
 
@@ -202,30 +203,33 @@ func ircClient(network Network, name string, waitGroup *sync.WaitGroup) {
 								c.Write("KICK " + m.Params[0] + " " + m.Prefix.Name + " :Don't mess with the birds!")
 							}
 
+							break
 						}
 					}
 
 				case "-o":
 
 					for i := 0; i < len(config.AiBird.Admin); i++ {
-						if strings.Contains(m.Trailing(), config.AiBird.Admin[i].Host) {
-							c.Write("MODE " + m.Params[0] + " +o " + m.Trailing())
+						if m.Params[2] == config.AiBird.Admin[i].Ident {
+							c.Write("MODE " + m.Params[0] + " +o " + m.Params[2])
 
 							if !isAdmin(m) {
 								c.Write("KICK " + m.Params[0] + " " + m.Prefix.Name + " :Don't mess with the birds!")
 							}
 
+							break
 						}
 					}
 
 					for i := 0; i < len(config.AiBird.AutoOps); i++ {
-						if strings.Contains(m.Trailing(), config.AiBird.AutoOps[i].Host) {
-							c.Write("MODE " + m.Params[0] + " +o " + m.Trailing())
+						if m.Params[2] == config.AiBird.AutoOps[i].Ident {
+							c.Write("MODE " + m.Params[0] + " +o " + m.Params[2])
 
 							if !isAdmin(m) {
 								c.Write("KICK " + m.Params[0] + " " + m.Prefix.Name + " :Don't mess with the birds!")
 							}
 
+							break
 						}
 					}
 
