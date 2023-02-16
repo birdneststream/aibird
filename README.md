@@ -5,9 +5,18 @@
 * Can connect to many IRC servers and many channels.
 * Supports multiple Open AI API keys and round robins them.
 * Now also supports Dall-E! Type `!dale babies mosh pit` and the results will be uploaded to filehole.org, the worlds best premier file sharing service.
-  * Still need to add these values in the `config.toml`
+
+## Some Extra Features
+
+* `!admin raw PRIVMSG...` - send raw commands, from a allow list in `config.toml`
+* `!admin reload` - reloads `config.toml` without restarting aibird.
+* Auto ops for Admin and AutoOps.
+* Protects from +b and -o if you are in Admin or AutoOps list.
+* To use the bot you must have at least +v or more. Thanks qpt for constantly spamming aibird. :(
 
 ## Examples
+
+This is !davinci prompt
 
 ```
 <aibird> Processing: write a detailed and twisted 4chan greentext beginning with >be me, incel >decide to move to an African village with no electricity to teach them the wonders of GNU Linux

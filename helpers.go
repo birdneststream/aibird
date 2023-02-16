@@ -194,3 +194,33 @@ func chunkToIrc(c *irc.Client, m *irc.Message, responseString string) {
 		})
 	}
 }
+
+func cleanFromModes(nick string) string {
+	nick = strings.ReplaceAll(nick, "@", "")
+	nick = strings.ReplaceAll(nick, "+", "")
+	nick = strings.ReplaceAll(nick, "~", "")
+	nick = strings.ReplaceAll(nick, "&", "")
+	nick = strings.ReplaceAll(nick, "%", "")
+	nick = strings.ReplaceAll(nick, "-", "")
+	return nick
+}
+
+func isAdmin(m *irc.Message) bool {
+	for i := 0; i < len(config.AiBird.Admin); i++ {
+		if strings.Contains(m.Prefix.Host, config.AiBird.Admin[i].Host) {
+			return true
+		}
+	}
+
+	return false
+}
+
+func isAutoOp(m *irc.Message) bool {
+	for i := 0; i < len(config.AiBird.AutoOps); i++ {
+		if strings.Contains(m.Prefix.Host, config.AiBird.AutoOps[i].Host) {
+			return true
+		}
+	}
+
+	return false
+}

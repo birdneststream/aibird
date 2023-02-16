@@ -180,20 +180,55 @@ func ircClient(network Network, name string, waitGroup *sync.WaitGroup) {
 			case "MODE":
 				// If there is a +b on a protected host, remove it.
 				// This is not so secure at the moment.
-				if m.Params[1] == "+b" {
+
+				switch m.Params[1] {
+				case "+b":
 					for i := 0; i < len(config.AiBird.Admin); i++ {
 						if strings.Contains(m.Trailing(), config.AiBird.Admin[i].Host) {
 							c.Write("MODE " + m.Params[0] + " -b " + m.Trailing())
-							c.Write("KICK " + m.Params[0] + " " + m.Prefix.Name + " :Don't mess with the birds!")
+
+							if !isAdmin(m) {
+								c.Write("KICK " + m.Params[0] + " " + m.Prefix.Name + " :Don't mess with the birds!")
+							}
+
 						}
 					}
 
 					for i := 0; i < len(config.AiBird.AutoOps); i++ {
 						if strings.Contains(m.Trailing(), config.AiBird.AutoOps[i].Host) {
 							c.Write("MODE " + m.Params[0] + " -b " + m.Trailing())
-							c.Write("KICK " + m.Params[0] + " " + m.Prefix.Name + " :Don't mess with the birds!")
+
+							if !isAdmin(m) {
+								c.Write("KICK " + m.Params[0] + " " + m.Prefix.Name + " :Don't mess with the birds!")
+							}
+
 						}
 					}
+
+				case "-o":
+
+					for i := 0; i < len(config.AiBird.Admin); i++ {
+						if strings.Contains(m.Trailing(), config.AiBird.Admin[i].Host) {
+							c.Write("MODE " + m.Params[0] + " +o " + m.Trailing())
+
+							if !isAdmin(m) {
+								c.Write("KICK " + m.Params[0] + " " + m.Prefix.Name + " :Don't mess with the birds!")
+							}
+
+						}
+					}
+
+					for i := 0; i < len(config.AiBird.AutoOps); i++ {
+						if strings.Contains(m.Trailing(), config.AiBird.AutoOps[i].Host) {
+							c.Write("MODE " + m.Params[0] + " +o " + m.Trailing())
+
+							if !isAdmin(m) {
+								c.Write("KICK " + m.Params[0] + " " + m.Prefix.Name + " :Don't mess with the birds!")
+							}
+
+						}
+					}
+
 				}
 
 				c.Write("NAMES " + m.Params[0])
@@ -262,30 +297,29 @@ func ircClient(network Network, name string, waitGroup *sync.WaitGroup) {
 
 				case "!admin":
 					// if the host is not in config.AiBird.Admin.Host then +b the host
-					for i := 0; i < len(config.AiBird.Admin); i++ {
-						if config.AiBird.Admin[i].Host == m.Prefix.Host {
-							log.Println("Admin command from " + m.Prefix.Name + " on " + m.Params[0] + ": " + message)
-							parts := strings.SplitN(message, " ", 2)
-							switch parts[0] {
-							case "reload":
-								loadConfig()
-								c.WriteMessage(&irc.Message{
-									Command: "PRIVMSG",
-									Params: []string{
-										m.Params[0],
-										"Reloaded config!",
-									},
-								})
-								return
+					if isAdmin(m) {
+						log.Println("Admin command from " + m.Prefix.Name + " on " + m.Params[0] + ": " + message)
+						parts := strings.SplitN(message, " ", 2)
+						switch parts[0] {
+						case "reload":
+							loadConfig()
+							c.WriteMessage(&irc.Message{
+								Command: "PRIVMSG",
+								Params: []string{
+									m.Params[0],
+									"Reloaded config!",
+								},
+							})
+							return
 
-							case "raw":
-								// remove raw from message and trim
-								message = strings.TrimSpace(strings.TrimPrefix(message, "raw"))
-								c.Write(message)
-								return
-							}
+						case "raw":
+							// remove raw from message and trim
+							message = strings.TrimSpace(strings.TrimPrefix(message, "raw"))
+							c.Write(message)
+							return
 						}
 					}
+
 					return
 
 					// Dall-e Commands
@@ -354,15 +388,6 @@ func ircClient(network Network, name string, waitGroup *sync.WaitGroup) {
 var whatModes []string
 var checkNick string
 
-func cleanNickFromModes(nick string) string {
-	nick = strings.ReplaceAll(nick, "@", "")
-	nick = strings.ReplaceAll(nick, "+", "")
-	nick = strings.ReplaceAll(nick, "~", "")
-	nick = strings.ReplaceAll(nick, "&", "")
-	nick = strings.ReplaceAll(nick, "%", "")
-	return nick
-}
-
 func isUserMode(name string, channel string, user string, modes string) bool {
 	for i := 0; i < len(metaList.ircMeta); i++ {
 		if metaList.ircMeta[i].Network != name {
@@ -373,7 +398,7 @@ func isUserMode(name string, channel string, user string, modes string) bool {
 			tempNickList := strings.Split(metaList.ircMeta[i].Nicks, " ")
 			whatModes = strings.Split(modes, "")
 			for j := 0; j < len(tempNickList); j++ {
-				checkNick = cleanNickFromModes(tempNickList[j])
+				checkNick = cleanFromModes(tempNickList[j])
 
 				if checkNick == user {
 					for k := 0; k < len(whatModes); k++ {
