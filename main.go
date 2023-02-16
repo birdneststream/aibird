@@ -287,6 +287,15 @@ func ircClient(network Network, name string, waitGroup *sync.WaitGroup) {
 var whatModes []string
 var checkNick string
 
+func cleanNickFromModes(nick string) string {
+	nick = strings.ReplaceAll(nick, "@", "")
+	nick = strings.ReplaceAll(nick, "+", "")
+	nick = strings.ReplaceAll(nick, "~", "")
+	nick = strings.ReplaceAll(nick, "&", "")
+	nick = strings.ReplaceAll(nick, "%", "")
+	return nick
+}
+
 func isUserMode(name string, channel string, user string, modes string) bool {
 	for i := 0; i < len(metaList.ircMeta); i++ {
 		if metaList.ircMeta[i].Network != name {
@@ -298,9 +307,7 @@ func isUserMode(name string, channel string, user string, modes string) bool {
 			whatModes = strings.Split(modes, "")
 			for j := 0; j < len(tempNickList); j++ {
 				// remove the mode from the nick
-				checkNick = strings.ReplaceAll(tempNickList[j], "@", "")
-				checkNick = strings.ReplaceAll(checkNick, "+", "")
-				checkNick = strings.ReplaceAll(checkNick, "~", "")
+				checkNick = cleanNickFromModes(tempNickList[j])
 
 				if checkNick == user {
 					for k := 0; k < len(whatModes); k++ {
