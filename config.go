@@ -42,6 +42,7 @@ type (
 	AiBird struct {
 		Admin   []Admin
 		AutoOps []AutoOps
+		Debug   bool
 	}
 
 	// Auto +o on join

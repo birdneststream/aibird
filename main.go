@@ -10,6 +10,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/BurntSushi/toml"
 	gogpt "github.com/sashabaranov/go-gpt3"
@@ -88,7 +89,6 @@ func ircClient(network Network, name string, waitGroup *sync.WaitGroup) {
 	// Model we will use
 	var model string
 	var cost float64
-	// Used for !aiscii
 
 	// Initialise the openAI api client
 	ctx := context.Background()
@@ -101,6 +101,10 @@ func ircClient(network Network, name string, waitGroup *sync.WaitGroup) {
 		SendLimit: network.Throttle,
 		SendBurst: network.Burst,
 		Handler: irc.HandlerFunc(func(c *irc.Client, m *irc.Message) {
+			if config.AiBird.Debug {
+				log.Println(m)
+			}
+
 			if strings.Contains(m.Command, "ERROR") {
 				// Reconnect if we get an error
 				log.Println("Error: " + m.Command)
@@ -111,9 +115,11 @@ func ircClient(network Network, name string, waitGroup *sync.WaitGroup) {
 				// On successful connect, attempt to join channels iterate over chansList
 				for j := 0; j < len(chansList); j++ {
 					c.Write("JOIN " + chansList[j])
+					time.Sleep(500 * time.Millisecond)
 				}
 				return
-			// Names list for modes caching, store as channel name as key and nicks as value
+
+			// Build the names list
 			case "353":
 				tempNickList = tempNickList + " " + m.Trailing()
 				return
@@ -143,6 +149,7 @@ func ircClient(network Network, name string, waitGroup *sync.WaitGroup) {
 				// Update modes on pong, hopefully that is okay
 				for i := 0; i < len(chansList); i++ {
 					c.Write("NAMES " + chansList[i])
+					time.Sleep(500 * time.Millisecond)
 				}
 
 				return
@@ -162,11 +169,43 @@ func ircClient(network Network, name string, waitGroup *sync.WaitGroup) {
 					}
 				}
 
+				c.Write("NAMES " + m.Params[0])
 				return
 				// on user join or part or quit
-			case "MODE":
+			case "NICK", "PART", "QUIT":
 				c.Write("NAMES " + m.Params[0])
 
+				return
+
+			case "MODE":
+				// If there is a +b on a protected host, remove it.
+				// This is not so secure at the moment.
+				if m.Params[1] == "+b" {
+					for i := 0; i < len(config.AiBird.Admin); i++ {
+						if strings.Contains(m.Trailing(), config.AiBird.Admin[i].Host) {
+							c.Write("MODE " + m.Params[0] + " -b " + m.Trailing())
+							c.Write("KICK " + m.Params[0] + " " + m.Prefix.Name + " :Don't mess with the birds!")
+						}
+					}
+
+					for i := 0; i < len(config.AiBird.AutoOps); i++ {
+						if strings.Contains(m.Trailing(), config.AiBird.AutoOps[i].Host) {
+							c.Write("MODE " + m.Params[0] + " -b " + m.Trailing())
+							c.Write("KICK " + m.Params[0] + " " + m.Prefix.Name + " :Don't mess with the birds!")
+						}
+					}
+				}
+
+				c.Write("NAMES " + m.Params[0])
+				return
+
+			case "KICK":
+				// if the bot is kicked, rejoin
+				if m.Params[1] == network.Nick {
+					c.Write("JOIN " + m.Params[0])
+				}
+
+				c.Write("NAMES " + m.Params[0])
 				return
 
 			case "PRIVMSG":
@@ -221,7 +260,35 @@ func ircClient(network Network, name string, waitGroup *sync.WaitGroup) {
 
 				switch cmd {
 
-				// Dall-e Commands
+				case "!admin":
+					// if the host is not in config.AiBird.Admin.Host then +b the host
+					for i := 0; i < len(config.AiBird.Admin); i++ {
+						if config.AiBird.Admin[i].Host == m.Prefix.Host {
+							log.Println("Admin command from " + m.Prefix.Name + " on " + m.Params[0] + ": " + message)
+							parts := strings.SplitN(message, " ", 2)
+							switch parts[0] {
+							case "reload":
+								loadConfig()
+								c.WriteMessage(&irc.Message{
+									Command: "PRIVMSG",
+									Params: []string{
+										m.Params[0],
+										"Reloaded config!",
+									},
+								})
+								return
+
+							case "raw":
+								// remove raw from message and trim
+								message = strings.TrimSpace(strings.TrimPrefix(message, "raw"))
+								c.Write(message)
+								return
+							}
+						}
+					}
+					return
+
+					// Dall-e Commands
 				case "!dale":
 					go dalle(m, message, c, aiClient, ctx, gogpt.CreateImageSize512x512)
 					return
@@ -306,7 +373,6 @@ func isUserMode(name string, channel string, user string, modes string) bool {
 			tempNickList := strings.Split(metaList.ircMeta[i].Nicks, " ")
 			whatModes = strings.Split(modes, "")
 			for j := 0; j < len(tempNickList); j++ {
-				// remove the mode from the nick
 				checkNick = cleanNickFromModes(tempNickList[j])
 
 				if checkNick == user {
