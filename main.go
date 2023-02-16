@@ -174,7 +174,7 @@ func ircClient(network Network, name string, waitGroup *sync.WaitGroup) {
 					return
 				}
 
-				if !isUserMode(name, m.Params[0], m.Prefix.Name, "@+~") {
+				if !isUserMode(name, m.Params[0], m.Prefix.Name, "~&@%+") {
 					return
 				}
 
@@ -203,8 +203,6 @@ func ircClient(network Network, name string, waitGroup *sync.WaitGroup) {
 					for i := 0; i < len(chansList); i++ {
 						c.Write("NAMES " + chansList[i])
 					}
-
-					isUserMode(name, m.Params[0], m.Prefix.Name, "@+~")
 
 					return
 				}
