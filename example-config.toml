@@ -8,6 +8,11 @@ tokens = 2500
 model = "text-davinci-003"
 temperature = 0.8
 
+[aibird]
+admin = [
+    {host = "yourirchost.com", ident = "nicktopluso"},
+]
+
 [networks.efnet]
 nick = "aibird"
 channels = ["#birdnest"]

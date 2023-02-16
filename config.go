@@ -9,6 +9,7 @@ type (
 	Config struct {
 		OpenAI   OpenAI
 		Networks map[string]Network
+		AiBird   AiBird
 	}
 
 	Network struct {
@@ -34,6 +35,24 @@ type (
 		Temperature float32
 		currentKey  int
 	}
+
+	AiBird struct {
+		Admin []Admin
+	}
+
+	Admin struct {
+		Host  string
+		Ident string
+	}
+
+	ircMeta struct {
+		Network string
+		Channel string
+		Nicks   string
+	}
+	ircMetaList struct {
+		ircMeta []ircMeta
+	}
 )
 
 func (network *Network) returnRandomServer() Server {
@@ -44,4 +63,13 @@ func (openAI *OpenAI) nextApiKey() string {
 	// Rotate API key
 	openAI.currentKey = (openAI.currentKey + 1) % len(openAI.Keys)
 	return openAI.Keys[openAI.currentKey]
+}
+
+// Dall-E responses
+type DalEUrl struct {
+	Url string `json:"url"`
+}
+type DalE struct {
+	Created int64     `json:"created"`
+	Data    []DalEUrl `json:"data"`
 }

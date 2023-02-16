@@ -17,7 +17,6 @@ import (
 )
 
 var config Config
-var nickList []string
 
 func loadConfig() {
 	_, err := toml.DecodeFile("config.toml", &config)
@@ -26,20 +25,6 @@ func loadConfig() {
 		fmt.Println(err)
 		os.Exit(1)
 	}
-}
-
-type DalEUrl struct {
-	Url string `json:"url"`
-}
-type DalE struct {
-	Created int64     `json:"created"`
-	Data    []DalEUrl `json:"data"`
-}
-
-type content struct {
-	fname string
-	ftype string
-	fdata []byte
 }
 
 func main() {
@@ -64,27 +49,15 @@ func main() {
 	os.Exit(0)
 }
 
-// Used to send responseString to IRC
 var sendString string
 
 // Response we get back from API
 var responseString string
-
-// Model we will use
-var model string
-
-// What is passed to the API
-// var message string
-
-var cost float64
-
-// Size of the Dall-E request image
-var size string
-
-// Used for !aiscii
 var asciiName string // ai generated name
+var prompt string    // prompt
 
-var prompt string // prompt
+var metaList ircMetaList
+var chanMeta ircMeta
 
 func ircClient(network Network, name string, waitGroup *sync.WaitGroup) {
 	defer waitGroup.Done()
@@ -105,6 +78,17 @@ func ircClient(network Network, name string, waitGroup *sync.WaitGroup) {
 	}
 
 	var chansList = network.Channels
+	var tempNickList []string
+	// Used to send responseString to IRC
+
+	metaList = ircMetaList{
+		ircMeta: []ircMeta{},
+	}
+
+	// Model we will use
+	var model string
+	var cost float64
+	// Used for !aiscii
 
 	// Initialise the openAI api client
 	ctx := context.Background()
@@ -128,6 +112,55 @@ func ircClient(network Network, name string, waitGroup *sync.WaitGroup) {
 				for j := 0; j < len(chansList); j++ {
 					c.Write("JOIN " + chansList[j])
 				}
+				return
+			// Names list for modes caching, store as channel name as key and nicks as value
+			case "353":
+				tempNickList = append(tempNickList, strings.Split(m.Trailing(), " ")[1:]...)
+				return
+
+			case "366":
+				chanMeta = ircMeta{
+					Network: name,
+					Channel: m.Params[1],
+					Nicks:   strings.Join(tempNickList, " "),
+				}
+
+				found := false
+				for i := 0; i < len(metaList.ircMeta); i++ {
+					if metaList.ircMeta[i].Network == name && metaList.ircMeta[i].Channel == m.Params[1] {
+						metaList.ircMeta[i] = chanMeta
+						found = true
+					}
+				}
+
+				if !found {
+					metaList.ircMeta = append(metaList.ircMeta, chanMeta)
+				}
+
+				tempNickList = nil
+
+			case "PONG":
+				// Update modes on pong, hopefully that is okay
+				for i := 0; i < len(chansList); i++ {
+					c.Write("NAMES " + chansList[i])
+				}
+
+				return
+
+				// on user join or part or quit
+			case "JOIN", "PART", "QUIT":
+				if m.Command == "JOIN" {
+					for i := 0; i < len(config.AiBird.Admin); i++ {
+						if config.AiBird.Admin[i].Host == m.Prefix.Host {
+							c.Write("MODE " + m.Params[0] + " +o " + m.Prefix.Name)
+						}
+					}
+				}
+
+				c.Write("NAMES " + m.Params[0])
+
+				return
+
 			case "PRIVMSG":
 				if !c.FromChannel(m) {
 					return
@@ -140,15 +173,31 @@ func ircClient(network Network, name string, waitGroup *sync.WaitGroup) {
 					return
 				}
 
+				// Commands that do not need a following argument
+				switch msg {
 				// Display help message
-				if msg == "!help" {
+				case "!help":
 					c.WriteMessage(&irc.Message{
 						Command: "PRIVMSG",
 						Params: []string{
 							m.Params[0],
-							"Models: !davinci (best), !davinci2, !davinci1, !codex (code generation), !ada, !babbage, !dale (512x512), !dale256 (256x256), !dale1024 (1024x1024 very slow), !ai (default model) - https://github.com/birdneststream/aibird",
+							"Models: !aiscii (experimental ascii generation), !davinci (best), !davinci2, !davinci1, !codex (code generation), !ada, !babbage, !dale (512x512), !dale256 (256x256), !dale1024 (1024x1024 very slow), !ai (default model) - https://github.com/birdneststream/aibird",
 						},
 					})
+					return
+
+				case "!modes":
+					// cycle irc channels and update modes
+					for i := 0; i < len(chansList); i++ {
+						c.Write("NAMES " + chansList[i])
+					}
+
+					isUserMode(name, m.Params[0], m.Prefix.Name, "@+")
+
+					return
+				}
+
+				if !isUserMode(name, m.Params[0], m.Prefix.Name, "@+") {
 					return
 				}
 
@@ -165,6 +214,7 @@ func ircClient(network Network, name string, waitGroup *sync.WaitGroup) {
 				aiClient := gogpt.NewClient(config.OpenAI.nextApiKey())
 
 				switch cmd {
+
 				// Dall-e Commands
 				case "!dale":
 					go dalle(m, message, c, aiClient, ctx, gogpt.CreateImageSize512x512)
@@ -179,6 +229,7 @@ func ircClient(network Network, name string, waitGroup *sync.WaitGroup) {
 				case "!aiscii":
 					go aiscii(m, message, c, aiClient, ctx)
 					return
+				// The models for completion prompts
 				case "!davinci":
 					model = gogpt.GPT3TextDavinci003
 					cost = 0.0200
@@ -197,6 +248,7 @@ func ircClient(network Network, name string, waitGroup *sync.WaitGroup) {
 				case "!babbage":
 					model = gogpt.GPT3Babbage
 					cost = 0.0005
+				// Default model specified in the config.toml
 				case "!ai":
 					model = config.OpenAI.Model
 					cost = 0.0200
@@ -224,6 +276,40 @@ func ircClient(network Network, name string, waitGroup *sync.WaitGroup) {
 	log.Println("Got to the end, quitting " + name)
 	waitGroup.Add(1)
 	go ircClient(network, name, waitGroup)
+}
+
+var whatModes []string
+
+func isUserMode(name string, channel string, user string, modes string) bool {
+	whatModes = strings.Split(modes, "")
+
+	for i := 0; i < len(metaList.ircMeta); i++ {
+		if metaList.ircMeta[i].Network != name {
+			continue
+		}
+
+		log.Println("Checking " + metaList.ircMeta[i].Channel + " for " + channel)
+
+		if metaList.ircMeta[i].Channel == channel {
+			tempNickList := strings.Split(metaList.ircMeta[i].Nicks, " ")
+			for j := 0; j < len(tempNickList); j++ {
+
+				log.Println("Checking " + tempNickList[j] + " for " + user)
+
+				if strings.Contains(tempNickList[j], user) {
+					log.Println("Found user " + user + " in channel " + channel + " with modes " + tempNickList[j])
+					for k := 0; k < len(whatModes); k++ {
+						if strings.Contains(tempNickList[j], whatModes[k]) {
+							log.Println("Found mode " + whatModes[k] + " for user " + user + " in channel " + channel)
+							return true
+						}
+					}
+				}
+			}
+		}
+	}
+
+	return false
 }
 
 func completion(m *irc.Message, message string, c *irc.Client, aiClient *gogpt.Client, ctx context.Context, model string, cost float64) {
