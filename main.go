@@ -117,7 +117,6 @@ func ircClient(network Network, name string, waitGroup *sync.WaitGroup) {
 		SendLimit: network.Throttle,
 		SendBurst: network.Burst,
 		Handler: irc.HandlerFunc(func(c *irc.Client, m *irc.Message) {
-			// if m contains string banned
 			if strings.Contains(m.Command, "ERROR") {
 				// Reconnect if we get an error
 				log.Println("Error: " + m.Command)
@@ -166,6 +165,20 @@ func ircClient(network Network, name string, waitGroup *sync.WaitGroup) {
 				aiClient := gogpt.NewClient(config.OpenAI.nextApiKey())
 
 				switch cmd {
+				// Dall-e Commands
+				case "!dale":
+					go dalle(m, message, c, aiClient, ctx, gogpt.CreateImageSize512x512)
+					return
+				case "!dale256":
+					go dalle(m, message, c, aiClient, ctx, gogpt.CreateImageSize256x256)
+					return
+				case "!dale1024":
+					go dalle(m, message, c, aiClient, ctx, gogpt.CreateImageSize1024x1024)
+					return
+				// Custom prompt to make better mirc art
+				case "!aiscii":
+					go aiscii(m, message, c, aiClient, ctx)
+					return
 				case "!davinci":
 					model = gogpt.GPT3TextDavinci003
 					cost = 0.0200
@@ -184,28 +197,9 @@ func ircClient(network Network, name string, waitGroup *sync.WaitGroup) {
 				case "!babbage":
 					model = gogpt.GPT3Babbage
 					cost = 0.0005
-				case "!dale":
-					size = gogpt.CreateImageSize512x512
-					cost = 0.018
-					go dalle(m, message, c, aiClient, ctx, size)
-
-					return
-				case "!dale256":
-					model = "dall-e"
-					size = gogpt.CreateImageSize256x256
-					cost = 0.016
-				case "!dale1024":
-					model = "dall-e"
-					size = gogpt.CreateImageSize1024x1024
-					cost = 0.020
 				case "!ai":
 					model = config.OpenAI.Model
 					cost = 0.0200
-				case "!aiscii":
-					// Custom prompt to make better mirc art
-					go aiscii(m, message, c, aiClient, ctx)
-
-					return
 				default:
 					return
 				}
