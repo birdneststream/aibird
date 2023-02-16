@@ -78,7 +78,7 @@ func ircClient(network Network, name string, waitGroup *sync.WaitGroup) {
 	}
 
 	var chansList = network.Channels
-	var tempNickList []string
+	var tempNickList string
 	// Used to send responseString to IRC
 
 	metaList = ircMetaList{
@@ -115,14 +115,14 @@ func ircClient(network Network, name string, waitGroup *sync.WaitGroup) {
 				return
 			// Names list for modes caching, store as channel name as key and nicks as value
 			case "353":
-				tempNickList = append(tempNickList, strings.Split(m.Trailing(), " ")[1:]...)
+				tempNickList = tempNickList + " " + m.Trailing()
 				return
 
 			case "366":
 				chanMeta = ircMeta{
 					Network: name,
 					Channel: m.Params[1],
-					Nicks:   strings.Join(tempNickList, " "),
+					Nicks:   tempNickList,
 				}
 
 				found := false
@@ -137,7 +137,7 @@ func ircClient(network Network, name string, waitGroup *sync.WaitGroup) {
 					metaList.ircMeta = append(metaList.ircMeta, chanMeta)
 				}
 
-				tempNickList = nil
+				tempNickList = ""
 
 			case "PONG":
 				// Update modes on pong, hopefully that is okay
@@ -147,16 +147,19 @@ func ircClient(network Network, name string, waitGroup *sync.WaitGroup) {
 
 				return
 
-				// on user join or part or quit
-			case "JOIN", "PART", "QUIT":
-				if m.Command == "JOIN" {
-					for i := 0; i < len(config.AiBird.Admin); i++ {
-						if config.AiBird.Admin[i].Host == m.Prefix.Host {
-							c.Write("MODE " + m.Params[0] + " +o " + m.Prefix.Name)
-						}
+				// on MODE change
+			case "JOIN":
+				for i := 0; i < len(config.AiBird.Admin); i++ {
+					if config.AiBird.Admin[i].Host == m.Prefix.Host {
+						c.Write("MODE " + m.Params[0] + " +o " + m.Prefix.Name)
 					}
 				}
 
+				c.Write("NAMES " + m.Params[0])
+
+				return
+				// on user join or part or quit
+			case "MODE", "PART", "QUIT":
 				c.Write("NAMES " + m.Params[0])
 
 				return
@@ -281,26 +284,18 @@ func ircClient(network Network, name string, waitGroup *sync.WaitGroup) {
 var whatModes []string
 
 func isUserMode(name string, channel string, user string, modes string) bool {
-	whatModes = strings.Split(modes, "")
-
 	for i := 0; i < len(metaList.ircMeta); i++ {
 		if metaList.ircMeta[i].Network != name {
 			continue
 		}
 
-		log.Println("Checking " + metaList.ircMeta[i].Channel + " for " + channel)
-
 		if metaList.ircMeta[i].Channel == channel {
 			tempNickList := strings.Split(metaList.ircMeta[i].Nicks, " ")
+			whatModes = strings.Split(modes, "")
 			for j := 0; j < len(tempNickList); j++ {
-
-				log.Println("Checking " + tempNickList[j] + " for " + user)
-
 				if strings.Contains(tempNickList[j], user) {
-					log.Println("Found user " + user + " in channel " + channel + " with modes " + tempNickList[j])
 					for k := 0; k < len(whatModes); k++ {
 						if strings.Contains(tempNickList[j], whatModes[k]) {
-							log.Println("Found mode " + whatModes[k] + " for user " + user + " in channel " + channel)
 							return true
 						}
 					}
