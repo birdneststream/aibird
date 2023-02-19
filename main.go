@@ -356,7 +356,33 @@ func ircClient(network Network, name string, waitGroup *sync.WaitGroup) {
 							Command: "PRIVMSG",
 							Params: []string{
 								m.Params[0],
-								"Hey there chat pal " + m.Prefix.Name + ", you have to be a birdnest patreon to use stable diffusion!",
+								"Hey there chat pal " + m.Prefix.Name + ", you have to be a birdnest patreon to use stable diffusion! Unless you want to donate your own GPU!",
+							},
+						})
+
+						return
+					}
+
+					if m.Params[0] != "#birdnest" {
+						c.WriteMessage(&irc.Message{
+							Command: "PRIVMSG",
+							Params: []string{
+								m.Params[0],
+								"Hey there chat pal " + m.Prefix.Name + ", stable diffusion is only available in #birdnest!",
+							},
+						})
+
+						return
+					}
+
+					// if safetyFilter
+					if safetyFilter(message) {
+						c.WriteMessage(&irc.Message{
+							Command: "KICK",
+							Params: []string{
+								m.Params[0],
+								m.Prefix.Name,
+								"Hey there chat pal " + m.Prefix.Name + ", you can't use that word in stable diffusion!",
 							},
 						})
 

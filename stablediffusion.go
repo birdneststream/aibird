@@ -91,7 +91,7 @@ func sdRequest(prompt string, c *irc.Client, m *irc.Message) {
 			Command: "PRIVMSG",
 			Params: []string{
 				m.Params[0],
-				"There as an error processing your request, most likely ran out of VRAM...",
+				"There as an error processing your request, the SD host may be down or had issues with vram and your request.",
 			},
 		})
 		return
@@ -318,4 +318,13 @@ func sdAdmin(message string, c *irc.Client, m *irc.Message) {
 			})
 		}
 	}
+}
+
+// This is why we can't have nice things
+func safetyFilter(message string) bool {
+	if strings.Contains(message, "underage") || strings.Contains(message, "children") || strings.Contains(message, "teen") || strings.Contains(message, "child") {
+		return true
+	}
+
+	return false
 }
