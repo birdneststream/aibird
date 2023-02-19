@@ -74,12 +74,11 @@ func sdRequest(prompt string, c *irc.Client, m *irc.Message) {
 	req, err := http.NewRequest("POST", posturl, strings.NewReader(string(reqStr)))
 
 	if err != nil {
-		errString := fmt.Sprintf("%v", err)
 		c.WriteMessage(&irc.Message{
 			Command: "PRIVMSG",
 			Params: []string{
 				m.Params[0],
-				errString,
+				err.Error(),
 			},
 		})
 		return
@@ -88,12 +87,11 @@ func sdRequest(prompt string, c *irc.Client, m *irc.Message) {
 
 	res, err := client.Do(req)
 	if err != nil {
-		errString := fmt.Sprintf("%v", err)
 		c.WriteMessage(&irc.Message{
 			Command: "PRIVMSG",
 			Params: []string{
 				m.Params[0],
-				errString,
+				"There as an error processing your request, most likely ran out of VRAM...",
 			},
 		})
 		return
@@ -102,12 +100,11 @@ func sdRequest(prompt string, c *irc.Client, m *irc.Message) {
 
 	body, err := ioutil.ReadAll(res.Body)
 	if err != nil {
-		errString := fmt.Sprintf("%v", err)
 		c.WriteMessage(&irc.Message{
 			Command: "PRIVMSG",
 			Params: []string{
 				m.Params[0],
-				errString,
+				err.Error(),
 			},
 		})
 		return
@@ -117,12 +114,11 @@ func sdRequest(prompt string, c *irc.Client, m *irc.Message) {
 	err = json.Unmarshal(body, post)
 
 	if err != nil {
-		errString := fmt.Sprintf("%v", err)
 		c.WriteMessage(&irc.Message{
 			Command: "PRIVMSG",
 			Params: []string{
 				m.Params[0],
-				errString,
+				err.Error(),
 			},
 		})
 		return
@@ -149,12 +145,11 @@ func sdRequest(prompt string, c *irc.Client, m *irc.Message) {
 	// decode base64 image and save to fileName
 	decoded, err := base64.StdEncoding.DecodeString(post.Images[0])
 	if err != nil {
-		errString := fmt.Sprintf("%v", err)
 		c.WriteMessage(&irc.Message{
 			Command: "PRIVMSG",
 			Params: []string{
 				m.Params[0],
-				errString,
+				err.Error(),
 			},
 		})
 		return
@@ -162,12 +157,11 @@ func sdRequest(prompt string, c *irc.Client, m *irc.Message) {
 
 	err = ioutil.WriteFile(fileName, decoded, 0644)
 	if err != nil {
-		errString := fmt.Sprintf("%v", err)
 		c.WriteMessage(&irc.Message{
 			Command: "PRIVMSG",
 			Params: []string{
 				m.Params[0],
-				errString,
+				err.Error(),
 			},
 		})
 		return
@@ -187,4 +181,141 @@ func sdRequest(prompt string, c *irc.Client, m *irc.Message) {
 		},
 	})
 
+}
+
+func sdAdmin(message string, c *irc.Client, m *irc.Message) {
+	// remove sd from message and trim
+	message = strings.TrimSpace(strings.TrimPrefix(message, "sd"))
+	parts := strings.SplitN(message, " ", 2)
+
+	switch parts[0] {
+	case "vars":
+		// Display all the values from config.StableDiffusion
+		c.WriteMessage(&irc.Message{
+			Command: "PRIVMSG",
+			Params: []string{
+				m.Params[0],
+				"Stable Diffusion Vars: ",
+			},
+		})
+
+		chunkToIrc(c, m, fmt.Sprintf("%+v", config.StableDiffusion))
+		return
+
+	case "set":
+		message = strings.TrimSpace(strings.TrimPrefix(message, "set"))
+		parts := strings.SplitN(message, " ", 2)
+
+		// update config.StableDiffusion key parts[0] with value parts[1]
+		switch parts[0] {
+		case "steps":
+			// convert parts[1] to int
+			steps, err := strconv.Atoi(parts[1])
+			if err != nil {
+				c.WriteMessage(&irc.Message{
+					Command: "PRIVMSG",
+					Params: []string{
+						m.Params[0],
+						err.Error(),
+					},
+				})
+				return
+			}
+
+			// update config
+			config.StableDiffusion.Steps = steps
+
+			c.WriteMessage(&irc.Message{
+				Command: "PRIVMSG",
+				Params: []string{
+					m.Params[0],
+					"Updated sd steps to: " + strconv.Itoa(config.StableDiffusion.Steps),
+				},
+			})
+
+		case "width":
+			// convert parts[1] to int
+			width, err := strconv.Atoi(parts[1])
+			if err != nil {
+				c.WriteMessage(&irc.Message{
+					Command: "PRIVMSG",
+					Params: []string{
+						m.Params[0],
+						err.Error(),
+					},
+				})
+				return
+			}
+
+			// update config
+			config.StableDiffusion.Width = width
+
+			c.WriteMessage(&irc.Message{
+				Command: "PRIVMSG",
+				Params: []string{
+					m.Params[0],
+					"Updated sd width to: " + strconv.Itoa(config.StableDiffusion.Width),
+				},
+			})
+
+		case "height":
+			// convert parts[1] to int
+			height, err := strconv.Atoi(parts[1])
+			if err != nil {
+				c.WriteMessage(&irc.Message{
+					Command: "PRIVMSG",
+					Params: []string{
+						m.Params[0],
+						err.Error(),
+					},
+				})
+				return
+			}
+
+			// update config
+			config.StableDiffusion.Height = height
+
+			c.WriteMessage(&irc.Message{
+				Command: "PRIVMSG",
+				Params: []string{
+					m.Params[0],
+					"Updated sd height to: " + strconv.Itoa(config.StableDiffusion.Height),
+				},
+			})
+
+		case "sampler":
+			if parts[1] != "DDIM" && parts[1] != "Euler a" && parts[1] != "Euler" {
+				c.WriteMessage(&irc.Message{
+					Command: "PRIVMSG",
+					Params: []string{
+						m.Params[0],
+						"Invalid sampler, must be 'DDIM', 'Euler a' or 'Euler'",
+					},
+				})
+				return
+			}
+
+			config.StableDiffusion.Sampler = parts[1]
+
+			c.WriteMessage(&irc.Message{
+				Command: "PRIVMSG",
+				Params: []string{
+					m.Params[0],
+					"Updated sd sampler to: " + config.StableDiffusion.Sampler,
+				},
+			})
+
+		case "negative_prompt":
+			// update config.StableDiffusion.NegativePrompt
+			config.StableDiffusion.NegativePrompt = parts[1]
+
+			c.WriteMessage(&irc.Message{
+				Command: "PRIVMSG",
+				Params: []string{
+					m.Params[0],
+					"Updated sd negative_prompt to: " + config.StableDiffusion.NegativePrompt,
+				},
+			})
+		}
+	}
 }

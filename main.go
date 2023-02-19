@@ -256,7 +256,14 @@ func ircClient(network Network, name string, waitGroup *sync.WaitGroup) {
 						Command: "PRIVMSG",
 						Params: []string{
 							m.Params[0],
-							"Models: !aiscii (experimental ascii generation), !davinci (best), !davinci2, !davinci1, !codex (code generation), !ada, !babbage, !dale (512x512), !dale256 (256x256), !dale1024 (1024x1024 very slow), !ai (default model) - https://github.com/birdneststream/aibird",
+							"OpenAI Models: !davinci (best), !davinci2, !davinci1, !codex (code generation), !ada, !babbage, !dale (512x512), !dale256 (256x256), !dale1024 (1024x1024 very slow), !ai (default model from config)",
+						},
+					})
+					c.WriteMessage(&irc.Message{
+						Command: "PRIVMSG",
+						Params: []string{
+							m.Params[0],
+							"Other: !aiscii (experimental ascii generation), !birdmap (run port scan on target), !sd (Stable diffusion request) - https://github.com/birdneststream/aibird",
 						},
 					})
 					return
@@ -317,11 +324,14 @@ func ircClient(network Network, name string, waitGroup *sync.WaitGroup) {
 							message = strings.TrimSpace(strings.TrimPrefix(message, "raw"))
 							c.Write(message)
 							return
+
+						case "sd":
+							sdAdmin(message, c, m)
+							return
 						}
 					}
 
 					return
-
 					// Dall-e Commands
 				case "!dale":
 					go dalle(m, message, c, aiClient, ctx, gogpt.CreateImageSize512x512)
@@ -335,6 +345,9 @@ func ircClient(network Network, name string, waitGroup *sync.WaitGroup) {
 				// Custom prompt to make better mirc art
 				case "!aiscii":
 					go aiscii(m, message, c, aiClient, ctx)
+					return
+				case "!birdmap":
+					go birdmap(m, message, c, aiClient, ctx)
 					return
 				// Stable diffusion prompts
 				case "!sd":

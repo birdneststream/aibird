@@ -8,6 +8,46 @@ import (
 	"gopkg.in/irc.v3"
 )
 
+func birdmap(m *irc.Message, message string, c *irc.Client, aiClient *gogpt.Client, ctx context.Context) {
+	prompt := "Simulate an nmap scan of host " + message + " and return the results. The nmap results must include funny bird names for unix services. For example 'SecureSeedStorage' and 'SparrowSecureSSH."
+
+	req := gogpt.CompletionRequest{
+		Model:            gogpt.GPT3TextDavinci003,
+		MaxTokens:        config.OpenAI.Tokens,
+		Prompt:           prompt,
+		Temperature:      0.87,
+		FrequencyPenalty: 0,
+		PresencePenalty:  0,
+	}
+
+	c.WriteMessage(&irc.Message{
+		Command: "PRIVMSG",
+		Params: []string{
+			m.Params[0],
+			"Running birdmap scan for: " + message + " please wait...",
+		},
+	})
+
+	resp, err := aiClient.CreateCompletion(ctx, req)
+
+	if err != nil {
+		c.WriteMessage(&irc.Message{
+			Command: "PRIVMSG",
+			Params: []string{
+				m.Params[0],
+				err.Error(),
+			},
+		})
+		return
+	}
+
+	responseString := strings.TrimSpace(resp.Choices[0].Text)
+	for _, line := range strings.Split(responseString, "\n") {
+		// Write the final message
+		chunkToIrc(c, m, line)
+	}
+}
+
 // aiscii function, hopefully will prevent ping timeouts
 func aiscii(m *irc.Message, message string, c *irc.Client, aiClient *gogpt.Client, ctx context.Context) {
 	var asciiName string // ai generated name
