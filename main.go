@@ -7,7 +7,6 @@ import (
 	"log"
 	"net"
 	"os"
-	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -50,17 +49,14 @@ func main() {
 	os.Exit(0)
 }
 
-var sendString string
-
 // Response we get back from API
-var responseString string
-var asciiName string // ai generated name
-var prompt string    // prompt
 
+// var prompt string // prompt
+// var sendString string
 var metaList ircMetaList
-var chanMeta ircMeta
 
 func ircClient(network Network, name string, waitGroup *sync.WaitGroup) {
+	var chanMeta ircMeta
 	defer waitGroup.Done()
 	sslConfig := &tls.Config{
 		InsecureSkipVerify: true,
@@ -144,17 +140,6 @@ func ircClient(network Network, name string, waitGroup *sync.WaitGroup) {
 				}
 
 				tempNickList = ""
-
-			case "PONG":
-				// Update modes on pong, hopefully that is okay
-				for i := 0; i < len(chansList); i++ {
-					c.Write("NAMES " + chansList[i])
-					time.Sleep(500 * time.Millisecond)
-				}
-
-				return
-
-				// on MODE change
 			case "JOIN":
 				// Cycle over Admins then Auto Ops
 				for i := 0; i < len(config.AiBird.Admin); i++ {
@@ -306,7 +291,18 @@ func ircClient(network Network, name string, waitGroup *sync.WaitGroup) {
 						parts := strings.SplitN(message, " ", 2)
 						switch parts[0] {
 						case "reload":
-							loadConfig()
+							_, err := toml.DecodeFile("config.toml", &config)
+							if err != nil {
+								c.WriteMessage(&irc.Message{
+									Command: "PRIVMSG",
+									Params: []string{
+										m.Params[0],
+										err.Error(),
+									},
+								})
+								return
+							}
+
 							c.WriteMessage(&irc.Message{
 								Command: "PRIVMSG",
 								Params: []string{
@@ -339,6 +335,22 @@ func ircClient(network Network, name string, waitGroup *sync.WaitGroup) {
 				// Custom prompt to make better mirc art
 				case "!aiscii":
 					go aiscii(m, message, c, aiClient, ctx)
+					return
+				// Stable diffusion prompts
+				case "!sd":
+					if !isUserMode(name, m.Params[0], m.Prefix.Name, "@~") {
+						c.WriteMessage(&irc.Message{
+							Command: "PRIVMSG",
+							Params: []string{
+								m.Params[0],
+								"Hey there chat pal " + m.Prefix.Name + ", you have to be a birdnest patreon to use stable diffusion!",
+							},
+						})
+
+						return
+					}
+
+					go sdRequest(message, c, m)
 					return
 				// The models for completion prompts
 				case "!davinci":
@@ -387,254 +399,4 @@ func ircClient(network Network, name string, waitGroup *sync.WaitGroup) {
 	log.Println("Got to the end, quitting " + name)
 	waitGroup.Add(1)
 	go ircClient(network, name, waitGroup)
-}
-
-var whatModes []string
-var checkNick string
-
-func isUserMode(name string, channel string, user string, modes string) bool {
-	for i := 0; i < len(metaList.ircMeta); i++ {
-		if metaList.ircMeta[i].Network != name {
-			continue
-		}
-
-		if metaList.ircMeta[i].Channel == channel {
-			tempNickList := strings.Split(metaList.ircMeta[i].Nicks, " ")
-			whatModes = strings.Split(modes, "")
-			for j := 0; j < len(tempNickList); j++ {
-				checkNick = cleanFromModes(tempNickList[j])
-
-				if checkNick == user {
-					for k := 0; k < len(whatModes); k++ {
-						if strings.Contains(tempNickList[j], whatModes[k]) {
-							return true
-						}
-					}
-				}
-			}
-		}
-	}
-
-	return false
-}
-
-func completion(m *irc.Message, message string, c *irc.Client, aiClient *gogpt.Client, ctx context.Context, model string, cost float64) {
-	req := gogpt.CompletionRequest{
-		Model:       model,
-		MaxTokens:   config.OpenAI.Tokens,
-		Prompt:      message,
-		Temperature: config.OpenAI.Temperature,
-	}
-
-	if model == gogpt.CodexCodeDavinci002 {
-		req = gogpt.CompletionRequest{
-			Model:            model,
-			MaxTokens:        config.OpenAI.Tokens,
-			Prompt:           message,
-			Temperature:      0,
-			TopP:             1,
-			FrequencyPenalty: 0,
-			PresencePenalty:  0,
-		}
-	}
-
-	// Process a completion request
-	c.WriteMessage(&irc.Message{
-		Command: "PRIVMSG",
-		Params: []string{
-			m.Params[0],
-			"Processing: " + message,
-		},
-	})
-
-	// Perform the actual API request to openAI
-	resp, err := aiClient.CreateCompletion(ctx, req)
-	if err != nil {
-		c.WriteMessage(&irc.Message{
-			Command: "PRIVMSG",
-			Params: []string{
-				m.Params[0],
-				err.Error(),
-			},
-		})
-		return
-	}
-
-	// resp.Usage.TotalTokens / 1000 * cost
-	total := strconv.FormatFloat((float64(resp.Usage.TotalTokens)/1000)*cost, 'f', 5, 64)
-
-	responseString = strings.TrimSpace(resp.Choices[0].Text) + " ($" + total + ")"
-
-	chunkToIrc(c, m, responseString)
-}
-
-func dalle(m *irc.Message, message string, c *irc.Client, aiClient *gogpt.Client, ctx context.Context, size string) {
-	req := gogpt.ImageRequest{
-		Prompt: message,
-		Size:   size,
-		N:      1,
-	}
-
-	// Alert the irc chan that the bot is processing
-	c.WriteMessage(&irc.Message{
-		Command: "PRIVMSG",
-		Params: []string{
-			m.Params[0],
-			"Processing Dall-E: " + message,
-		},
-	})
-
-	resp, err := aiClient.CreateImage(ctx, req)
-	if err != nil {
-		c.WriteMessage(&irc.Message{
-			Command: "PRIVMSG",
-			Params: []string{
-				m.Params[0],
-				err.Error(),
-			},
-		})
-		return
-	}
-
-	daleResponse := saveDalleRequest(message, resp.Data[0].URL)
-
-	c.WriteMessage(&irc.Message{
-		Command: "PRIVMSG",
-		Params: []string{
-			m.Params[0],
-			m.Prefix.Name + ": " + daleResponse,
-		},
-	})
-}
-
-// aiscii function, hopefully will prevent ping timeouts
-func aiscii(m *irc.Message, message string, c *irc.Client, aiClient *gogpt.Client, ctx context.Context) {
-
-	parts := strings.SplitN(message, " ", 2)
-
-	if parts[0] == "--save" {
-		message = parts[1]
-	}
-
-	prompt = "'{0-16},{0-16}#' use this to create an embedded mirc text art.\n\nReplace the # from the following '▀▁▂▃▄▅▆▇█▉▊▋▌▍▎▏▐░▒▓▔▕▖▗▘▙▚▛▜▝▞'.\n\nThe art must be at least 20 lines and 80 column width of mirc embedded color codes and ascii text art. Ascii text art of " + message + "."
-
-	req := gogpt.CompletionRequest{
-		Model:            gogpt.GPT3TextDavinci003,
-		MaxTokens:        config.OpenAI.Tokens,
-		Prompt:           prompt,
-		Temperature:      0,
-		TopP:             1,
-		FrequencyPenalty: 0,
-		PresencePenalty:  0,
-	}
-
-	c.WriteMessage(&irc.Message{
-		Command: "PRIVMSG",
-		Params: []string{
-			m.Params[0],
-			"Processing mIRC aiscii art (it can take a while): " + message,
-		},
-	})
-
-	resp, err := aiClient.CreateCompletion(ctx, req)
-
-	if err != nil {
-		c.WriteMessage(&irc.Message{
-			Command: "PRIVMSG",
-			Params: []string{
-				m.Params[0],
-				err.Error(),
-			},
-		})
-		return
-	}
-
-	responseString = strings.TrimSpace(resp.Choices[0].Text)
-
-	if parts[0] == "--save" {
-		message = parts[1]
-		// Generate a title for the art
-		req = gogpt.CompletionRequest{
-			Model:            gogpt.GPT3TextDavinci002,
-			MaxTokens:        128,
-			Prompt:           "Write a short three word title for your mirc ascii art based on '" + message + "'. Use only alphabetical characters and spaces only.",
-			Temperature:      0.8,
-			TopP:             1,
-			FrequencyPenalty: 0.6,
-			PresencePenalty:  0.3,
-		}
-
-		resp, err := aiClient.CreateCompletion(ctx, req)
-		if err != nil {
-			c.WriteMessage(&irc.Message{
-				Command: "PRIVMSG",
-				Params: []string{
-					m.Params[0],
-					err.Error(),
-				},
-			})
-			return
-		}
-		asciiName = strings.TrimSpace(resp.Choices[0].Text)
-
-		// get alphabet letters from asciiName only
-		asciiName := cleanFileName(asciiName)
-
-		c.WriteMessage(&irc.Message{
-			Command: "PRIVMSG",
-			Params: []string{
-				m.Params[0],
-				"@record " + asciiName,
-			},
-		})
-	}
-
-	// for each new line break in response choices write to channel
-	for _, line := range strings.Split(responseString, "\n") {
-		sendString = ""
-
-		// Write the final message
-		c.WriteMessage(&irc.Message{
-			Command: "PRIVMSG",
-			Params: []string{
-				m.Params[0],
-				line,
-			},
-		})
-	}
-
-	message = "As a snobby reddit intellectual artist, shortly explain your new artistic masterpiece '" + message + "'" + " to the masses."
-
-	req = gogpt.CompletionRequest{
-		Model:       gogpt.GPT3TextDavinci002,
-		MaxTokens:   256,
-		Prompt:      message,
-		Temperature: 1.1,
-	}
-
-	resp, err = aiClient.CreateCompletion(ctx, req)
-	if err != nil {
-		c.WriteMessage(&irc.Message{
-			Command: "PRIVMSG",
-			Params: []string{
-				m.Params[0],
-				err.Error(),
-			},
-		})
-		return
-	}
-
-	responseString = strings.TrimSpace(resp.Choices[0].Text)
-
-	chunkToIrc(c, m, responseString)
-
-	if parts[0] == "--save" {
-		c.WriteMessage(&irc.Message{
-			Command: "PRIVMSG",
-			Params: []string{
-				m.Params[0],
-				"@end",
-			},
-		})
-	}
 }

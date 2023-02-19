@@ -153,6 +153,8 @@ func saveDalleRequest(prompt string, url string) string {
 }
 
 func chunkToIrc(c *irc.Client, m *irc.Message, responseString string) {
+	var sendString string
+
 	// for each new line break in response choices write to channel
 	for _, line := range strings.Split(responseString, "\n") {
 		sendString = ""
@@ -219,6 +221,35 @@ func isAutoOp(m *irc.Message) bool {
 	for i := 0; i < len(config.AiBird.AutoOps); i++ {
 		if strings.Contains(m.Prefix.Host, config.AiBird.AutoOps[i].Host) {
 			return true
+		}
+	}
+
+	return false
+}
+
+func isUserMode(name string, channel string, user string, modes string) bool {
+	var whatModes []string
+	var checkNick string
+
+	for i := 0; i < len(metaList.ircMeta); i++ {
+		if metaList.ircMeta[i].Network != name {
+			continue
+		}
+
+		if metaList.ircMeta[i].Channel == channel {
+			tempNickList := strings.Split(metaList.ircMeta[i].Nicks, " ")
+			whatModes = strings.Split(modes, "")
+			for j := 0; j < len(tempNickList); j++ {
+				checkNick = cleanFromModes(tempNickList[j])
+
+				if checkNick == user {
+					for k := 0; k < len(whatModes); k++ {
+						if strings.Contains(tempNickList[j], whatModes[k]) {
+							return true
+						}
+					}
+				}
+			}
 		}
 	}
 
