@@ -41,21 +41,16 @@ type (
 
 	// AiBird specific configurations
 	AiBird struct {
-		Admin   []Admin
-		AutoOps []AutoOps
-		Debug   bool
-	}
-
-	// Auto +o on join
-	AutoOps struct {
-		Host  string
-		Ident string
+		ProtectedHosts []ProtectedHosts
+		Debug          bool
+		UseIpv6        bool
 	}
 
 	// Auto +o on join and admin features
-	Admin struct {
+	ProtectedHosts struct {
 		Host  string
 		Ident string
+		Admin bool
 	}
 
 	// Caching of each channel and their user modes

@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
+	"log"
 	"math/rand"
 	"net/http"
 	"path/filepath"
@@ -30,7 +31,7 @@ func sdRequest(prompt string, c *irc.Client, m *irc.Message) {
 
 	// Create a new struct
 	sd := StableDiffusionRequest{
-		// EnableHr:          false,
+		EnableHr: false,
 		// DenoisingStrength: 0,
 		// FirstphaseWidth:   0,
 		// FirstphaseHeight:  0,
@@ -60,6 +61,7 @@ func sdRequest(prompt string, c *irc.Client, m *irc.Message) {
 	// Prepare sd for http NewRequest
 	reqStr, err := json.Marshal(sd)
 	if err != nil {
+		log.Println(err.Error())
 		c.WriteMessage(&irc.Message{
 			Command: "PRIVMSG",
 			Params: []string{
@@ -74,6 +76,7 @@ func sdRequest(prompt string, c *irc.Client, m *irc.Message) {
 	req, err := http.NewRequest("POST", posturl, strings.NewReader(string(reqStr)))
 
 	if err != nil {
+		log.Println(err.Error())
 		c.WriteMessage(&irc.Message{
 			Command: "PRIVMSG",
 			Params: []string{
@@ -87,6 +90,7 @@ func sdRequest(prompt string, c *irc.Client, m *irc.Message) {
 
 	res, err := client.Do(req)
 	if err != nil {
+		log.Println(err.Error())
 		c.WriteMessage(&irc.Message{
 			Command: "PRIVMSG",
 			Params: []string{
@@ -100,11 +104,12 @@ func sdRequest(prompt string, c *irc.Client, m *irc.Message) {
 
 	body, err := ioutil.ReadAll(res.Body)
 	if err != nil {
+		log.Println(err.Error())
 		c.WriteMessage(&irc.Message{
 			Command: "PRIVMSG",
 			Params: []string{
 				m.Params[0],
-				err.Error(),
+				"There as an error processing your request, the SD host may be down or had issues with vram and your request.",
 			},
 		})
 		return
@@ -114,11 +119,12 @@ func sdRequest(prompt string, c *irc.Client, m *irc.Message) {
 	err = json.Unmarshal(body, post)
 
 	if err != nil {
+		log.Println(err.Error())
 		c.WriteMessage(&irc.Message{
 			Command: "PRIVMSG",
 			Params: []string{
 				m.Params[0],
-				err.Error(),
+				"There as an error processing your request, the SD host may be down or had issues with vram and your request.",
 			},
 		})
 		return
@@ -145,6 +151,7 @@ func sdRequest(prompt string, c *irc.Client, m *irc.Message) {
 	// decode base64 image and save to fileName
 	decoded, err := base64.StdEncoding.DecodeString(post.Images[0])
 	if err != nil {
+		log.Println(err.Error())
 		c.WriteMessage(&irc.Message{
 			Command: "PRIVMSG",
 			Params: []string{
@@ -157,6 +164,7 @@ func sdRequest(prompt string, c *irc.Client, m *irc.Message) {
 
 	err = ioutil.WriteFile(fileName, decoded, 0644)
 	if err != nil {
+		log.Println(err.Error())
 		c.WriteMessage(&irc.Message{
 			Command: "PRIVMSG",
 			Params: []string{
@@ -305,7 +313,7 @@ func sdAdmin(message string, c *irc.Client, m *irc.Message) {
 				},
 			})
 
-		case "negative_prompt":
+		case "NegativePrompt":
 			// update config.StableDiffusion.NegativePrompt
 			config.StableDiffusion.NegativePrompt = parts[1]
 
@@ -313,10 +321,35 @@ func sdAdmin(message string, c *irc.Client, m *irc.Message) {
 				Command: "PRIVMSG",
 				Params: []string{
 					m.Params[0],
-					"Updated sd negative_prompt to: " + config.StableDiffusion.NegativePrompt,
+					"Updated sd negativePrompt to: " + config.StableDiffusion.NegativePrompt,
+				},
+			})
+
+		case "cfg":
+			// convert string parts[1] to float32
+			cfg, err := strconv.ParseFloat(parts[1], 32)
+			if err != nil {
+				c.WriteMessage(&irc.Message{
+					Command: "PRIVMSG",
+					Params: []string{
+						m.Params[0],
+						err.Error(),
+					},
+				})
+				return
+			}
+
+			config.StableDiffusion.CfgScale = float32(cfg)
+
+			c.WriteMessage(&irc.Message{
+				Command: "PRIVMSG",
+				Params: []string{
+					m.Params[0],
+					"Updated sd cfg to: " + parts[1],
 				},
 			})
 		}
+
 	}
 }
 

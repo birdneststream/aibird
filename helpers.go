@@ -6,15 +6,11 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
-	"math/rand"
 	"mime/multipart"
 	"net/http"
 	"os"
 	"path/filepath"
-	"strconv"
 	"strings"
-
-	"gopkg.in/irc.v3"
 )
 
 func cleanFileName(fileName string) string {
@@ -131,127 +127,4 @@ func downloadFile(URL, fileName string) error {
 	}
 
 	return nil
-}
-
-func saveDalleRequest(prompt string, url string) string {
-	// Clean the filename, there has to be a better way to do this
-	slug := cleanFileName(prompt)
-
-	randValue := rand.Int63n(10000)
-	// Place a random number on the end to (maybe almost) avoid overwriting duplicate requests
-	fileName := slug + "_" + strconv.FormatInt(randValue, 4) + ".png"
-
-	downloadFile(url, fileName)
-
-	// append the current pwd to fileName
-	fileName = filepath.Base(fileName)
-
-	// download image
-	content := fileHole("https://filehole.org/", fileName)
-
-	return string(content)
-}
-
-func chunkToIrc(c *irc.Client, m *irc.Message, responseString string) {
-	var sendString string
-
-	// for each new line break in response choices write to channel
-	for _, line := range strings.Split(responseString, "\n") {
-		sendString = ""
-
-		// Remove blank or one/two char lines
-		if len(line) <= 2 {
-			continue
-		}
-
-		// split line into chunks slice with space
-		chunks := strings.Split(line, " ")
-
-		// for each chunk
-		for _, chunk := range chunks {
-			// append chunk to sendString
-			sendString += chunk + " "
-
-			// Trim by words for a cleaner output
-			if len(sendString) > 380 {
-				// write message to channel
-				c.WriteMessage(&irc.Message{
-					Command: "PRIVMSG",
-					Params: []string{
-						m.Params[0],
-						sendString,
-					},
-				})
-				sendString = ""
-			}
-		}
-
-		// Write the final message
-		c.WriteMessage(&irc.Message{
-			Command: "PRIVMSG",
-			Params: []string{
-				m.Params[0],
-				sendString,
-			},
-		})
-	}
-}
-
-func cleanFromModes(nick string) string {
-	nick = strings.ReplaceAll(nick, "@", "")
-	nick = strings.ReplaceAll(nick, "+", "")
-	nick = strings.ReplaceAll(nick, "~", "")
-	nick = strings.ReplaceAll(nick, "&", "")
-	nick = strings.ReplaceAll(nick, "%", "")
-	nick = strings.ReplaceAll(nick, "-", "")
-	return nick
-}
-
-func isAdmin(m *irc.Message) bool {
-	for i := 0; i < len(config.AiBird.Admin); i++ {
-		if strings.Contains(m.Prefix.Host, config.AiBird.Admin[i].Host) {
-			return true
-		}
-	}
-
-	return false
-}
-
-func isAutoOp(m *irc.Message) bool {
-	for i := 0; i < len(config.AiBird.AutoOps); i++ {
-		if strings.Contains(m.Prefix.Host, config.AiBird.AutoOps[i].Host) {
-			return true
-		}
-	}
-
-	return false
-}
-
-func isUserMode(name string, channel string, user string, modes string) bool {
-	var whatModes []string
-	var checkNick string
-
-	for i := 0; i < len(metaList.ircMeta); i++ {
-		if metaList.ircMeta[i].Network != name {
-			continue
-		}
-
-		if metaList.ircMeta[i].Channel == channel {
-			tempNickList := strings.Split(metaList.ircMeta[i].Nicks, " ")
-			whatModes = strings.Split(modes, "")
-			for j := 0; j < len(tempNickList); j++ {
-				checkNick = cleanFromModes(tempNickList[j])
-
-				if checkNick == user {
-					for k := 0; k < len(whatModes); k++ {
-						if strings.Contains(tempNickList[j], whatModes[k]) {
-							return true
-						}
-					}
-				}
-			}
-		}
-	}
-
-	return false
 }

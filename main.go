@@ -9,7 +9,6 @@ import (
 	"os"
 	"strings"
 	"sync"
-	"time"
 
 	"github.com/BurntSushi/toml"
 	gogpt "github.com/sashabaranov/go-gpt3"
@@ -65,7 +64,12 @@ func ircClient(network Network, name string, waitGroup *sync.WaitGroup) {
 	// Choose a random IRC server to connect to within the network
 	var ircServer Server = network.returnRandomServer()
 
-	conn, err := net.Dial("tcp", fmt.Sprintf("%s:%d", fmt.Sprint(ircServer.Host), ircServer.Port))
+	protocol := "tcp"
+	if config.AiBird.UseIpv6 {
+		protocol = "tcp6"
+	}
+
+	conn, err := net.Dial(protocol, fmt.Sprintf("%s:%d", fmt.Sprint(ircServer.Host), ircServer.Port))
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -111,7 +115,6 @@ func ircClient(network Network, name string, waitGroup *sync.WaitGroup) {
 				// On successful connect, attempt to join channels iterate over chansList
 				for j := 0; j < len(chansList); j++ {
 					c.Write("JOIN " + chansList[j])
-					time.Sleep(500 * time.Millisecond)
 				}
 				return
 
@@ -142,84 +145,18 @@ func ircClient(network Network, name string, waitGroup *sync.WaitGroup) {
 				tempNickList = ""
 			case "JOIN":
 				// Cycle over Admins then Auto Ops
-				for i := 0; i < len(config.AiBird.Admin); i++ {
-					if config.AiBird.Admin[i].Host == m.Prefix.Host {
+				for i := 0; i < len(config.AiBird.ProtectedHosts); i++ {
+					if config.AiBird.ProtectedHosts[i].Host == m.Prefix.Host {
 						c.Write("MODE " + m.Params[0] + " +o " + m.Prefix.Name)
 					}
 				}
-
-				for i := 0; i < len(config.AiBird.AutoOps); i++ {
-					if config.AiBird.AutoOps[i].Host == m.Prefix.Host {
-						c.Write("MODE " + m.Params[0] + " +o " + m.Prefix.Name)
-					}
-				}
-
-				c.Write("NAMES " + m.Params[0])
-				return
-				// on user join or part or quit
-			case "NICK", "PART", "QUIT":
-				c.Write("NAMES " + m.Params[0])
 
 				return
 
 			case "MODE":
 				// If there is a +b on a protected host, remove it.
 				// This is not so secure at the moment.
-
-				switch m.Params[1] {
-				case "+b":
-					for i := 0; i < len(config.AiBird.Admin); i++ {
-						if strings.Contains(m.Trailing(), config.AiBird.Admin[i].Host) {
-							c.Write("MODE " + m.Params[0] + " -b " + m.Trailing())
-
-							if !isAdmin(m) {
-								c.Write("KICK " + m.Params[0] + " " + m.Prefix.Name + " :Don't mess with the birds!")
-							}
-
-							break
-						}
-					}
-
-					for i := 0; i < len(config.AiBird.AutoOps); i++ {
-						if strings.Contains(m.Trailing(), config.AiBird.AutoOps[i].Host) {
-							c.Write("MODE " + m.Params[0] + " -b " + m.Trailing())
-
-							if !isAdmin(m) {
-								c.Write("KICK " + m.Params[0] + " " + m.Prefix.Name + " :Don't mess with the birds!")
-							}
-
-							break
-						}
-					}
-
-				case "-o":
-
-					for i := 0; i < len(config.AiBird.Admin); i++ {
-						if m.Params[2] == config.AiBird.Admin[i].Ident {
-							c.Write("MODE " + m.Params[0] + " +o " + m.Params[2])
-
-							if !isAdmin(m) {
-								c.Write("KICK " + m.Params[0] + " " + m.Prefix.Name + " :Don't mess with the birds!")
-							}
-
-							break
-						}
-					}
-
-					for i := 0; i < len(config.AiBird.AutoOps); i++ {
-						if m.Params[2] == config.AiBird.AutoOps[i].Ident {
-							c.Write("MODE " + m.Params[0] + " +o " + m.Params[2])
-
-							if !isAdmin(m) {
-								c.Write("KICK " + m.Params[0] + " " + m.Prefix.Name + " :Don't mess with the birds!")
-							}
-
-							break
-						}
-					}
-
-				}
-
+				go protectHosts(c, m)
 				c.Write("NAMES " + m.Params[0])
 				return
 

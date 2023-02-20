@@ -1,4 +1,4 @@
-# Open AI Golang IRC Chat bot
+# Open AI Golang IRC Chat Bot and More!
 
 * Ensure you have an OpenAI API key from https://openai.com/
 * Copy `example-config.toml` to `config.toml` and configure to your liking.
@@ -10,9 +10,10 @@
 
 * `!admin raw PRIVMSG...` - send raw commands, from a allow list in `config.toml`
 * `!admin reload` - reloads `config.toml` without restarting aibird.
-* Auto ops for Admin and AutoOps.
-* Protects from +b and -o if you are in Admin or AutoOps list.
+* Auto ops for Protected Hosts.
+* Protects from +b and -o if you are in Protected Hosts list.
 * To use the bot you must have at least +v or more. Thanks qpt for constantly spamming aibird. :(
+* Stable Diffusion Integration
 
 ## Examples
 

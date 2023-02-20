@@ -9,12 +9,12 @@ model = "text-davinci-003"
 temperature = 0.8
 
 [aibird]
-admin = [
-    {host = "yourirchost.com", ident = "nicktopluso"},
+protectedHosts = [
+    {host = "yourirchost.com", ident = "nicktopluso", admin = true},
+    {host = "yourirchost.com", ident = "nicktopluso", admin = false},
 ]
-autoOps = [
-    {host = "yourirchost.com", ident = "nicktopluso"},
-]
+debug = false
+useIpv6 = false
 
 [networks.efnet]
 nick = "aibird"

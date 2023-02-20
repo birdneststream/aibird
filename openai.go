@@ -2,6 +2,8 @@ package main
 
 import (
 	"context"
+	"math/rand"
+	"path/filepath"
 	"strconv"
 	"strings"
 
@@ -98,4 +100,23 @@ func dalle(m *irc.Message, message string, c *irc.Client, aiClient *gogpt.Client
 			m.Prefix.Name + ": " + daleResponse,
 		},
 	})
+}
+
+func saveDalleRequest(prompt string, url string) string {
+	// Clean the filename, there has to be a better way to do this
+	slug := cleanFileName(prompt)
+
+	randValue := rand.Int63n(10000)
+	// Place a random number on the end to (maybe almost) avoid overwriting duplicate requests
+	fileName := slug + "_" + strconv.FormatInt(randValue, 4) + ".png"
+
+	downloadFile(url, fileName)
+
+	// append the current pwd to fileName
+	fileName = filepath.Base(fileName)
+
+	// download image
+	content := fileHole("https://filehole.org/", fileName)
+
+	return string(content)
 }
