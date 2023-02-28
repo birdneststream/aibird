@@ -14,7 +14,14 @@ protectedHosts = [
     {host = "yourirchost.com", ident = "nicktopluso", admin = false},
 ]
 debug = false
-useIpv6 = false
+
+[proxy]
+enabled = true
+type = "" # http or https or socks5
+username = ""
+password = ""
+host = ""
+port = 8081
 
 [networks.efnet]
 nick = "aibird"
@@ -23,8 +30,8 @@ enabled = true
 throttle = 550
 burst = 3
 servers = [
-    {host="irc.servercentral.net", port = 6667, ssl = false},
-    {host="irc.efnet.nl", port = 6667, ssl = false}
+    {host="irc.servercentral.net", port = 6667, ssl = false, ipv6 = false},
+    {host="irc.efnet.nl", port = 6667, ssl = false, ipv6 = false}
 ]
 
 

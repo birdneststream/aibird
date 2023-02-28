@@ -26,6 +26,11 @@ func sdRequest(prompt string, c *irc.Client, m *irc.Message) {
 		},
 	})
 
+	// Bad words for bad chatters
+	if safetyFilter(prompt) {
+		prompt = config.StableDiffusion.BadWordsPrompt
+	}
+
 	// new variable that converts prompt to slug
 	slug := cleanFileName(prompt)
 

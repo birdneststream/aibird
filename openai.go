@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"log"
 	"math/rand"
 	"path/filepath"
 	"strconv"
@@ -52,6 +53,12 @@ func completion(m *irc.Message, message string, c *irc.Client, aiClient *gogpt.C
 				err.Error(),
 			},
 		})
+
+		// err.Error() contains You exceeded your current quota
+		if strings.Contains(err.Error(), "You exceeded your current quota") {
+			log.Println("Key " + whatKey + " has exceeded its quota")
+		}
+
 		return
 	}
 

@@ -28,6 +28,7 @@ type (
 		Port int
 		Pass string
 		Ssl  bool
+		Ipv6 bool
 	}
 
 	// OpenAI
@@ -43,7 +44,6 @@ type (
 	AiBird struct {
 		ProtectedHosts []ProtectedHosts
 		Debug          bool
-		UseIpv6        bool
 	}
 
 	// Auto +o on join and admin features

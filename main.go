@@ -48,11 +48,8 @@ func main() {
 	os.Exit(0)
 }
 
-// Response we get back from API
-
-// var prompt string // prompt
-// var sendString string
 var metaList ircMetaList
+var whatKey string // keeps track of the current ai key to alert expired
 
 func ircClient(network Network, name string, waitGroup *sync.WaitGroup) {
 	var chanMeta ircMeta
@@ -65,7 +62,7 @@ func ircClient(network Network, name string, waitGroup *sync.WaitGroup) {
 	var ircServer Server = network.returnRandomServer()
 
 	protocol := "tcp"
-	if config.AiBird.UseIpv6 {
+	if ircServer.Ipv6 {
 		protocol = "tcp6"
 	}
 
@@ -224,7 +221,9 @@ func ircClient(network Network, name string, waitGroup *sync.WaitGroup) {
 
 				cmd := parts[0]
 				message := strings.TrimSpace(parts[1])
-				aiClient := gogpt.NewClient(config.OpenAI.nextApiKey())
+				key := config.OpenAI.nextApiKey()
+				whatKey = key
+				aiClient := gogpt.NewClient(key)
 
 				switch cmd {
 
@@ -310,11 +309,6 @@ func ircClient(network Network, name string, waitGroup *sync.WaitGroup) {
 						})
 
 						return
-					}
-
-					// Bad words for bad chatters
-					if safetyFilter(message) {
-						message = config.StableDiffusion.BadWordsPrompt
 					}
 
 					go sdRequest(message, c, m)
