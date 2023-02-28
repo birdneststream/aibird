@@ -73,6 +73,8 @@ type (
 		Host           string
 		Width          int
 		Height         int
+		BadWords       []string
+		BadWordsPrompt string
 	}
 
 	// Txt2Img API Request

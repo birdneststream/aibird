@@ -355,8 +355,10 @@ func sdAdmin(message string, c *irc.Client, m *irc.Message) {
 
 // This is why we can't have nice things
 func safetyFilter(message string) bool {
-	if strings.Contains(message, "underage") || strings.Contains(message, "children") || strings.Contains(message, "teen") || strings.Contains(message, "child") {
-		return true
+	for _, word := range config.StableDiffusion.BadWords {
+		if strings.Contains(strings.ToLower(message), strings.ToLower(word)) {
+			return true
+		}
 	}
 
 	return false

@@ -312,18 +312,9 @@ func ircClient(network Network, name string, waitGroup *sync.WaitGroup) {
 						return
 					}
 
-					// if safetyFilter
+					// Bad words for bad chatters
 					if safetyFilter(message) {
-						c.WriteMessage(&irc.Message{
-							Command: "KICK",
-							Params: []string{
-								m.Params[0],
-								m.Prefix.Name,
-								"Hey there chat pal " + m.Prefix.Name + ", you can't use that word in stable diffusion!",
-							},
-						})
-
-						return
+						message = config.StableDiffusion.BadWordsPrompt
 					}
 
 					go sdRequest(message, c, m)

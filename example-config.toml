@@ -42,7 +42,7 @@ pass = ""
 
 
 [stable-diffusion]
-negativePrompt = "saturated, comic, cartoon, (anime:1.5), 3d, cgi, painting, deformed face, ((morbid)), ((mutilated)), [out of frame], extra fingers, mutated hands, ((poorly drawn face)), (((mutation))), (((deformed))), ((bad anatomy)), (((bad proportions))), ((extra limbs)), cloned face, (((disfigured))), extra limbs, gross proportions, (malformed limbs), ((missing arms)), ((missing legs)), (((extra arms))), (((extra legs))), (fused fingers), (too many fingers), (((long neck)))"
+negativePrompt = "saturated, comic, cartoon"
 steps = 10
 sampler = "DDIM"
 restoreFace = true
@@ -50,3 +50,5 @@ cfgScale = 8
 host = "http://127.0.0.1:7860"
 width = 512
 height = 640
+badWords = ["greta","thunburg"]
+badWordPrompt = "FBI Agent Making an Arrest."
