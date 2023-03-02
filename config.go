@@ -11,6 +11,17 @@ type (
 		Networks        map[string]Network
 		AiBird          AiBird
 		StableDiffusion StableDiffusion
+		Proxy           Proxy
+	}
+
+	// Proxy
+	Proxy struct {
+		Enabled  bool
+		Type     string
+		Username string
+		Password string
+		Host     string
+		Port     int
 	}
 
 	// IRC
@@ -51,16 +62,6 @@ type (
 		Host  string
 		Ident string
 		Admin bool
-	}
-
-	// Caching of each channel and their user modes
-	ircMeta struct {
-		Network string
-		Channel string
-		Nicks   string
-	}
-	ircMetaList struct {
-		ircMeta []ircMeta
 	}
 
 	// Stable Diffusion

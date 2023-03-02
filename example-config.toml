@@ -58,4 +58,4 @@ host = "http://127.0.0.1:7860"
 width = 512
 height = 640
 badWords = ["greta","thunburg"]
-badWordPrompt = "FBI Agent Making an Arrest."
+badWordsPrompt = "FBI Agent Making an Arrest."

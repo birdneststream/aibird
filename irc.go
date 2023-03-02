@@ -1,16 +1,17 @@
 package main
 
 import (
+	"log"
 	"strings"
 
 	"gopkg.in/irc.v3"
 )
 
-func chunkToIrc(c *irc.Client, m *irc.Message, responseString string) {
+func chunkToIrc(c *irc.Client, m *irc.Message, message string) {
 	var sendString string
 
 	// for each new line break in response choices write to channel
-	for _, line := range strings.Split(responseString, "\n") {
+	for _, line := range strings.Split(message, "\n") {
 		sendString = ""
 
 		// Remove blank or one/two char lines
@@ -57,7 +58,6 @@ func cleanFromModes(nick string) string {
 	nick = strings.ReplaceAll(nick, "~", "")
 	nick = strings.ReplaceAll(nick, "&", "")
 	nick = strings.ReplaceAll(nick, "%", "")
-	nick = strings.ReplaceAll(nick, "-", "")
 	return nick
 }
 
@@ -82,26 +82,25 @@ func isProtected(m *irc.Message) bool {
 }
 
 func isUserMode(name string, channel string, user string, modes string) bool {
-	var whatModes []string
-	var checkNick string
+	key := []byte(name + "_" + channel + "_nicks")
 
-	for i := 0; i < len(metaList.ircMeta); i++ {
-		if metaList.ircMeta[i].Network != name {
-			continue
-		}
+	// Get the meta data from the database
+	nickList, err := birdBase.Get(key)
+	if err != nil {
+		log.Println(err)
+		return false
+	}
 
-		if metaList.ircMeta[i].Channel == channel {
-			tempNickList := strings.Split(metaList.ircMeta[i].Nicks, " ")
-			whatModes = strings.Split(modes, "")
-			for j := 0; j < len(tempNickList); j++ {
-				checkNick = cleanFromModes(tempNickList[j])
+	sliceNickList := strings.Split(string(nickList), " ")
+	whatModes := strings.Split(modes, "")
 
-				if checkNick == user {
-					for k := 0; k < len(whatModes); k++ {
-						if strings.Contains(tempNickList[j], whatModes[k]) {
-							return true
-						}
-					}
+	for j := 0; j < len(sliceNickList); j++ {
+		checkNick := cleanFromModes(sliceNickList[j])
+
+		if checkNick == user {
+			for k := 0; k < len(whatModes); k++ {
+				if strings.Contains(sliceNickList[j], whatModes[k]) {
+					return true
 				}
 			}
 		}
@@ -137,4 +136,115 @@ func protectHosts(c *irc.Client, m *irc.Message) {
 		}
 	}
 
+}
+
+// This builds a temporary list of nicks in a channel
+func cacheNicks(name string, m *irc.Message) {
+	var key = []byte(name + "_" + m.Params[2] + "_temp_nick")
+
+	// if birdbase key exists create new tempMeta with name and channel then store it
+	if !birdBase.Has(key) {
+		// store tempMeta in the database
+		birdBase.Put(key, []byte(m.Trailing()))
+		return
+	}
+
+	// if birdbase key exists get the meta data and append the new meta data to it
+	if birdBase.Has(key) {
+		nickList, err := birdBase.Get(key)
+		if err != nil {
+			log.Println(err)
+			return
+		}
+
+		// store tempMeta in the database
+		birdBase.Put(key, []byte(string(nickList)+" "+m.Trailing()))
+		return
+	}
+
+}
+
+// When the end of the nick list is returned we cache the final list and remove the temp
+func saveNicks(name string, m *irc.Message) {
+	var key = []byte(name + "_" + m.Params[1] + "_temp_nick")
+	nickList, err := birdBase.Get(key)
+	if err != nil {
+		log.Println(err)
+		return
+	}
+
+	// remove key from database if it exists
+	if birdBase.Has(key) {
+		birdBase.Delete(key)
+	}
+
+	key = []byte(name + "_" + m.Params[1] + "_nicks")
+	birdBase.Put(key, nickList)
+}
+
+func cacheAutoLists(name string, m *irc.Message) {
+	ident := m.Params[2]
+	host := m.Params[3]
+	nick := m.Params[5]
+	status := m.Params[6]
+
+	// if status contains +
+	if strings.Contains(status, "+") {
+		autoVoiceKey := []byte(name + "_" + m.Params[1] + "_autovoice")
+		if birdBase.Has(autoVoiceKey) {
+			autoVoiceList, err := birdBase.Get(autoVoiceKey)
+			if err != nil {
+				log.Println(err)
+				return
+			}
+
+			birdBase.Put(autoVoiceKey, []byte(ident+" "+host+" "+nick+"#"+string(autoVoiceList)))
+			return
+		}
+
+		birdBase.Put(autoVoiceKey, []byte(ident+" "+host+" "+nick))
+		return
+	}
+
+	// if status contains @
+	if strings.Contains(status, "@") {
+		autoOpKey := []byte(name + "_" + m.Params[1] + "_autoop")
+		if birdBase.Has(autoOpKey) {
+			autoOpList, err := birdBase.Get(autoOpKey)
+			if err != nil {
+				log.Println(err)
+				return
+			}
+
+			birdBase.Put(autoOpKey, []byte(ident+" "+host+" "+nick+"#"+string(autoOpList)))
+			return
+		}
+
+		birdBase.Put(autoOpKey, []byte(ident+" "+host+" "+nick))
+		return
+	}
+}
+
+func canAuto(name string, m *irc.Message, what string) bool {
+	key := []byte(name + "_" + m.Params[0] + "_auto" + what)
+
+	if birdBase.Has(key) {
+		// Get the meta data from the database
+		nickList, err := birdBase.Get(key)
+		if err != nil {
+			log.Println(err)
+			return false
+		}
+
+		sliceNickList := strings.Split(string(nickList), "#")
+
+		for j := 0; j < len(sliceNickList); j++ {
+			nickDetails := strings.Split(sliceNickList[j], " ")
+			if (nickDetails[0] == m.Prefix.User) && (nickDetails[1] == m.Prefix.Host) && (nickDetails[2] == m.Prefix.Name) {
+				return true
+			}
+		}
+	}
+
+	return false
 }

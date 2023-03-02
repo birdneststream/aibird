@@ -10,6 +10,7 @@ import (
 	"strings"
 	"sync"
 
+	"git.mills.io/prologic/bitcask"
 	"github.com/BurntSushi/toml"
 	gogpt "github.com/sashabaranov/go-gpt3"
 	"gopkg.in/irc.v3"
@@ -26,9 +27,14 @@ func loadConfig() {
 	}
 }
 
+var birdBase *bitcask.Bitcask
+
 func main() {
 	// Load json config
 	loadConfig()
+
+	db, _ := bitcask.Open("bird.db")
+	birdBase = db
 
 	log.Println("AI bot connecting to IRC, please wait")
 
@@ -48,11 +54,9 @@ func main() {
 	os.Exit(0)
 }
 
-var metaList ircMetaList
 var whatKey string // keeps track of the current ai key to alert expired
 
 func ircClient(network Network, name string, waitGroup *sync.WaitGroup) {
-	var chanMeta ircMeta
 	defer waitGroup.Done()
 	sslConfig := &tls.Config{
 		InsecureSkipVerify: true,
@@ -73,14 +77,6 @@ func ircClient(network Network, name string, waitGroup *sync.WaitGroup) {
 
 	if ircServer.Ssl {
 		conn = tls.Client(conn, sslConfig)
-	}
-
-	var chansList = network.Channels
-	var tempNickList string
-	// Used to send responseString to IRC
-
-	metaList = ircMetaList{
-		ircMeta: []ircMeta{},
 	}
 
 	// Model we will use
@@ -108,44 +104,55 @@ func ircClient(network Network, name string, waitGroup *sync.WaitGroup) {
 			}
 
 			switch m.Command {
+
+			case "VERSION":
+				c.Write("NOTICE " + m.Prefix.Name + " :VERSION AiBird Bot - https://github.com/birdneststream/aibird")
+				return
+
 			case "001":
 				// On successful connect, attempt to join channels iterate over chansList
-				for j := 0; j < len(chansList); j++ {
-					c.Write("JOIN " + chansList[j])
+				for j := 0; j < len(network.Channels); j++ {
+					c.Write("JOIN " + network.Channels[j])
+					c.Write("WHO " + network.Channels[j])
 				}
 				return
 
 			// Build the names list
 			case "353":
-				tempNickList = tempNickList + " " + m.Trailing()
+				cacheNicks(name, m)
+
 				return
 
 			case "366":
-				chanMeta = ircMeta{
-					Network: name,
-					Channel: m.Params[1],
-					Nicks:   tempNickList,
-				}
+				saveNicks(name, m)
 
-				found := false
-				for i := 0; i < len(metaList.ircMeta); i++ {
-					if metaList.ircMeta[i].Network == name && metaList.ircMeta[i].Channel == m.Params[1] {
-						metaList.ircMeta[i] = chanMeta
-						found = true
-					}
-				}
+				return
 
-				if !found {
-					metaList.ircMeta = append(metaList.ircMeta, chanMeta)
-				}
+			// Who the channel
+			case "352":
+				cacheAutoLists(name, m)
 
-				tempNickList = ""
+				return
+
 			case "JOIN":
 				// Cycle over Admins then Auto Ops
-				for i := 0; i < len(config.AiBird.ProtectedHosts); i++ {
-					if config.AiBird.ProtectedHosts[i].Host == m.Prefix.Host {
-						c.Write("MODE " + m.Params[0] + " +o " + m.Prefix.Name)
-					}
+				// for i := 0; i < len(config.AiBird.ProtectedHosts); i++ {
+				// 	if config.AiBird.ProtectedHosts[i].Host == m.Prefix.Host {
+				// 		c.Write("MODE " + m.Params[0] + " +o " + m.Prefix.Name)
+				// 		return
+				// 	}
+				// }
+
+				// Auto Voice
+				if canAuto(name, m, "voice") {
+					c.Write("MODE " + m.Params[0] + " +v " + m.Prefix.Name)
+					return
+				}
+
+				// Auto Op
+				if canAuto(name, m, "op") {
+					c.Write("MODE " + m.Params[0] + " +o " + m.Prefix.Name)
+					return
 				}
 
 				return
@@ -155,6 +162,7 @@ func ircClient(network Network, name string, waitGroup *sync.WaitGroup) {
 				// This is not so secure at the moment.
 				go protectHosts(c, m)
 				c.Write("NAMES " + m.Params[0])
+				c.Write("WHO " + m.Params[0])
 				return
 
 			case "KICK":
@@ -204,8 +212,8 @@ func ircClient(network Network, name string, waitGroup *sync.WaitGroup) {
 
 				case "!modes":
 					// cycle irc channels and update modes
-					for i := 0; i < len(chansList); i++ {
-						c.Write("NAMES " + chansList[i])
+					for i := 0; i < len(network.Channels); i++ {
+						c.Write("NAMES " + network.Channels[i])
 					}
 
 					return
@@ -263,6 +271,35 @@ func ircClient(network Network, name string, waitGroup *sync.WaitGroup) {
 
 						case "sd":
 							sdAdmin(message, c, m)
+							return
+
+						case "birdbase":
+							// get from database efnet_#birdnest_meta as string
+							nickList, err := birdBase.Get([]byte(string("efnet_#birdnest_nicks")))
+							if err != nil {
+								log.Println(err)
+								return
+							}
+
+							log.Println("NICKS: " + string(nickList))
+
+							voiceList, err := birdBase.Get([]byte(string("efnet_#birdnest_autovoice")))
+							if err != nil {
+								log.Println(err)
+								return
+							}
+
+							log.Println("AUTO VOICE: " + string(voiceList))
+
+							autoOps, err := birdBase.Get([]byte(string("efnet_#birdnest_autoop")))
+							if err != nil {
+								log.Println(err)
+								return
+							}
+
+							log.Println("AUTO OPS: " + string(autoOps))
+
+							// chunkToIrc(c, m, message)
 							return
 						}
 					}
