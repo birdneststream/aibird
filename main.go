@@ -9,6 +9,7 @@ import (
 	"os"
 	"strings"
 	"sync"
+	"time"
 
 	"git.mills.io/prologic/bitcask"
 	"github.com/BurntSushi/toml"
@@ -113,6 +114,7 @@ func ircClient(network Network, name string, waitGroup *sync.WaitGroup) {
 				// On successful connect, attempt to join channels iterate over chansList
 				for j := 0; j < len(network.Channels); j++ {
 					c.Write("JOIN " + network.Channels[j])
+					time.Sleep(network.Throttle * time.Millisecond)
 					c.Write("WHO " + network.Channels[j])
 				}
 				return
@@ -143,16 +145,19 @@ func ircClient(network Network, name string, waitGroup *sync.WaitGroup) {
 				// 	}
 				// }
 
-				// Auto Voice
-				if canAuto(name, m, "voice") {
-					c.Write("MODE " + m.Params[0] + " +v " + m.Prefix.Name)
-					return
-				}
+				// Only want to do these if we already have ops
+				if isUserMode(name, m.Params[0], network.Nick, "@") {
+					// Auto Voice
+					if isInList(name, m.Params[0], "voice", m.Prefix.User, m.Prefix.Host, m.Prefix.Name) {
+						c.Write("MODE " + m.Params[0] + " +v " + m.Prefix.Name)
+						return
+					}
 
-				// Auto Op
-				if canAuto(name, m, "op") {
-					c.Write("MODE " + m.Params[0] + " +o " + m.Prefix.Name)
-					return
+					// Auto Op
+					if isInList(name, m.Params[0], "op", m.Prefix.User, m.Prefix.Host, m.Prefix.Name) {
+						c.Write("MODE " + m.Params[0] + " +o " + m.Prefix.Name)
+						return
+					}
 				}
 
 				return
@@ -160,9 +165,17 @@ func ircClient(network Network, name string, waitGroup *sync.WaitGroup) {
 			case "MODE":
 				// If there is a +b on a protected host, remove it.
 				// This is not so secure at the moment.
-				go protectHosts(c, m)
+				// go protectHosts(c, m)
+
+				// Cache the names list
 				c.Write("NAMES " + m.Params[0])
-				c.Write("WHO " + m.Params[0])
+				time.Sleep(network.Throttle * time.Millisecond)
+
+				// Only want to cache this if we have ops
+				if isUserMode(name, m.Params[0], network.Nick, "@") {
+					c.Write("WHO " + m.Params[0])
+					time.Sleep(network.Throttle * time.Millisecond)
+				}
 				return
 
 			case "KICK":
@@ -170,8 +183,6 @@ func ircClient(network Network, name string, waitGroup *sync.WaitGroup) {
 				if m.Params[1] == network.Nick {
 					c.Write("JOIN " + m.Params[0])
 				}
-
-				c.Write("NAMES " + m.Params[0])
 				return
 
 			case "PRIVMSG":
@@ -213,7 +224,7 @@ func ircClient(network Network, name string, waitGroup *sync.WaitGroup) {
 				case "!modes":
 					// cycle irc channels and update modes
 					for i := 0; i < len(network.Channels); i++ {
-						c.Write("NAMES " + network.Channels[i])
+						c.Write("WHO " + network.Channels[i])
 					}
 
 					return
@@ -274,16 +285,18 @@ func ircClient(network Network, name string, waitGroup *sync.WaitGroup) {
 							return
 
 						case "birdbase":
+							message = strings.TrimSpace(strings.TrimPrefix(message, "birdbase"))
+
 							// get from database efnet_#birdnest_meta as string
-							nickList, err := birdBase.Get([]byte(string("efnet_#birdnest_nicks")))
-							if err != nil {
-								log.Println(err)
-								return
-							}
+							// nickList, err := birdBase.Get([]byte(string(message + "_nicks")))
+							// if err != nil {
+							// 	log.Println(err)
+							// 	return
+							// }
 
-							log.Println("NICKS: " + string(nickList))
+							// log.Println("NICKS: " + string(nickList))
 
-							voiceList, err := birdBase.Get([]byte(string("efnet_#birdnest_autovoice")))
+							voiceList, err := birdBase.Get([]byte(string(message + "_autovoice")))
 							if err != nil {
 								log.Println(err)
 								return
@@ -291,7 +304,7 @@ func ircClient(network Network, name string, waitGroup *sync.WaitGroup) {
 
 							log.Println("AUTO VOICE: " + string(voiceList))
 
-							autoOps, err := birdBase.Get([]byte(string("efnet_#birdnest_autoop")))
+							autoOps, err := birdBase.Get([]byte(string(message + "_autoop")))
 							if err != nil {
 								log.Println(err)
 								return

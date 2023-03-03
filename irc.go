@@ -183,13 +183,16 @@ func saveNicks(name string, m *irc.Message) {
 }
 
 func cacheAutoLists(name string, m *irc.Message) {
-	ident := m.Params[2]
+	channel := m.Params[1]
+	user := m.Params[2]
 	host := m.Params[3]
 	nick := m.Params[5]
 	status := m.Params[6]
 
-	// if status contains +
-	if strings.Contains(status, "+") {
+	// If the user is not in the list and has +v
+	if strings.Contains(status, "+") && !isInList(name, channel, "voice", user, host, nick) {
+		log.Println("Adding " + nick + " to the auto voice list.")
+
 		autoVoiceKey := []byte(name + "_" + m.Params[1] + "_autovoice")
 		if birdBase.Has(autoVoiceKey) {
 			autoVoiceList, err := birdBase.Get(autoVoiceKey)
@@ -198,16 +201,18 @@ func cacheAutoLists(name string, m *irc.Message) {
 				return
 			}
 
-			birdBase.Put(autoVoiceKey, []byte(ident+" "+host+" "+nick+"#"+string(autoVoiceList)))
+			birdBase.Put(autoVoiceKey, []byte(user+" "+host+" "+nick+"#"+string(autoVoiceList)))
 			return
 		}
 
-		birdBase.Put(autoVoiceKey, []byte(ident+" "+host+" "+nick))
+		birdBase.Put(autoVoiceKey, []byte(user+" "+host+" "+nick))
 		return
 	}
 
-	// if status contains @
-	if strings.Contains(status, "@") {
+	// If the user is not in the list and has +o
+	if strings.Contains(status, "@") && !isInList(name, channel, "op", user, host, nick) {
+		log.Println("Adding " + nick + " to the auto op list.")
+
 		autoOpKey := []byte(name + "_" + m.Params[1] + "_autoop")
 		if birdBase.Has(autoOpKey) {
 			autoOpList, err := birdBase.Get(autoOpKey)
@@ -216,17 +221,72 @@ func cacheAutoLists(name string, m *irc.Message) {
 				return
 			}
 
-			birdBase.Put(autoOpKey, []byte(ident+" "+host+" "+nick+"#"+string(autoOpList)))
+			birdBase.Put(autoOpKey, []byte(user+" "+host+" "+nick+"#"+string(autoOpList)))
 			return
 		}
 
-		birdBase.Put(autoOpKey, []byte(ident+" "+host+" "+nick))
+		birdBase.Put(autoOpKey, []byte(user+" "+host+" "+nick))
 		return
+	}
+
+	// If the user is in the list and has -v
+	if !strings.Contains(status, "+") && !strings.Contains(status, "@") && isInList(name, channel, "voice", user, host, nick) {
+		log.Println("Removing " + nick + " from the auto voice list.")
+
+		autoVoiceKey := []byte(name + "_" + m.Params[1] + "_autovoice")
+		if birdBase.Has(autoVoiceKey) {
+			autoVoiceList, err := birdBase.Get(autoVoiceKey)
+			if err != nil {
+				log.Println(err)
+				return
+			}
+
+			sliceAutoVoiceList := strings.Split(string(autoVoiceList), "#")
+
+			for j := 0; j < len(sliceAutoVoiceList); j++ {
+				nickDetails := strings.Split(sliceAutoVoiceList[j], " ")
+				if (nickDetails[0] == user) && (nickDetails[1] == host) && (nickDetails[2] == nick) {
+					sliceAutoVoiceList = append(sliceAutoVoiceList[:j], sliceAutoVoiceList[j+1:]...)
+					break
+				}
+			}
+
+			birdBase.Put(autoVoiceKey, []byte(strings.Join(sliceAutoVoiceList, "#")))
+			return
+		}
+	}
+
+	// If the user is in the list and has -o
+	if !strings.Contains(status, "+") && !strings.Contains(status, "@") && isInList(name, channel, "op", user, host, nick) {
+		log.Println("Removing " + nick + " from the auto op list.")
+
+		autoOpKey := []byte(name + "_" + m.Params[1] + "_autoop")
+		if birdBase.Has(autoOpKey) {
+			autoOpList, err := birdBase.Get(autoOpKey)
+			if err != nil {
+				log.Println(err)
+				return
+			}
+
+			sliceAutoOpList := strings.Split(string(autoOpList), "#")
+
+			for j := 0; j < len(sliceAutoOpList); j++ {
+				nickDetails := strings.Split(sliceAutoOpList[j], " ")
+				if (nickDetails[0] == user) && (nickDetails[1] == host) && (nickDetails[2] == nick) {
+					sliceAutoOpList = append(sliceAutoOpList[:j], sliceAutoOpList[j+1:]...)
+					break
+				}
+			}
+
+			birdBase.Put(autoOpKey, []byte(strings.Join(sliceAutoOpList, "#")))
+			return
+		}
 	}
 }
 
-func canAuto(name string, m *irc.Message, what string) bool {
-	key := []byte(name + "_" + m.Params[0] + "_auto" + what)
+// This one doesn't rely on m.Params which can change depending what event has occurred.
+func isInList(name string, channel string, what string, user string, host string, nick string) bool {
+	key := []byte(name + "_" + channel + "_auto" + what)
 
 	if birdBase.Has(key) {
 		// Get the meta data from the database
@@ -240,7 +300,7 @@ func canAuto(name string, m *irc.Message, what string) bool {
 
 		for j := 0; j < len(sliceNickList); j++ {
 			nickDetails := strings.Split(sliceNickList[j], " ")
-			if (nickDetails[0] == m.Prefix.User) && (nickDetails[1] == m.Prefix.Host) && (nickDetails[2] == m.Prefix.Name) {
+			if (nickDetails[0] == user) && (nickDetails[1] == host) && (nickDetails[2] == nick) {
 				return true
 			}
 		}
