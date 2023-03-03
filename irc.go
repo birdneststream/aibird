@@ -84,6 +84,16 @@ func isProtected(m *irc.Message) bool {
 	return false
 }
 
+func shouldIgnore(nick string) bool {
+	for i := 0; i < len(config.AiBird.IgnoreChatsFrom); i++ {
+		if strings.Contains(strings.ToLower(nick), strings.ToLower(config.AiBird.Ignore[i])) {
+			return true
+		}
+	}
+
+	return false
+}
+
 func isUserMode(name string, channel string, user string, modes string) bool {
 	key := []byte(name + "_" + channel + "_nicks")
 
@@ -322,7 +332,7 @@ func cacheChatsForReply(name string, message string, m *irc.Message, c *irc.Clie
 	}
 
 	key := []byte(name + "_" + m.Params[0] + "_chats_cache")
-	message = m.Prefix.User + ": " + message
+	message = m.Prefix.Name + ": " + message
 
 	if birdBase.Has(key) {
 		chatList, err := birdBase.Get(key)

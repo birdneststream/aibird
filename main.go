@@ -194,7 +194,7 @@ func ircClient(network Network, name string, waitGroup *sync.WaitGroup) {
 				whatKey = key
 				aiClient := gogpt.NewClient(key)
 
-				if config.AiBird.ReplyToChats && m.Params[0] == "#birdnest" {
+				if config.AiBird.ReplyToChats && m.Params[0] == "#birdnest" && !shouldIgnore(m.Prefix.Name) {
 					go cacheChatsForReply(name, m.Trailing(), m, c, aiClient, ctx)
 				}
 

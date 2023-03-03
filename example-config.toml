@@ -16,6 +16,7 @@ protectedHosts = [
 debug = false
 chatPersonality = "a snobby reddit intellectual"
 replyToChats = true
+ignoreChatsFrom = ['bot1','bot2']
 
 [proxy]
 enabled = true

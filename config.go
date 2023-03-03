@@ -57,6 +57,7 @@ type (
 		Debug           bool
 		ChatPersonality string
 		ReplyToChats    bool
+		IgnoreChatsFrom []string
 	}
 
 	// Auto +o on join and admin features
