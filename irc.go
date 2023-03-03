@@ -74,19 +74,20 @@ func isAdmin(m *irc.Message) bool {
 	return false
 }
 
-func isProtected(m *irc.Message) bool {
-	for i := 0; i < len(config.AiBird.ProtectedHosts); i++ {
-		if strings.Contains(m.Prefix.Host, config.AiBird.ProtectedHosts[i].Host) {
-			return true
-		}
-	}
+// Needs to be rewritten
+// func isProtected(m *irc.Message) bool {
+// 	for i := 0; i < len(config.AiBird.ProtectedHosts); i++ {
+// 		if strings.Contains(m.Prefix.Host, config.AiBird.ProtectedHosts[i].Host) {
+// 			return true
+// 		}
+// 	}
 
-	return false
-}
+// 	return false
+// }
 
 func shouldIgnore(nick string) bool {
 	for i := 0; i < len(config.AiBird.IgnoreChatsFrom); i++ {
-		if strings.Contains(strings.ToLower(nick), strings.ToLower(config.AiBird.Ignore[i])) {
+		if strings.ToLower(cleanFromModes(nick)) == strings.ToLower(config.AiBird.IgnoreChatsFrom[i]) {
 			return true
 		}
 	}
@@ -122,34 +123,35 @@ func isUserMode(name string, channel string, user string, modes string) bool {
 	return false
 }
 
-func protectHosts(c *irc.Client, m *irc.Message) {
-	switch m.Params[1] {
-	case "+b":
-		if isProtected(m) {
-			c.Write("MODE " + m.Params[0] + " -b " + m.Trailing())
+// Needs to be rewritten
+// func protectHosts(c *irc.Client, m *irc.Message) {
+// 	switch m.Params[1] {
+// 	case "+b":
+// 		if isProtected(m) {
+// 			c.Write("MODE " + m.Params[0] + " -b " + m.Trailing())
 
-			if !isAdmin(m) {
-				c.Write("MODE " + m.Params[0] + " +b *!*@" + m.Prefix.Host)
-				c.Write("KICK " + m.Params[0] + " " + m.Prefix.Name + " :Don't mess with the birds!")
-			}
+// 			if !isAdmin(m) {
+// 				c.Write("MODE " + m.Params[0] + " +b *!*@" + m.Prefix.Host)
+// 				c.Write("KICK " + m.Params[0] + " " + m.Prefix.Name + " :Don't mess with the birds!")
+// 			}
 
-			break
-		}
+// 			break
+// 		}
 
-	case "-o":
-		if isProtected(m) {
-			c.Write("MODE " + m.Params[0] + " +o " + m.Params[2])
+// 	case "-o":
+// 		if isProtected(m) {
+// 			c.Write("MODE " + m.Params[0] + " +o " + m.Params[2])
 
-			if !isAdmin(m) {
-				c.Write("MODE " + m.Params[0] + " +b *!*@" + m.Prefix.Host)
-				c.Write("KICK " + m.Params[0] + " " + m.Prefix.Name + " :Don't mess with the birds!")
-			}
+// 			if !isAdmin(m) {
+// 				c.Write("MODE " + m.Params[0] + " +b *!*@" + m.Prefix.Host)
+// 				c.Write("KICK " + m.Params[0] + " " + m.Prefix.Name + " :Don't mess with the birds!")
+// 			}
 
-			break
-		}
-	}
+// 			break
+// 		}
+// 	}
 
-}
+// }
 
 // This builds a temporary list of nicks in a channel
 func cacheNicks(name string, m *irc.Message) {

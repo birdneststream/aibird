@@ -289,6 +289,19 @@ func ircClient(network Network, name string, waitGroup *sync.WaitGroup) {
 							sdAdmin(message, c, m)
 							return
 
+						case "aibird_personality":
+							message = strings.TrimSpace(strings.TrimPrefix(message, "aibird_personality"))
+							config.AiBird.ChatPersonality = message
+							c.WriteMessage(&irc.Message{
+								Command: "PRIVMSG",
+								Params: []string{
+									m.Params[0],
+									"Set aibird personality to " + message,
+								},
+							})
+
+							return
+
 						case "birdbase":
 							message = strings.TrimSpace(strings.TrimPrefix(message, "birdbase"))
 
