@@ -1,9 +1,12 @@
 package main
 
 import (
+	"context"
 	"log"
+	"math/rand"
 	"strings"
 
+	gogpt "github.com/sashabaranov/go-gpt3"
 	"gopkg.in/irc.v3"
 )
 
@@ -307,4 +310,41 @@ func isInList(name string, channel string, what string, user string, host string
 	}
 
 	return false
+}
+
+// Maybe can move this into openai.go
+func cacheChatsForReply(name string, message string, m *irc.Message, c *irc.Client, aiClient *gogpt.Client, ctx context.Context) {
+	// Get the meta data from the database
+
+	// check if message contains unicode
+	if !strings.ContainsAny(message, "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789") {
+		return
+	}
+
+	key := []byte(name + "_" + m.Params[0] + "_chats_cache")
+	message = m.Prefix.User + ": " + message
+
+	if birdBase.Has(key) {
+		chatList, err := birdBase.Get(key)
+		if err != nil {
+			log.Println(err)
+			return
+		}
+
+		birdBase.Put(key, []byte(message+"."+"\n"+string(chatList)))
+
+		sliceChatList := strings.Split(message+"\n"+string(chatList), "\n")
+		if len(sliceChatList) > 5 {
+			birdBase.Delete(key)
+
+			// Send the message to the AI, with a 1 in 3 chance
+			if rand.Intn(3) == 0 {
+				replyToChats(m, message+"\n"+string(chatList), c, aiClient, ctx)
+			}
+		}
+
+		return
+	}
+
+	birdBase.Put(key, []byte(message+"."))
 }

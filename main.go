@@ -190,6 +190,14 @@ func ircClient(network Network, name string, waitGroup *sync.WaitGroup) {
 					return
 				}
 
+				key := config.OpenAI.nextApiKey()
+				whatKey = key
+				aiClient := gogpt.NewClient(key)
+
+				if config.AiBird.ReplyToChats && m.Params[0] == "#birdnest" {
+					go cacheChatsForReply(name, m.Trailing(), m, c, aiClient, ctx)
+				}
+
 				if !isUserMode(name, m.Params[0], m.Prefix.Name, "~&@%+") {
 					return
 				}
@@ -240,9 +248,6 @@ func ircClient(network Network, name string, waitGroup *sync.WaitGroup) {
 
 				cmd := parts[0]
 				message := strings.TrimSpace(parts[1])
-				key := config.OpenAI.nextApiKey()
-				whatKey = key
-				aiClient := gogpt.NewClient(key)
 
 				switch cmd {
 

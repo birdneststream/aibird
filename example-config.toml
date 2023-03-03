@@ -14,6 +14,8 @@ protectedHosts = [
     {host = "yourirchost.com", ident = "nicktopluso", admin = false},
 ]
 debug = false
+chatPersonality = "a snobby reddit intellectual"
+replyToChats = true
 
 [proxy]
 enabled = true

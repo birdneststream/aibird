@@ -70,6 +70,37 @@ func completion(m *irc.Message, message string, c *irc.Client, aiClient *gogpt.C
 	chunkToIrc(c, m, responseString)
 }
 
+// Annoying reply to chats
+func replyToChats(m *irc.Message, message string, c *irc.Client, aiClient *gogpt.Client, ctx context.Context) {
+	req := gogpt.CompletionRequest{
+		Model:       gogpt.GPT3TextDavinci003,
+		MaxTokens:   config.OpenAI.Tokens,
+		Prompt:      "As an " + config.AiBird.ChatPersonality + " reply to the following irc chats: " + message + ".",
+		Temperature: config.OpenAI.Temperature,
+	}
+
+	// Perform the actual API request to openAI
+	resp, err := aiClient.CreateCompletion(ctx, req)
+	if err != nil {
+		c.WriteMessage(&irc.Message{
+			Command: "PRIVMSG",
+			Params: []string{
+				m.Params[0],
+				err.Error(),
+			},
+		})
+
+		// err.Error() contains You exceeded your current quota
+		if strings.Contains(err.Error(), "You exceeded your current quota") {
+			log.Println("Key " + whatKey + " has exceeded its quota")
+		}
+
+		return
+	}
+
+	chunkToIrc(c, m, strings.TrimSpace(resp.Choices[0].Text))
+}
+
 func dalle(m *irc.Message, message string, c *irc.Client, aiClient *gogpt.Client, ctx context.Context, size string) {
 	req := gogpt.ImageRequest{
 		Prompt: message,
