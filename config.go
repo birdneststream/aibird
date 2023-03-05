@@ -53,11 +53,13 @@ type (
 
 	// AiBird specific configurations
 	AiBird struct {
-		ProtectedHosts  []ProtectedHosts
-		Debug           bool
-		ChatPersonality string
-		ReplyToChats    bool
-		IgnoreChatsFrom []string
+		ProtectedHosts     []ProtectedHosts
+		Debug              bool
+		ChatPersonality    string
+		ReplyToChats       bool
+		IgnoreChatsFrom    []string
+		ReplyChance        int
+		ReplyTotalMessages int
 	}
 
 	// Auto +o on join and admin features

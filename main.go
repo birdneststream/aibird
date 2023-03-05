@@ -7,6 +7,7 @@ import (
 	"log"
 	"net"
 	"os"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -195,7 +196,14 @@ func ircClient(network Network, name string, waitGroup *sync.WaitGroup) {
 				aiClient := gogpt.NewClient(key)
 
 				if config.AiBird.ReplyToChats && m.Params[0] == "#birdnest" && !shouldIgnore(m.Prefix.Name) {
-					go cacheChatsForReply(name, m.Trailing(), m, c, aiClient, ctx)
+					if strings.HasPrefix(m.Trailing(), network.Nick) {
+						msg := strings.TrimPrefix(m.Trailing(), network.Nick)
+						msg = strings.TrimSpace(msg)
+						replyToChats(m, msg, c, aiClient, ctx)
+					} else {
+						go cacheChatsForReply(name, m.Trailing(), m, c, aiClient, ctx)
+					}
+
 				}
 
 				if !isUserMode(name, m.Params[0], m.Prefix.Name, "~&@%+") {
@@ -289,48 +297,85 @@ func ircClient(network Network, name string, waitGroup *sync.WaitGroup) {
 							sdAdmin(message, c, m)
 							return
 
-						case "aibird_personality":
-							message = strings.TrimSpace(strings.TrimPrefix(message, "aibird_personality"))
+						case "personality":
+							message = strings.TrimSpace(strings.TrimPrefix(message, "personality"))
 							config.AiBird.ChatPersonality = message
 							c.WriteMessage(&irc.Message{
 								Command: "PRIVMSG",
 								Params: []string{
 									m.Params[0],
-									"Set aibird personality to " + message,
+									"Set " + network.Nick + " personality to: " + message,
 								},
 							})
 
 							return
 
-						case "birdbase":
-							message = strings.TrimSpace(strings.TrimPrefix(message, "birdbase"))
+						case "replyChance":
+							message = strings.TrimSpace(strings.TrimPrefix(message, "replyChance"))
+							replyChance, err := strconv.Atoi(message)
+							if err != nil {
+								c.WriteMessage(&irc.Message{
+									Command: "PRIVMSG",
+									Params: []string{
+										m.Params[0],
+										err.Error(),
+									},
+								})
+							}
+							config.AiBird.ReplyChance = replyChance
+							c.WriteMessage(&irc.Message{
+								Command: "PRIVMSG",
+								Params: []string{
+									m.Params[0],
+									"Set " + network.Nick + " reply chance to: " + message,
+								},
+							})
 
-							// get from database efnet_#birdnest_meta as string
-							// nickList, err := birdBase.Get([]byte(string(message + "_nicks")))
-							// if err != nil {
-							// 	log.Println(err)
-							// 	return
+							return
+
+						case "replyTotalMessages":
+							message = strings.TrimSpace(strings.TrimPrefix(message, "replyTotalMessages"))
+							replyTotalMessages, err := strconv.Atoi(message)
+							if err != nil {
+								c.WriteMessage(&irc.Message{
+									Command: "PRIVMSG",
+									Params: []string{
+										m.Params[0],
+										err.Error(),
+									},
+								})
+							}
+							config.AiBird.ReplyTotalMessages = replyTotalMessages
+							c.WriteMessage(&irc.Message{
+								Command: "PRIVMSG",
+								Params: []string{
+									m.Params[0],
+									"Set " + network.Nick + " to reply after it has cached " + message + " chats.",
+								},
+							})
+
+							return
+
+						case "nick":
+							message = strings.TrimSpace(strings.TrimPrefix(message, "nick"))
+							c.Write("NICK " + message)
+
+							// for each config.Networks and match name then update nick
+							// for networkName, networkServer := range config.Networks {
+							// 	if networkName == name {
+							// 		networkServer.Nick = message
+							// 		return
+							// 	}
 							// }
 
-							// log.Println("NICKS: " + string(nickList))
+							// c.WriteMessage(&irc.Message{
+							// 	Command: "PRIVMSG",
+							// 	Params: []string{
+							// 		m.Params[0],
+							// 		"Nick is now set as: " + network.Nick,
+							// 	},
+							// })
 
-							voiceList, err := birdBase.Get([]byte(string(message + "_autovoice")))
-							if err != nil {
-								log.Println(err)
-								return
-							}
-
-							log.Println("AUTO VOICE: " + string(voiceList))
-
-							autoOps, err := birdBase.Get([]byte(string(message + "_autoop")))
-							if err != nil {
-								log.Println(err)
-								return
-							}
-
-							log.Println("AUTO OPS: " + string(autoOps))
-
-							// chunkToIrc(c, m, message)
 							return
 						}
 					}

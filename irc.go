@@ -346,11 +346,11 @@ func cacheChatsForReply(name string, message string, m *irc.Message, c *irc.Clie
 		birdBase.Put(key, []byte(message+"."+"\n"+string(chatList)))
 
 		sliceChatList := strings.Split(message+"\n"+string(chatList), "\n")
-		if len(sliceChatList) > 5 {
+		if len(sliceChatList) >= config.AiBird.ReplyTotalMessages {
 			birdBase.Delete(key)
 
 			// Send the message to the AI, with a 1 in 3 chance
-			if rand.Intn(3) == 0 {
+			if rand.Intn(config.AiBird.ReplyChance) == 0 {
 				replyToChats(m, message+"\n"+string(chatList), c, aiClient, ctx)
 			}
 		}
