@@ -324,12 +324,11 @@ func isInList(name string, channel string, what string, user string, host string
 	return false
 }
 
-// Maybe can move this into openai.go
 func cacheChatsForReply(name string, message string, m *irc.Message, c *irc.Client, aiClient *gogpt.Client, ctx context.Context) {
 	// Get the meta data from the database
 
-	// check if message contains unicode
-	if !strings.ContainsAny(message, "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789") {
+	// if the string contains \x03 then return
+	if strings.Contains(message, "\x03") {
 		return
 	}
 
@@ -355,6 +354,73 @@ func cacheChatsForReply(name string, message string, m *irc.Message, c *irc.Clie
 			}
 		}
 
+		return
+	}
+
+	birdBase.Put(key, []byte(message+"."))
+}
+
+// Maybe can move this into openai.go
+func cacheChatsForChatGpt(name string, message string, m *irc.Message, c *irc.Client, aiClient *gogpt.Client, ctx context.Context) {
+	if strings.Contains(message, "\x03") {
+		return
+	}
+
+	key := []byte(name + "_" + m.Params[0] + "_chats_cache_gpt")
+
+	if birdBase.Has(key) {
+		chatList, err := birdBase.Get(key)
+		if err != nil {
+			log.Println(err)
+			return
+		}
+
+		birdBase.Put(key, []byte(message+"."+"\n"+string(chatList)))
+
+		sliceChatList := strings.Split(message+"\n"+string(chatList), "\n")
+
+		// reverse sliceChatList, seriously golang?
+		for i := len(sliceChatList)/2 - 1; i >= 0; i-- {
+			opp := len(sliceChatList) - 1 - i
+			sliceChatList[i], sliceChatList[opp] = sliceChatList[opp], sliceChatList[i]
+		}
+
+		if len(sliceChatList) >= config.AiBird.ChatGptTotalMessages {
+			sliceChatList = sliceChatList[:config.AiBird.ChatGptTotalMessages]
+		}
+
+		gpt3Chat := []gogpt.ChatCompletionMessage{}
+
+		// Send the message to the AI, with a 1 in 3 chance
+		gpt3Chat = append(gpt3Chat, gogpt.ChatCompletionMessage{
+			Role:    "assistant",
+			Content: "You are an " + config.AiBird.ChatPersonality + ". And must reply to the following messages:",
+		})
+
+		for i := 0; i < len(sliceChatList); i++ {
+			// if sliceChatList[i] starts with ASSISTANT:
+			if strings.HasPrefix(sliceChatList[i], "ASSISTANT: ") {
+				gpt3Chat = append(gpt3Chat, gogpt.ChatCompletionMessage{
+					Role:    "assistant",
+					Content: strings.TrimPrefix(sliceChatList[i], "ASSISTANT: "),
+				})
+			} else {
+				gpt3Chat = append(gpt3Chat, gogpt.ChatCompletionMessage{
+					Role:    "user",
+					Content: sliceChatList[i],
+				})
+			}
+		}
+
+		// reverse sliceChatList, seriously golang?
+		for i := len(sliceChatList)/2 - 1; i >= 0; i-- {
+			opp := len(sliceChatList) - 1 - i
+			sliceChatList[i], sliceChatList[opp] = sliceChatList[opp], sliceChatList[i]
+		}
+
+		birdBase.Put(key, []byte(strings.Join(sliceChatList, "\n")))
+
+		chatGpt(name, m, gpt3Chat, c, aiClient, ctx)
 		return
 	}
 

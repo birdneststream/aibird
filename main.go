@@ -206,6 +206,12 @@ func ircClient(network Network, name string, waitGroup *sync.WaitGroup) {
 
 				}
 
+				if m.Params[0] == "#chatgpt" {
+					cacheChatsForChatGpt(name, m.Trailing(), m, c, aiClient, ctx)
+
+					return
+				}
+
 				if !isUserMode(name, m.Params[0], m.Prefix.Name, "~&@%+") {
 					return
 				}
@@ -285,6 +291,13 @@ func ircClient(network Network, name string, waitGroup *sync.WaitGroup) {
 									"Reloaded config!",
 								},
 							})
+							return
+
+						case "clearcache":
+							// find all birdBase keys that contain _chats_cache
+							// and delete them
+							birdBase.DeleteAll()
+
 							return
 
 						case "raw":
@@ -382,6 +395,9 @@ func ircClient(network Network, name string, waitGroup *sync.WaitGroup) {
 
 					return
 					// Dall-e Commands
+				// case "!chatgpt":
+				// 	go chatGpt(name, m, message, c, aiClient, ctx)
+				// 	return
 				case "!dale":
 					go dalle(m, message, c, aiClient, ctx, gogpt.CreateImageSize512x512)
 					return
