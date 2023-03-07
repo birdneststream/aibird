@@ -207,7 +207,7 @@ func ircClient(network Network, name string, waitGroup *sync.WaitGroup) {
 				}
 
 				if m.Params[0] == "#chatgpt" {
-					cacheChatsForChatGpt(name, m.Trailing(), m, c, aiClient, ctx)
+					cacheChatsForChatGpt(name, m, c, aiClient, ctx)
 
 					return
 				}

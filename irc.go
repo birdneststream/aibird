@@ -361,12 +361,12 @@ func cacheChatsForReply(name string, message string, m *irc.Message, c *irc.Clie
 }
 
 // Maybe can move this into openai.go
-func cacheChatsForChatGpt(name string, message string, m *irc.Message, c *irc.Client, aiClient *gogpt.Client, ctx context.Context) {
-	if strings.Contains(message, "\x03") {
+func cacheChatsForChatGpt(name string, m *irc.Message, c *irc.Client, aiClient *gogpt.Client, ctx context.Context) {
+	if strings.Contains(m.Trailing(), "\x03") {
 		return
 	}
 
-	key := []byte(name + "_" + m.Params[0] + "_chats_cache_gpt")
+	key := []byte(name + "_" + m.Params[0] + "_chats_cache_gpt_" + m.Prefix.Name)
 
 	if birdBase.Has(key) {
 		chatList, err := birdBase.Get(key)
@@ -375,9 +375,9 @@ func cacheChatsForChatGpt(name string, message string, m *irc.Message, c *irc.Cl
 			return
 		}
 
-		birdBase.Put(key, []byte(message+"."+"\n"+string(chatList)))
+		birdBase.Put(key, []byte(m.Trailing()+"."+"\n"+string(chatList)))
 
-		sliceChatList := strings.Split(message+"\n"+string(chatList), "\n")
+		sliceChatList := strings.Split(m.Trailing()+"\n"+string(chatList), "\n")
 
 		// reverse sliceChatList, seriously golang?
 		for i := len(sliceChatList)/2 - 1; i >= 0; i-- {
@@ -424,5 +424,5 @@ func cacheChatsForChatGpt(name string, message string, m *irc.Message, c *irc.Cl
 		return
 	}
 
-	birdBase.Put(key, []byte(message+"."))
+	birdBase.Put(key, []byte(m.Trailing()+"."))
 }

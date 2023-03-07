@@ -133,7 +133,7 @@ func chatGpt(name string, m *irc.Message, message []gogpt.ChatCompletionMessage,
 		// for each ChatCompletionMessage
 		chunkToIrc(c, m, strings.TrimSpace(choice.Message.Content))
 
-		key := []byte(name + "_" + m.Params[0] + "_chats_cache_gpt")
+		key := []byte(name + "_" + m.Params[0] + "_chats_cache_gpt_" + m.Prefix.Name)
 		message := "ASSISTANT: " + strings.TrimSpace(choice.Message.Content)
 		chatList, err := birdBase.Get(key)
 		if err != nil {
