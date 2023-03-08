@@ -187,15 +187,19 @@ func ircClient(network Network, name string, waitGroup *sync.WaitGroup) {
 				return
 
 			case "PRIVMSG":
+
 				if !c.FromChannel(m) {
+					key := config.OpenAI.nextApiKey()
+					whatKey = key
+					aiClient := gogpt.NewClient(key)
+					cacheChatsForChatGpt(name, m, c, aiClient, ctx)
 					return
 				}
 
-				key := config.OpenAI.nextApiKey()
-				whatKey = key
-				aiClient := gogpt.NewClient(key)
-
 				if config.AiBird.ReplyToChats && m.Params[0] == "#birdnest" && !shouldIgnore(m.Prefix.Name) {
+					key := config.OpenAI.nextApiKey()
+					whatKey = key
+					aiClient := gogpt.NewClient(key)
 					if strings.HasPrefix(m.Trailing(), network.Nick) {
 						msg := strings.TrimPrefix(m.Trailing(), network.Nick)
 						msg = strings.TrimSpace(msg)
@@ -204,12 +208,6 @@ func ircClient(network Network, name string, waitGroup *sync.WaitGroup) {
 						go cacheChatsForReply(name, m.Trailing(), m, c, aiClient, ctx)
 					}
 
-				}
-
-				if m.Params[0] == "#chatgpt" {
-					cacheChatsForChatGpt(name, m, c, aiClient, ctx)
-
-					return
 				}
 
 				if !isUserMode(name, m.Params[0], m.Prefix.Name, "~&@%+") {
@@ -222,6 +220,10 @@ func ircClient(network Network, name string, waitGroup *sync.WaitGroup) {
 				if !strings.HasPrefix(msg, "!") {
 					return
 				}
+
+				key := config.OpenAI.nextApiKey()
+				whatKey = key
+				aiClient := gogpt.NewClient(key)
 
 				// Commands that do not need a following argument
 				switch msg {
@@ -395,9 +397,6 @@ func ircClient(network Network, name string, waitGroup *sync.WaitGroup) {
 
 					return
 					// Dall-e Commands
-				// case "!chatgpt":
-				// 	go chatGpt(name, m, message, c, aiClient, ctx)
-				// 	return
 				case "!dale":
 					go dalle(m, message, c, aiClient, ctx, gogpt.CreateImageSize512x512)
 					return

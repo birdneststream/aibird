@@ -44,7 +44,7 @@ func birdmap(m *irc.Message, message string, c *irc.Client, aiClient *gogpt.Clie
 	responseString := strings.TrimSpace(resp.Choices[0].Text)
 	for _, line := range strings.Split(responseString, "\n") {
 		// Write the final message
-		chunkToIrc(c, m, line)
+		chunkToIrc(c, m.Params[0], line)
 	}
 }
 
@@ -166,7 +166,7 @@ func aiscii(m *irc.Message, message string, c *irc.Client, aiClient *gogpt.Clien
 
 	responseString = strings.TrimSpace(resp.Choices[0].Text)
 
-	chunkToIrc(c, m, responseString)
+	chunkToIrc(c, m.Params[0], responseString)
 
 	if parts[0] == "--save" {
 		c.WriteMessage(&irc.Message{

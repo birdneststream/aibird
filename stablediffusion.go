@@ -212,7 +212,7 @@ func sdAdmin(message string, c *irc.Client, m *irc.Message) {
 			},
 		})
 
-		chunkToIrc(c, m, fmt.Sprintf("%+v", config.StableDiffusion))
+		chunkToIrc(c, m.Params[0], fmt.Sprintf("%+v", config.StableDiffusion))
 		return
 
 	case "set":

@@ -67,7 +67,7 @@ func completion(m *irc.Message, message string, c *irc.Client, aiClient *gogpt.C
 
 	responseString = strings.TrimSpace(resp.Choices[0].Text) + " ($" + total + ")"
 
-	chunkToIrc(c, m, responseString)
+	chunkToIrc(c, m.Params[0], responseString)
 }
 
 // Annoying reply to chats
@@ -98,7 +98,7 @@ func replyToChats(m *irc.Message, message string, c *irc.Client, aiClient *gogpt
 		return
 	}
 
-	chunkToIrc(c, m, strings.TrimSpace(resp.Choices[0].Text))
+	chunkToIrc(c, m.Params[0], strings.TrimSpace(resp.Choices[0].Text))
 }
 
 func chatGpt(name string, m *irc.Message, message []gogpt.ChatCompletionMessage, c *irc.Client, aiClient *gogpt.Client, ctx context.Context) {
@@ -131,7 +131,7 @@ func chatGpt(name string, m *irc.Message, message []gogpt.ChatCompletionMessage,
 	// for each ChatCompletionChoice
 	for _, choice := range resp.Choices {
 		// for each ChatCompletionMessage
-		chunkToIrc(c, m, strings.TrimSpace(choice.Message.Content))
+		chunkToIrc(c, m.Prefix.Name, strings.TrimSpace(choice.Message.Content))
 
 		key := []byte(name + "_" + m.Params[0] + "_chats_cache_gpt_" + m.Prefix.Name)
 		message := "ASSISTANT: " + strings.TrimSpace(choice.Message.Content)

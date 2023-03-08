@@ -5,7 +5,7 @@
 * Can connect to many IRC servers and many channels.
 * Supports multiple Open AI API keys and round robins them.
 * Now also supports Dall-E! Type `!dale babies mosh pit` and the results will be uploaded to filehole.org, the worlds best premier file sharing service.
-* Added ChatGPT! Just works in any irc channel called #chatgpt at the moment.
+* Added ChatGPT! PM the bot and it will reply to you.
   
 ## Some Extra Features
 

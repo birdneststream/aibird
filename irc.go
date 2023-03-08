@@ -10,7 +10,7 @@ import (
 	"gopkg.in/irc.v3"
 )
 
-func chunkToIrc(c *irc.Client, m *irc.Message, message string) {
+func chunkToIrc(c *irc.Client, channel string, message string) {
 	var sendString string
 
 	// for each new line break in response choices write to channel
@@ -36,7 +36,7 @@ func chunkToIrc(c *irc.Client, m *irc.Message, message string) {
 				c.WriteMessage(&irc.Message{
 					Command: "PRIVMSG",
 					Params: []string{
-						m.Params[0],
+						channel,
 						sendString,
 					},
 				})
@@ -48,7 +48,7 @@ func chunkToIrc(c *irc.Client, m *irc.Message, message string) {
 		c.WriteMessage(&irc.Message{
 			Command: "PRIVMSG",
 			Params: []string{
-				m.Params[0],
+				channel,
 				sendString,
 			},
 		})
@@ -368,6 +368,10 @@ func cacheChatsForChatGpt(name string, m *irc.Message, c *irc.Client, aiClient *
 
 	key := []byte(name + "_" + m.Params[0] + "_chats_cache_gpt_" + m.Prefix.Name)
 
+	if !birdBase.Has(key) {
+		birdBase.Put(key, []byte(m.Trailing()+"."))
+	}
+
 	if birdBase.Has(key) {
 		chatList, err := birdBase.Get(key)
 		if err != nil {
@@ -424,5 +428,4 @@ func cacheChatsForChatGpt(name string, m *irc.Message, c *irc.Client, aiClient *
 		return
 	}
 
-	birdBase.Put(key, []byte(m.Trailing()+"."))
 }
