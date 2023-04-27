@@ -5,13 +5,13 @@
 * Can connect to many IRC servers and many channels.
 * Supports multiple Open AI API keys and round robins them.
 * Now also supports Dall-E! Type `!dale babies mosh pit` and the results will be uploaded to filehole.org, the worlds best premier file sharing service.
-* Added ChatGPT! PM the bot and it will reply to you.
-  
+
 ## Some Extra Features
 
 * `!admin raw PRIVMSG...` - send raw commands, from a allow list in `config.toml`
 * `!admin reload` - reloads `config.toml` without restarting aibird.
-* Auto ops and auto voice, caches and remembers.
+* Auto ops for Protected Hosts.
+* Protects from +b and -o if you are in Protected Hosts list.
 * To use the bot you must have at least +v or more. Thanks qpt for constantly spamming aibird. :(
 * Stable Diffusion Integration
 

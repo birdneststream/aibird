@@ -14,10 +14,9 @@ protectedHosts = [
     {host = "yourirchost.com", ident = "nicktopluso", admin = false},
 ]
 debug = false
+showchat = true # show irc chat in log
 chatPersonality = "a snobby reddit intellectual"
 replyToChats = true
-replyChance = 3
-replyTotalMessages = 5
 ignoreChatsFrom = ['bot1','bot2']
 
 [proxy]
@@ -35,8 +34,8 @@ enabled = true
 throttle = 550
 burst = 3
 servers = [
-    {host="irc.servercentral.net", port = 6667, ssl = false, ipv6 = false},
-    {host="irc.efnet.nl", port = 6667, ssl = false, ipv6 = false}
+    {host="irc.servercentral.net", port = 6667, ssl = false},
+    {host="irc.efnet.nl", port = 6667, ssl = false}
 ]
 
 

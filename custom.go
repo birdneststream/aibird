@@ -5,10 +5,10 @@ import (
 	"strings"
 
 	gogpt "github.com/sashabaranov/go-gpt3"
-	"gopkg.in/irc.v3"
+	"github.com/yunginnanet/girc-atomic"
 )
 
-func birdmap(m *irc.Message, message string, c *irc.Client, aiClient *gogpt.Client, ctx context.Context) {
+func birdmap(e girc.Event, message string, c *girc.Client, aiClient *gogpt.Client, ctx context.Context) {
 	prompt := "Simulate an nmap scan of host " + message + " and return the results. The nmap results must include funny bird names for unix services. For example 'SecureSeedStorage' and 'SparrowSecureSSH."
 
 	req := gogpt.CompletionRequest{
@@ -20,36 +20,24 @@ func birdmap(m *irc.Message, message string, c *irc.Client, aiClient *gogpt.Clie
 		PresencePenalty:  0,
 	}
 
-	c.WriteMessage(&irc.Message{
-		Command: "PRIVMSG",
-		Params: []string{
-			m.Params[0],
-			"Running birdmap scan for: " + message + " please wait...",
-		},
-	})
+	_ = c.Cmd.Reply(e, "Running birdmap scan for: "+message+" please wait...")
 
 	resp, err := aiClient.CreateCompletion(ctx, req)
 
 	if err != nil {
-		c.WriteMessage(&irc.Message{
-			Command: "PRIVMSG",
-			Params: []string{
-				m.Params[0],
-				err.Error(),
-			},
-		})
+		_ = c.Cmd.Reply(e, err.Error())
 		return
 	}
 
 	responseString := strings.TrimSpace(resp.Choices[0].Text)
 	for _, line := range strings.Split(responseString, "\n") {
 		// Write the final message
-		chunkToIrc(c, m.Params[0], line)
+		chunkToIrc(c, e, line)
 	}
 }
 
 // aiscii function, hopefully will prevent ping timeouts
-func aiscii(m *irc.Message, message string, c *irc.Client, aiClient *gogpt.Client, ctx context.Context) {
+func aiscii(e girc.Event, message string, c *girc.Client, aiClient *gogpt.Client, ctx context.Context) {
 	var asciiName string // ai generated name
 	var responseString string
 
@@ -70,24 +58,12 @@ func aiscii(m *irc.Message, message string, c *irc.Client, aiClient *gogpt.Clien
 		PresencePenalty:  0,
 	}
 
-	c.WriteMessage(&irc.Message{
-		Command: "PRIVMSG",
-		Params: []string{
-			m.Params[0],
-			"Processing mIRC aiscii art (it can take a while): " + message,
-		},
-	})
+	_ = c.Cmd.Reply(e, "Processing mIRC aiscii art (it can take a while): "+message)
 
 	resp, err := aiClient.CreateCompletion(ctx, req)
 
 	if err != nil {
-		c.WriteMessage(&irc.Message{
-			Command: "PRIVMSG",
-			Params: []string{
-				m.Params[0],
-				err.Error(),
-			},
-		})
+		_ = c.Cmd.Reply(e, err.Error())
 		return
 	}
 
@@ -108,13 +84,7 @@ func aiscii(m *irc.Message, message string, c *irc.Client, aiClient *gogpt.Clien
 
 		resp, err := aiClient.CreateCompletion(ctx, req)
 		if err != nil {
-			c.WriteMessage(&irc.Message{
-				Command: "PRIVMSG",
-				Params: []string{
-					m.Params[0],
-					err.Error(),
-				},
-			})
+			_ = c.Cmd.Reply(e, err.Error())
 			return
 		}
 		asciiName = strings.TrimSpace(resp.Choices[0].Text)
@@ -122,25 +92,13 @@ func aiscii(m *irc.Message, message string, c *irc.Client, aiClient *gogpt.Clien
 		// get alphabet letters from asciiName only
 		asciiName := cleanFileName(asciiName)
 
-		c.WriteMessage(&irc.Message{
-			Command: "PRIVMSG",
-			Params: []string{
-				m.Params[0],
-				"@record " + asciiName,
-			},
-		})
+		_ = c.Cmd.Reply(e, "@record "+asciiName)
 	}
 
 	// for each new line break in response choices write to channel
 	for _, line := range strings.Split(responseString, "\n") {
 		// Write the final message
-		c.WriteMessage(&irc.Message{
-			Command: "PRIVMSG",
-			Params: []string{
-				m.Params[0],
-				line,
-			},
-		})
+		_ = c.Cmd.Reply(e, line)
 	}
 
 	message = "As a snobby reddit intellectual artist, shortly explain your new artistic masterpiece '" + message + "'" + " to the masses."
@@ -154,27 +112,15 @@ func aiscii(m *irc.Message, message string, c *irc.Client, aiClient *gogpt.Clien
 
 	resp, err = aiClient.CreateCompletion(ctx, req)
 	if err != nil {
-		c.WriteMessage(&irc.Message{
-			Command: "PRIVMSG",
-			Params: []string{
-				m.Params[0],
-				err.Error(),
-			},
-		})
+		_ = c.Cmd.Reply(e, err.Error())
 		return
 	}
 
 	responseString = strings.TrimSpace(resp.Choices[0].Text)
 
-	chunkToIrc(c, m.Params[0], responseString)
+	chunkToIrc(c, e, responseString)
 
 	if parts[0] == "--save" {
-		c.WriteMessage(&irc.Message{
-			Command: "PRIVMSG",
-			Params: []string{
-				m.Params[0],
-				"@end",
-			},
-		})
+		_ = c.Cmd.Reply(e, "@end")
 	}
 }
