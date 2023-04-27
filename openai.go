@@ -83,6 +83,48 @@ func replyToChats(e girc.Event, message string, c *girc.Client, aiClient *gogpt.
 	chunkToIrc(c, e, strings.TrimSpace(resp.Choices[0].Text))
 }
 
+func chatGpt(name string, e girc.Event, c *girc.Client, aiClient *gogpt.Client, message []gogpt.ChatCompletionMessage) {
+	req := gogpt.ChatCompletionRequest{
+		Model:       gogpt.GPT3Dot5Turbo,
+		MaxTokens:   config.OpenAI.Tokens,
+		Messages:    message,
+		Temperature: config.OpenAI.Temperature,
+	}
+
+	// log req
+	log.Println(req)
+
+	ctx := context.Background()
+	// Perform the actual API request to openAI
+	resp, err := aiClient.CreateChatCompletion(ctx, req)
+	if err != nil {
+		_ = c.Cmd.Reply(e, err.Error())
+
+		// err.Error() contains You exceeded your current quota
+		if strings.Contains(err.Error(), "You exceeded your current quota") {
+			log.Println("Key " + whatKey + " has exceeded its quota")
+		}
+
+		return
+	}
+
+	// for each ChatCompletionChoice
+	for _, choice := range resp.Choices {
+		// for each ChatCompletionMessage
+		chunkToIrc(c, e, strings.TrimSpace(choice.Message.Content))
+
+		key := []byte(name + "_" + e.Params[0] + "_chats_cache_gpt_" + e.Source.Name)
+		message := "AI: " + strings.TrimSpace(choice.Message.Content)
+		chatList, err := birdBase.Get(key)
+		if err != nil {
+			log.Println(err)
+			return
+		}
+
+		birdBase.Put(key, []byte(string(chatList)+"\n"+message))
+	}
+}
+
 func dalle(e girc.Event, message string, c *girc.Client, aiClient *gogpt.Client, ctx context.Context, size string) {
 	req := gogpt.ImageRequest{
 		Prompt: message,

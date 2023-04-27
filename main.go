@@ -152,6 +152,7 @@ func ircClient(network Network, name string, waitGroup *sync.WaitGroup) {
 	})
 	client.Handlers.Add(girc.PRIVMSG, func(c *girc.Client, e girc.Event) {
 		if !e.IsFromChannel() {
+			cacheChatsForChatGtp(name, e, c)
 			return
 		}
 		//TODO only get next key if doing a query

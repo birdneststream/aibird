@@ -258,3 +258,87 @@ func cacheChatsForReply(name string, message string, e girc.Event, c *girc.Clien
 
 	birdBase.Put(key, []byte(message+"."))
 }
+
+func cacheChatsForChatGtp(name string, e girc.Event, c *girc.Client) {
+	// Ignore ASCII color codes
+	if strings.Contains(e.Last(), "\x03") {
+		return
+	}
+
+	key := []byte(name + "_" + e.Params[0] + "_chats_cache_gpt_" + e.Source.Name)
+
+	if e.Last() == "!forget" {
+		birdBase.Delete(key)
+		chunkToIrc(c, e, "Okay starting fresh.")
+		return
+	}
+
+	if e.Last() == "!context" {
+		chatList, err := birdBase.Get(key)
+		if err != nil {
+			log.Println(err)
+			return
+		}
+
+		chunkToIrc(c, e, string(chatList))
+		return
+	}
+
+	aiClient := gogpt.NewClient(config.OpenAI.nextApiKey())
+
+	if !birdBase.Has(key) {
+		chunkToIrc(c, e, "Type !forget to start fresh.")
+
+		// make new empty key
+		birdBase.Put(key, []byte(""))
+	}
+
+	if birdBase.Has(key) {
+		chatList, err := birdBase.Get(key)
+		if err != nil {
+			log.Println(err)
+			return
+		}
+
+		latestChat := string(chatList) + "\n" + e.Last()
+		sliceChatList := strings.Split(latestChat, "\n")
+
+		if len(sliceChatList)-1 >= config.AiBird.ChatGptTotalMessages {
+			sliceChatList = sliceChatList[1:]
+		}
+
+		gpt3Chat := []gogpt.ChatCompletionMessage{}
+
+		gpt3Chat = append(gpt3Chat, gogpt.ChatCompletionMessage{
+			Role:    "system",
+			Content: "You are an " + config.AiBird.ChatPersonality + " and must reply to the following chats:",
+		})
+
+		for i := 0; i < len(sliceChatList); i++ {
+			// if chat is empty, skip
+			if sliceChatList[i] == "" {
+				continue
+			}
+
+			// if sliceChatList starts with "AIBIRD :" then
+			if strings.HasPrefix(sliceChatList[i], "AI: ") {
+				gpt3Chat = append(gpt3Chat, gogpt.ChatCompletionMessage{
+					Role:    "assistant",
+					Content: strings.Split(sliceChatList[i], "AI: ")[1],
+				})
+			} else {
+				gpt3Chat = append(gpt3Chat, gogpt.ChatCompletionMessage{
+					Role:    "user",
+					Content: sliceChatList[i],
+				})
+			}
+
+		}
+
+		birdBase.Put(key, []byte(strings.Join(sliceChatList, "\n")))
+
+		chatGpt(name, e, c, aiClient, gpt3Chat)
+
+		return
+	}
+}

@@ -47,7 +47,7 @@ func aiscii(e girc.Event, message string, c *girc.Client, aiClient *gogpt.Client
 		message = parts[1]
 	}
 
-	prompt := "Use the UTF-8 drawing characters and mIRC color codes (using ) to make a monospaced text art 80 characters wide and 40 characters long depicting '" + message + "'."
+	prompt := "Use the UTF-8 drawing characters and mIRC color codes (using ) to make a monospaced text art 80 characters wide and 30 characters height depicting '" + message + "'."
 
 	req := gogpt.CompletionRequest{
 		Model:            gogpt.GPT3TextDavinci003,

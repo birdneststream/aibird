@@ -1,8 +1,7 @@
 [openai]
 keys = [
-"sk-aishouldbefreeanyway",
-"sk-aishouldbefreeanyway",
-"sk-aishouldbefreeanyway",
+"sk-freeai",
+"sk-freeai",
 ]
 tokens = 2500
 model = "text-davinci-003"
@@ -10,50 +9,19 @@ temperature = 0.8
 
 [aibird]
 protectedHosts = [
-    {host = "yourirchost.com", ident = "nicktopluso", admin = true},
-    {host = "yourirchost.com", ident = "nicktopluso", admin = false},
+    {host = "admin.com", ident = "admin", admin = true},
+    {host = "friendlyadmin.com", ident = "admin", admin = true},
 ]
-debug = false
-showchat = true # show irc chat in log
-chatPersonality = "a snobby reddit intellectual"
+debug = true
+chatPersonality = "an overexcited milf from outter space"
 replyToChats = true
-ignoreChatsFrom = ['bot1','bot2']
+replyChance = 1
+replyTotalMessages = 5
+ignoreChatsFrom = ['bot','badspammer']
+chatGptTotalMessages = 20
 
-[proxy]
-enabled = true
-type = "" # http or https or socks5
-username = ""
-password = ""
-host = ""
-port = 8081
-
-[networks.efnet]
-nick = "aibird"
-channels = ["#birdnest"]
-enabled = true
-throttle = 550
-burst = 3
-servers = [
-    {host="irc.servercentral.net", port = 6667, ssl = false},
-    {host="irc.efnet.nl", port = 6667, ssl = false}
-]
-
-
-[networks."tcpdirect irc"]
-nick = "aibird"
-channels = ["#birdnest", "#tcpdirect"]
-enabled = true
-throttle = 0
-burst = 0
-[[networks."tcpdirect irc".servers]]
-host = "ircd.chat"
-port = 6697
-ssl = true
-pass = ""
-
-
-[stable-diffusion]
-negativePrompt = "saturated, comic, cartoon"
+[stablediffusion]
+negativePrompt = ""
 steps = 10
 sampler = "DDIM"
 restoreFace = true
@@ -61,5 +29,40 @@ cfgScale = 8
 host = "http://127.0.0.1:7860"
 width = 512
 height = 640
-badWords = ["greta","thunburg"]
-badWordsPrompt = "FBI Agent Making an Arrest."
+badWords = ["greta","thunburg","bindi","irwin"]
+badWordsPrompt = "FBI Agent making an arrest."
+
+[networks.efnet]
+nick = "aibird"
+channels = ["#birdnest"]
+enabled = false
+throttle = 550
+burst = 1
+pass = ""
+servers = [
+    {host="efnet.port80.se", port = 6697, ssl = true, ipv6 = true},
+]
+
+[networks."tcpdirect irc"]
+nick = "aibird"
+channels = ["#birdnest"]
+enabled = false
+throttle = 0
+burst = 0
+pass = ""
+[[networks."tcpdirect irc".servers]]
+host = "ircd.chat"
+port = 6697
+ssl = true
+
+[networks.birdnest]
+enabled = false
+nick = "aibird"
+throttle = 50
+burst = 3
+channels = ["#birdnest"]
+[[networks.birdnest.servers]]
+host = "irc.birdnest.live"
+port = 6697
+ssl = true
+ipv6 = false
