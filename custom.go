@@ -1,14 +1,13 @@
 package main
 
 import (
-	"context"
 	"strings"
 
 	gogpt "github.com/sashabaranov/go-gpt3"
 	"github.com/yunginnanet/girc-atomic"
 )
 
-func birdmap(e girc.Event, message string, c *girc.Client, aiClient *gogpt.Client, ctx context.Context) {
+func birdmap(e girc.Event, message string, c *girc.Client, aiClient *gogpt.Client) {
 	prompt := "Simulate an nmap scan of host " + message + " and return the results. The nmap results must include funny bird names for unix services. For example 'SecureSeedStorage' and 'SparrowSecureSSH."
 
 	req := gogpt.CompletionRequest{
@@ -37,7 +36,7 @@ func birdmap(e girc.Event, message string, c *girc.Client, aiClient *gogpt.Clien
 }
 
 // aiscii function, hopefully will prevent ping timeouts
-func aiscii(e girc.Event, message string, c *girc.Client, aiClient *gogpt.Client, ctx context.Context) {
+func aiscii(e girc.Event, message string, c *girc.Client, aiClient *gogpt.Client) {
 	var asciiName string // ai generated name
 	var responseString string
 

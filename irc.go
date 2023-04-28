@@ -1,7 +1,6 @@
 package main
 
 import (
-	"context"
 	"log"
 	"math/rand"
 	"strings"
@@ -223,7 +222,7 @@ func isInList(name string, channel string, what string, user string, host string
 }
 
 // Maybe can move this into openai.go
-func cacheChatsForReply(name string, message string, e girc.Event, c *girc.Client, aiClient *gogpt.Client, ctx context.Context) {
+func cacheChatsForReply(name string, message string, e girc.Event, c *girc.Client) {
 	// Get the meta data from the database
 
 	// check if message contains unicode
@@ -249,7 +248,7 @@ func cacheChatsForReply(name string, message string, e girc.Event, c *girc.Clien
 
 			// Send the message to the AI, with a 1 in 3 chance
 			if rand.Intn(3) == 0 {
-				replyToChats(e, message+"\n"+string(chatList), c, aiClient, ctx)
+				replyToChats(e, message+"\n"+string(chatList), c)
 			}
 		}
 

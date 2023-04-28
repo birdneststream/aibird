@@ -12,7 +12,7 @@ import (
 	"github.com/yunginnanet/girc-atomic"
 )
 
-func completion(e girc.Event, message string, c *girc.Client, aiClient *gogpt.Client, ctx context.Context, model string, cost float64) {
+func completion(e girc.Event, message string, c *girc.Client, aiClient *gogpt.Client, model string, cost float64) {
 	var responseString string
 
 	req := gogpt.CompletionRequest{
@@ -59,7 +59,10 @@ func completion(e girc.Event, message string, c *girc.Client, aiClient *gogpt.Cl
 }
 
 // Annoying reply to chats
-func replyToChats(e girc.Event, message string, c *girc.Client, aiClient *gogpt.Client, ctx context.Context) {
+func replyToChats(e girc.Event, message string, c *girc.Client) {
+	key := config.OpenAI.nextApiKey()
+	aiClient := gogpt.NewClient(key)
+
 	req := gogpt.CompletionRequest{
 		Model:       gogpt.GPT3TextDavinci003,
 		MaxTokens:   config.OpenAI.Tokens,
@@ -74,7 +77,7 @@ func replyToChats(e girc.Event, message string, c *girc.Client, aiClient *gogpt.
 
 		// err.Error() contains You exceeded your current quota
 		if strings.Contains(err.Error(), "You exceeded your current quota") {
-			log.Println("Key " + whatKey + " has exceeded its quota")
+			log.Println("Key " + key + " has exceeded its quota")
 		}
 
 		return
@@ -90,9 +93,6 @@ func chatGpt(name string, e girc.Event, c *girc.Client, aiClient *gogpt.Client, 
 		Messages:    message,
 		Temperature: config.OpenAI.Temperature,
 	}
-
-	// log req
-	log.Println(req)
 
 	ctx := context.Background()
 	// Perform the actual API request to openAI
@@ -125,7 +125,7 @@ func chatGpt(name string, e girc.Event, c *girc.Client, aiClient *gogpt.Client, 
 	}
 }
 
-func dalle(e girc.Event, message string, c *girc.Client, aiClient *gogpt.Client, ctx context.Context, size string) {
+func dalle(e girc.Event, message string, c *girc.Client, aiClient *gogpt.Client, size string) {
 	req := gogpt.ImageRequest{
 		Prompt: message,
 		Size:   size,

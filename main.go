@@ -53,7 +53,8 @@ func main() {
 	os.Exit(0)
 }
 
-var whatKey string // keeps track of the current ai key to alert expired
+var whatKey string             // keeps track of the current ai key to alert expired
+var ctx = context.Background() // Initialise the openAI api client
 
 func ircClient(network Network, name string, waitGroup *sync.WaitGroup) {
 	defer waitGroup.Done()
@@ -64,9 +65,6 @@ func ircClient(network Network, name string, waitGroup *sync.WaitGroup) {
 	// Model we will use
 	var model string
 	var cost float64
-
-	// Initialise the openAI api client
-	ctx := context.Background()
 
 	ircConfig := girc.Config{
 		Server:     ircServer.Host,
@@ -103,7 +101,10 @@ func ircClient(network Network, name string, waitGroup *sync.WaitGroup) {
 		//sometimes the errors are reconnecting too fast etc
 	})
 	client.Handlers.Add(girc.RPL_WELCOME, func(c *girc.Client, e girc.Event) {
-		c.Cmd.Join(network.Channels...)
+		for _, channel := range network.Channels {
+			c.Cmd.Join(channel)
+			time.Sleep(network.Throttle * time.Millisecond)
+		}
 	})
 	client.Handlers.Add(girc.RPL_NAMREPLY, func(c *girc.Client, e girc.Event) {
 		cacheNicks(name, e)
@@ -140,10 +141,8 @@ func ircClient(network Network, name string, waitGroup *sync.WaitGroup) {
 		time.Sleep(network.Throttle * time.Millisecond)
 
 		// Only want to cache this if we have ops
-		// if isUserMode(name, e.Params[0], network.Nick, "@") {
 		_ = c.Cmd.SendRaw("WHO " + e.Params[0])
 		time.Sleep(network.Throttle * time.Millisecond)
-		// }
 	})
 	client.Handlers.Add(girc.KICK, func(c *girc.Client, e girc.Event) {
 		if e.Params[1] == c.GetNick() {
@@ -151,17 +150,17 @@ func ircClient(network Network, name string, waitGroup *sync.WaitGroup) {
 		}
 	})
 	client.Handlers.Add(girc.PRIVMSG, func(c *girc.Client, e girc.Event) {
+		if shouldIgnore(e.Source.Name) {
+			return
+		}
+
 		if !e.IsFromChannel() {
 			cacheChatsForChatGtp(name, e, c)
 			return
 		}
-		//TODO only get next key if doing a query
-		key := config.OpenAI.nextApiKey()
-		whatKey = key
-		aiClient := gogpt.NewClient(key)
 
-		if config.AiBird.ReplyToChats && e.Params[0] == "#birdnest" && !shouldIgnore(e.Source.Name) {
-			go cacheChatsForReply(name, e.Last(), e, c, aiClient, ctx)
+		if config.AiBird.ReplyToChats && e.Params[0] == "#birdnest" {
+			go cacheChatsForReply(name, e.Last(), e, c)
 		}
 
 		if !isUserMode(name, e.Params[0], e.Source.Name, "~&@%+") {
@@ -185,6 +184,10 @@ func ircClient(network Network, name string, waitGroup *sync.WaitGroup) {
 
 		cmd := parts[0]
 		message := strings.TrimSpace(parts[1])
+
+		key := config.OpenAI.nextApiKey()
+		whatKey = key
+		aiClient := gogpt.NewClient(key)
 
 		switch cmd {
 
@@ -244,20 +247,20 @@ func ircClient(network Network, name string, waitGroup *sync.WaitGroup) {
 			return
 			// Dall-e Commands
 		case "!dale":
-			go dalle(e, message, c, aiClient, ctx, gogpt.CreateImageSize512x512)
+			go dalle(e, message, c, aiClient, gogpt.CreateImageSize512x512)
 			return
 		case "!dale256":
-			go dalle(e, message, c, aiClient, ctx, gogpt.CreateImageSize256x256)
+			go dalle(e, message, c, aiClient, gogpt.CreateImageSize256x256)
 			return
 		case "!dale1024":
-			go dalle(e, message, c, aiClient, ctx, gogpt.CreateImageSize1024x1024)
+			go dalle(e, message, c, aiClient, gogpt.CreateImageSize1024x1024)
 			return
 		// Custom prompt to make better mirc art
 		case "!aiscii":
-			go aiscii(e, message, c, aiClient, ctx)
+			go aiscii(e, message, c, aiClient)
 			return
 		case "!birdmap":
-			go birdmap(e, message, c, aiClient, ctx)
+			go birdmap(e, message, c, aiClient)
 			return
 		// Stable diffusion prompts
 		case "!sd":
@@ -300,7 +303,7 @@ func ircClient(network Network, name string, waitGroup *sync.WaitGroup) {
 			return
 		}
 
-		go completion(e, message, c, aiClient, ctx, model, cost)
+		go completion(e, message, c, aiClient, model, cost)
 
 		return
 	})
