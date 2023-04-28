@@ -159,12 +159,17 @@ func ircClient(network Network, name string, waitGroup *sync.WaitGroup) {
 			return
 		}
 
-		if config.AiBird.ReplyToChats && e.Params[0] == "#birdnest" {
-			go cacheChatsForReply(name, e.Last(), e, c)
-		}
-
 		if !isUserMode(name, e.Params[0], e.Source.Name, "~&@%+") {
 			return
+		}
+
+		if config.AiBird.ReplyToChats {
+			if strings.HasPrefix(e.Last(), network.Nick) {
+				go replyToChats(e, e.Last(), c)
+				return
+			} else if e.Params[0] == "#birdnest" {
+				go cacheChatsForReply(name, e.Last(), e, c)
+			}
 		}
 
 		msg := e.Last()

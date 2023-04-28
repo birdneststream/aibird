@@ -1,7 +1,6 @@
 package main
 
 import (
-	"crypto/sha256"
 	"encoding/hex"
 	"log"
 	"math/rand"
@@ -349,9 +348,4 @@ func cacheChatsForChatGtp(name string, e girc.Event, c *girc.Client) {
 
 		return
 	}
-}
-
-func NewSHA256(data []byte) []byte {
-	hash := sha256.Sum256(data)
-	return hash[:]
 }
