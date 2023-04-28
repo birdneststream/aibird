@@ -7,7 +7,7 @@ import (
 	"github.com/yunginnanet/girc-atomic"
 )
 
-func birdmap(e girc.Event, message string, c *girc.Client, aiClient *gogpt.Client) {
+func birdmap(e girc.Event, message string, c *girc.Client) {
 	prompt := "Simulate an nmap scan of host " + message + " and return the results. The nmap results must include funny bird names for unix services. For example 'SecureSeedStorage' and 'SparrowSecureSSH."
 
 	req := gogpt.CompletionRequest{
@@ -21,10 +21,10 @@ func birdmap(e girc.Event, message string, c *girc.Client, aiClient *gogpt.Clien
 
 	_ = c.Cmd.Reply(e, "Running birdmap scan for: "+message+" please wait...")
 
-	resp, err := aiClient.CreateCompletion(ctx, req)
+	resp, err := aiClient().CreateCompletion(ctx, req)
 
 	if err != nil {
-		_ = c.Cmd.Reply(e, err.Error())
+		handleApiError(c, e, err)
 		return
 	}
 
@@ -36,7 +36,7 @@ func birdmap(e girc.Event, message string, c *girc.Client, aiClient *gogpt.Clien
 }
 
 // aiscii function, hopefully will prevent ping timeouts
-func aiscii(e girc.Event, message string, c *girc.Client, aiClient *gogpt.Client) {
+func aiscii(e girc.Event, message string, c *girc.Client) {
 	var asciiName string // ai generated name
 	var responseString string
 
@@ -59,10 +59,10 @@ func aiscii(e girc.Event, message string, c *girc.Client, aiClient *gogpt.Client
 
 	_ = c.Cmd.Reply(e, "Processing mIRC aiscii art (it can take a while): "+message)
 
-	resp, err := aiClient.CreateCompletion(ctx, req)
+	resp, err := aiClient().CreateCompletion(ctx, req)
 
 	if err != nil {
-		_ = c.Cmd.Reply(e, err.Error())
+		handleApiError(c, e, err)
 		return
 	}
 
@@ -81,9 +81,9 @@ func aiscii(e girc.Event, message string, c *girc.Client, aiClient *gogpt.Client
 			PresencePenalty:  0.3,
 		}
 
-		resp, err := aiClient.CreateCompletion(ctx, req)
+		resp, err := aiClient().CreateCompletion(ctx, req)
 		if err != nil {
-			_ = c.Cmd.Reply(e, err.Error())
+			handleApiError(c, e, err)
 			return
 		}
 		asciiName = strings.TrimSpace(resp.Choices[0].Text)
@@ -109,9 +109,9 @@ func aiscii(e girc.Event, message string, c *girc.Client, aiClient *gogpt.Client
 		Temperature: 1.1,
 	}
 
-	resp, err = aiClient.CreateCompletion(ctx, req)
+	resp, err = aiClient().CreateCompletion(ctx, req)
 	if err != nil {
-		_ = c.Cmd.Reply(e, err.Error())
+		handleApiError(c, e, err)
 		return
 	}
 

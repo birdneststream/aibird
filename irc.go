@@ -283,8 +283,6 @@ func cacheChatsForChatGtp(name string, e girc.Event, c *girc.Client) {
 		return
 	}
 
-	aiClient := gogpt.NewClient(config.OpenAI.nextApiKey())
-
 	if !birdBase.Has(key) {
 		chunkToIrc(c, e, "Type !forget to start fresh.")
 
@@ -336,7 +334,7 @@ func cacheChatsForChatGtp(name string, e girc.Event, c *girc.Client) {
 
 		birdBase.Put(key, []byte(strings.Join(sliceChatList, "\n")))
 
-		chatGpt(name, e, c, aiClient, gpt3Chat)
+		chatGpt(name, e, c, gpt3Chat)
 
 		return
 	}

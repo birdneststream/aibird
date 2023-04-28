@@ -99,6 +99,7 @@ func ircClient(network Network, name string, waitGroup *sync.WaitGroup) {
 		log.Println("Server error: " + e.String())
 		//On an error we should wait ~120seconds then reconnect
 		//sometimes the errors are reconnecting too fast etc
+		// Nah we will just wait 5 seconds instead hahaha
 	})
 	client.Handlers.Add(girc.RPL_WELCOME, func(c *girc.Client, e girc.Event) {
 		for _, channel := range network.Channels {
@@ -155,7 +156,7 @@ func ircClient(network Network, name string, waitGroup *sync.WaitGroup) {
 		}
 
 		if !e.IsFromChannel() {
-			cacheChatsForChatGtp(name, e, c)
+			go cacheChatsForChatGtp(name, e, c)
 			return
 		}
 
@@ -184,10 +185,6 @@ func ircClient(network Network, name string, waitGroup *sync.WaitGroup) {
 
 		cmd := parts[0]
 		message := strings.TrimSpace(parts[1])
-
-		key := config.OpenAI.nextApiKey()
-		whatKey = key
-		aiClient := gogpt.NewClient(key)
 
 		switch cmd {
 
@@ -247,20 +244,20 @@ func ircClient(network Network, name string, waitGroup *sync.WaitGroup) {
 			return
 			// Dall-e Commands
 		case "!dale":
-			go dalle(e, message, c, aiClient, gogpt.CreateImageSize512x512)
+			go dalle(e, message, c, gogpt.CreateImageSize512x512)
 			return
 		case "!dale256":
-			go dalle(e, message, c, aiClient, gogpt.CreateImageSize256x256)
+			go dalle(e, message, c, gogpt.CreateImageSize256x256)
 			return
 		case "!dale1024":
-			go dalle(e, message, c, aiClient, gogpt.CreateImageSize1024x1024)
+			go dalle(e, message, c, gogpt.CreateImageSize1024x1024)
 			return
 		// Custom prompt to make better mirc art
 		case "!aiscii":
-			go aiscii(e, message, c, aiClient)
+			go aiscii(e, message, c)
 			return
 		case "!birdmap":
-			go birdmap(e, message, c, aiClient)
+			go birdmap(e, message, c)
 			return
 		// Stable diffusion prompts
 		case "!sd":
@@ -303,9 +300,7 @@ func ircClient(network Network, name string, waitGroup *sync.WaitGroup) {
 			return
 		}
 
-		go completion(e, message, c, aiClient, model, cost)
-
-		return
+		go completion(e, message, c, model, cost)
 	})
 
 	client.Handlers.Add(girc.PRIVMSG, func(c *girc.Client, e girc.Event) {
@@ -325,6 +320,7 @@ func ircClient(network Network, name string, waitGroup *sync.WaitGroup) {
 			// cycle irc channels and update modes
 			for _, channel := range network.Channels {
 				c.Send(&girc.Event{Command: "WHO", Params: []string{channel}})
+				time.Sleep(network.Throttle * time.Millisecond)
 			}
 			return
 		}
@@ -333,8 +329,8 @@ func ircClient(network Network, name string, waitGroup *sync.WaitGroup) {
 	for {
 		if err := client.Connect(); err != nil {
 			log.Printf("%s error: %s", name, err)
-			log.Println("reconnecting in 30 seconds...")
-			time.Sleep(30 * time.Second)
+			log.Println("reconnecting in 5 seconds...")
+			time.Sleep(5 * time.Second)
 		} else {
 			log.Println("Got to the end, quitting " + name)
 			waitGroup.Add(1)

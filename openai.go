@@ -1,7 +1,6 @@
 package main
 
 import (
-	"context"
 	"log"
 	"math/rand"
 	"path/filepath"
@@ -12,7 +11,7 @@ import (
 	"github.com/yunginnanet/girc-atomic"
 )
 
-func completion(e girc.Event, message string, c *girc.Client, aiClient *gogpt.Client, model string, cost float64) {
+func completion(e girc.Event, message string, c *girc.Client, model string, cost float64) {
 	var responseString string
 
 	req := gogpt.CompletionRequest{
@@ -38,15 +37,9 @@ func completion(e girc.Event, message string, c *girc.Client, aiClient *gogpt.Cl
 	_ = c.Cmd.Reply(e, "Processing: "+message)
 
 	// Perform the actual API request to openAI
-	resp, err := aiClient.CreateCompletion(ctx, req)
+	resp, err := aiClient().CreateCompletion(ctx, req)
 	if err != nil {
-		_ = c.Cmd.Reply(e, err.Error())
-
-		// err.Error() contains You exceeded your current quota
-		if strings.Contains(err.Error(), "You exceeded your current quota") {
-			log.Println("Key " + whatKey + " has exceeded its quota")
-		}
-
+		handleApiError(c, e, err)
 		return
 	}
 
@@ -60,9 +53,6 @@ func completion(e girc.Event, message string, c *girc.Client, aiClient *gogpt.Cl
 
 // Annoying reply to chats
 func replyToChats(e girc.Event, message string, c *girc.Client) {
-	key := config.OpenAI.nextApiKey()
-	aiClient := gogpt.NewClient(key)
-
 	req := gogpt.CompletionRequest{
 		Model:       gogpt.GPT3TextDavinci003,
 		MaxTokens:   config.OpenAI.Tokens,
@@ -71,22 +61,16 @@ func replyToChats(e girc.Event, message string, c *girc.Client) {
 	}
 
 	// Perform the actual API request to openAI
-	resp, err := aiClient.CreateCompletion(ctx, req)
+	resp, err := aiClient().CreateCompletion(ctx, req)
 	if err != nil {
-		_ = c.Cmd.Reply(e, err.Error())
-
-		// err.Error() contains You exceeded your current quota
-		if strings.Contains(err.Error(), "You exceeded your current quota") {
-			log.Println("Key " + key + " has exceeded its quota")
-		}
-
+		handleApiError(c, e, err)
 		return
 	}
 
 	chunkToIrc(c, e, strings.TrimSpace(resp.Choices[0].Text))
 }
 
-func chatGpt(name string, e girc.Event, c *girc.Client, aiClient *gogpt.Client, message []gogpt.ChatCompletionMessage) {
+func chatGpt(name string, e girc.Event, c *girc.Client, message []gogpt.ChatCompletionMessage) {
 	req := gogpt.ChatCompletionRequest{
 		Model:       gogpt.GPT3Dot5Turbo,
 		MaxTokens:   config.OpenAI.Tokens,
@@ -94,17 +78,10 @@ func chatGpt(name string, e girc.Event, c *girc.Client, aiClient *gogpt.Client, 
 		Temperature: config.OpenAI.Temperature,
 	}
 
-	ctx := context.Background()
 	// Perform the actual API request to openAI
-	resp, err := aiClient.CreateChatCompletion(ctx, req)
+	resp, err := aiClient().CreateChatCompletion(ctx, req)
 	if err != nil {
-		_ = c.Cmd.Reply(e, err.Error())
-
-		// err.Error() contains You exceeded your current quota
-		if strings.Contains(err.Error(), "You exceeded your current quota") {
-			log.Println("Key " + whatKey + " has exceeded its quota")
-		}
-
+		handleApiError(c, e, err)
 		return
 	}
 
@@ -125,7 +102,7 @@ func chatGpt(name string, e girc.Event, c *girc.Client, aiClient *gogpt.Client, 
 	}
 }
 
-func dalle(e girc.Event, message string, c *girc.Client, aiClient *gogpt.Client, size string) {
+func dalle(e girc.Event, message string, c *girc.Client, size string) {
 	req := gogpt.ImageRequest{
 		Prompt: message,
 		Size:   size,
@@ -135,9 +112,9 @@ func dalle(e girc.Event, message string, c *girc.Client, aiClient *gogpt.Client,
 	// Alert the irc chan that the bot is processing
 	_ = c.Cmd.Reply(e, "Processing Dall-E: "+message)
 
-	resp, err := aiClient.CreateImage(ctx, req)
+	resp, err := aiClient().CreateImage(ctx, req)
 	if err != nil {
-		_ = c.Cmd.Reply(e, err.Error())
+		handleApiError(c, e, err)
 		return
 	}
 
@@ -163,4 +140,19 @@ func saveDalleRequest(prompt string, url string) string {
 	content := fileHole("https://filehole.org/", fileName)
 
 	return string(content)
+}
+
+func aiClient() *gogpt.Client {
+	key := config.OpenAI.nextApiKey()
+	whatKey = key
+	return gogpt.NewClient(key)
+}
+
+func handleApiError(c *girc.Client, e girc.Event, err error) {
+	_ = c.Cmd.Reply(e, err.Error())
+
+	// err.Error() contains You exceeded your current quota
+	if strings.Contains(err.Error(), "You exceeded your current quota") {
+		log.Println("Key " + whatKey + " has exceeded its quota")
+	}
 }
