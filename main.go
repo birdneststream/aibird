@@ -32,8 +32,11 @@ func main() {
 	// Load json config
 	loadConfig()
 
-	db, _ := bitcask.Open("bird.db")
-	birdBase = db
+	var err error
+	birdBase, err = bitcask.Open("bird.db")
+	if err != nil {
+		log.Fatal(err)
+	}
 
 	log.Println("AI bot connecting to IRC, please wait")
 
@@ -116,13 +119,13 @@ func ircClient(network Network, name string, waitGroup *sync.WaitGroup) {
 		// Only want to do these if we already have ops
 		if isUserMode(name, e.Params[0], network.Nick, "@") {
 			// Auto Op
-			if isInList(name, e.Params[0], "op", e.Source.Ident, e.Source.Host) {
+			if isInList(name, e.Params[0], "o", e.Source.Ident, e.Source.Host) {
 				c.Cmd.Mode(e.Params[0], "+o", e.Source.Name)
 				return
 			}
 
 			// Auto Voice
-			if isInList(name, e.Params[0], "voice", e.Source.Ident, e.Source.Host) {
+			if isInList(name, e.Params[0], "v", e.Source.Ident, e.Source.Host) {
 				c.Cmd.Mode(e.Params[0], "+v", e.Source.Name)
 				return
 			}

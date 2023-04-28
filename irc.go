@@ -1,8 +1,11 @@
 package main
 
 import (
+	"crypto/sha256"
+	"hash/adler32"
 	"log"
 	"math/rand"
+	"strconv"
 	"strings"
 
 	gogpt "github.com/sashabaranov/go-gpt3"
@@ -198,17 +201,21 @@ func cacheAutoLists(name string, e girc.Event) {
 	host := e.Params[3]
 	status := e.Params[6]
 
+	// adler32 hash because some host names were too long and caused issues with bitcask key length
+	hash := adler32.Checksum([]byte(host))
+	hashString := strconv.FormatUint(uint64(hash), 10)
+
 	// If the user is not in the list and has +v
-	autoVoiceKey := []byte(name + "_" + channel + "_voice_" + user + "_" + host)
-	if strings.Contains(status, "+") && !isInList(name, channel, "voice", user, host) {
+	autoVoiceKey := []byte(name + channel + "v" + user + hashString)
+	if strings.Contains(status, "+") && !birdBase.Has(autoVoiceKey) {
 		birdBase.Put(autoVoiceKey, []byte(""))
 	} else if !strings.Contains(status, "+") {
 		birdBase.Delete(autoVoiceKey)
 	}
 
 	// If the user is not in the list and has +o
-	autoOpKey := []byte(name + "_" + channel + "_op_" + user + "_" + host)
-	if strings.Contains(status, "@") && !isInList(name, channel, "op", user, host) {
+	autoOpKey := []byte(name + channel + "o" + user + hashString)
+	if strings.Contains(status, "@") && !birdBase.Has(autoOpKey) {
 		birdBase.Put(autoOpKey, []byte(""))
 	} else if !strings.Contains(status, "@") {
 		birdBase.Delete(autoOpKey)
@@ -218,7 +225,11 @@ func cacheAutoLists(name string, e girc.Event) {
 
 // This one doesn't rely on e.Params which can change depending on what event has occurred.
 func isInList(name string, channel string, what string, user string, host string) bool {
-	key := []byte(name + "_" + channel + "_" + what + "_" + user + "_" + host)
+	// adler32 hash because some host names were too long and caused issues with bitcask key length
+	hash := adler32.Checksum([]byte(host))
+	hashString := strconv.FormatUint(uint64(hash), 10)
+
+	key := []byte(name + channel + what + user + hashString)
 
 	return birdBase.Has(key)
 }
@@ -340,4 +351,9 @@ func cacheChatsForChatGtp(name string, e girc.Event, c *girc.Client) {
 
 		return
 	}
+}
+
+func NewSHA256(data []byte) []byte {
+	hash := sha256.Sum256(data)
+	return hash[:]
 }
