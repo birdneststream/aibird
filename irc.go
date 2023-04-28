@@ -88,22 +88,24 @@ func isUserMode(name string, channel string, user string, modes string) bool {
 	key := []byte(name + "_" + channel + "_nicks")
 
 	// Get the meta data from the database
-	nickList, err := birdBase.Get(key)
-	if err != nil {
-		log.Println(err)
-		return false
-	}
+	if birdBase.Has(key) {
+		nickList, err := birdBase.Get(key)
+		if err != nil {
+			log.Println(err)
+			return false
+		}
 
-	sliceNickList := strings.Split(string(nickList), " ")
-	whatModes := strings.Split(modes, "")
+		sliceNickList := strings.Split(string(nickList), " ")
+		whatModes := strings.Split(modes, "")
 
-	for j := 0; j < len(sliceNickList); j++ {
-		checkNick := cleanFromModes(sliceNickList[j])
+		for j := 0; j < len(sliceNickList); j++ {
+			checkNick := cleanFromModes(sliceNickList[j])
 
-		if checkNick == user {
-			for k := 0; k < len(whatModes); k++ {
-				if strings.Contains(sliceNickList[j], whatModes[k]) {
-					return true
+			if checkNick == user {
+				for k := 0; k < len(whatModes); k++ {
+					if strings.Contains(sliceNickList[j], whatModes[k]) {
+						return true
+					}
 				}
 			}
 		}
@@ -199,7 +201,7 @@ func cacheAutoLists(name string, e girc.Event) {
 	// If the user is not in the list and has +v
 	autoVoiceKey := []byte(name + "_" + channel + "_voice_" + user + "_" + host)
 	if strings.Contains(status, "+") && !isInList(name, channel, "voice", user, host) {
-		birdBase.Put(autoVoiceKey, nil)
+		birdBase.Put(autoVoiceKey, []byte(""))
 	} else if !strings.Contains(status, "+") {
 		birdBase.Delete(autoVoiceKey)
 	}
@@ -207,7 +209,7 @@ func cacheAutoLists(name string, e girc.Event) {
 	// If the user is not in the list and has +o
 	autoOpKey := []byte(name + "_" + channel + "_op_" + user + "_" + host)
 	if strings.Contains(status, "@") && !isInList(name, channel, "op", user, host) {
-		birdBase.Put(autoOpKey, nil)
+		birdBase.Put(autoOpKey, []byte(""))
 	} else if !strings.Contains(status, "@") {
 		birdBase.Delete(autoOpKey)
 	}

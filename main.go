@@ -62,10 +62,6 @@ func ircClient(network Network, name string, waitGroup *sync.WaitGroup) {
 	// Choose a random IRC server to connect to within the network
 	var ircServer Server = network.returnRandomServer()
 
-	// Model we will use
-	var model string
-	var cost float64
-
 	ircConfig := girc.Config{
 		Server:     ircServer.Host,
 		Port:       ircServer.Port,
@@ -185,6 +181,10 @@ func ircClient(network Network, name string, waitGroup *sync.WaitGroup) {
 
 		cmd := parts[0]
 		message := strings.TrimSpace(parts[1])
+
+		// Model we will use
+		var model string
+		var cost float64
 
 		switch cmd {
 
@@ -329,8 +329,8 @@ func ircClient(network Network, name string, waitGroup *sync.WaitGroup) {
 	for {
 		if err := client.Connect(); err != nil {
 			log.Printf("%s error: %s", name, err)
-			log.Println("reconnecting in 5 seconds...")
-			time.Sleep(5 * time.Second)
+			log.Println("reconnecting in 30 seconds...")
+			time.Sleep(30 * time.Second)
 		} else {
 			log.Println("Got to the end, quitting " + name)
 			waitGroup.Add(1)
