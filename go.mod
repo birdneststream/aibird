@@ -7,6 +7,7 @@ require (
 	github.com/BurntSushi/toml v1.2.1
 	github.com/sashabaranov/go-gpt3 v1.4.0
 	github.com/yunginnanet/girc-atomic v0.7.1
+	golang.org/x/crypto v0.8.0
 )
 
 require (

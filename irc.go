@@ -2,14 +2,14 @@ package main
 
 import (
 	"crypto/sha256"
-	"hash/adler32"
+	"encoding/hex"
 	"log"
 	"math/rand"
-	"strconv"
 	"strings"
 
 	gogpt "github.com/sashabaranov/go-gpt3"
 	"github.com/yunginnanet/girc-atomic"
+	"golang.org/x/crypto/sha3"
 )
 
 func chunkToIrc(c *girc.Client, e girc.Event, message string) {
@@ -201,12 +201,11 @@ func cacheAutoLists(name string, e girc.Event) {
 	host := e.Params[3]
 	status := e.Params[6]
 
-	// adler32 hash because some host names were too long and caused issues with bitcask key length
-	hash := adler32.Checksum([]byte(host))
-	hashString := strconv.FormatUint(uint64(hash), 10)
+	hash := sha3.Sum224([]byte(name + channel + user + host))
+	hashString := hex.EncodeToString(hash[:])
 
 	// If the user is not in the list and has +v
-	autoVoiceKey := []byte(name + channel + "v" + user + hashString)
+	autoVoiceKey := []byte("v" + hashString)
 	if strings.Contains(status, "+") && !birdBase.Has(autoVoiceKey) {
 		birdBase.Put(autoVoiceKey, []byte(""))
 	} else if !strings.Contains(status, "+") {
@@ -214,7 +213,7 @@ func cacheAutoLists(name string, e girc.Event) {
 	}
 
 	// If the user is not in the list and has +o
-	autoOpKey := []byte(name + channel + "o" + user + hashString)
+	autoOpKey := []byte("o" + hashString)
 	if strings.Contains(status, "@") && !birdBase.Has(autoOpKey) {
 		birdBase.Put(autoOpKey, []byte(""))
 	} else if !strings.Contains(status, "@") {
@@ -225,11 +224,10 @@ func cacheAutoLists(name string, e girc.Event) {
 
 // This one doesn't rely on e.Params which can change depending on what event has occurred.
 func isInList(name string, channel string, what string, user string, host string) bool {
-	// adler32 hash because some host names were too long and caused issues with bitcask key length
-	hash := adler32.Checksum([]byte(host))
-	hashString := strconv.FormatUint(uint64(hash), 10)
+	hash := sha3.Sum224([]byte(name + channel + user + host))
+	hashString := hex.EncodeToString(hash[:])
 
-	key := []byte(name + channel + what + user + hashString)
+	key := []byte(what + hashString)
 
 	return birdBase.Has(key)
 }
