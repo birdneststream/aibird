@@ -11,7 +11,7 @@ import (
 
 	"git.mills.io/prologic/bitcask"
 	"github.com/BurntSushi/toml"
-	gogpt "github.com/sashabaranov/go-gpt3"
+	gogpt "github.com/sashabaranov/go-openai"
 	"github.com/yunginnanet/girc-atomic"
 )
 
@@ -141,8 +141,10 @@ func ircClient(network Network, name string, waitGroup *sync.WaitGroup) {
 		time.Sleep(network.Throttle * time.Millisecond)
 
 		// Only want to cache this if we have ops
-		_ = c.Cmd.SendRaw("WHO " + e.Params[0])
-		time.Sleep(network.Throttle * time.Millisecond)
+		if isUserMode(name, e.Params[0], network.Nick, "@") {
+			_ = c.Cmd.SendRaw("WHO " + e.Params[0])
+			time.Sleep(network.Throttle * time.Millisecond)
+		}
 	})
 	client.Handlers.Add(girc.KICK, func(c *girc.Client, e girc.Event) {
 		if e.Params[1] == c.GetNick() {
@@ -150,11 +152,13 @@ func ircClient(network Network, name string, waitGroup *sync.WaitGroup) {
 		}
 	})
 	client.Handlers.Add(girc.PRIVMSG, func(c *girc.Client, e girc.Event) {
-		if shouldIgnore(e.Source.Name) {
+		// Ignore own nick and other nicks defined in config.toml
+		if shouldIgnore(e.Source.Name) || e.Source.Name == network.Nick {
 			return
 		}
 
 		if !e.IsFromChannel() {
+			// ChatGPT in PM
 			go cacheChatsForChatGtp(name, e, c)
 			return
 		}
@@ -165,9 +169,11 @@ func ircClient(network Network, name string, waitGroup *sync.WaitGroup) {
 
 		if config.AiBird.ReplyToChats {
 			if strings.HasPrefix(e.Last(), network.Nick) {
+				// If the night is highlighted reply
 				go replyToChats(e, e.Last(), c)
 				return
 			} else if e.Params[0] == "#birdnest" {
+				// General chats
 				go cacheChatsForReply(name, e.Last(), e, c)
 			}
 		}
@@ -264,6 +270,11 @@ func ircClient(network Network, name string, waitGroup *sync.WaitGroup) {
 		case "!aiscii":
 			go aiscii(e, message, c)
 			return
+		case "!aiscii4":
+			if isAdmin(e) {
+				go conversation(gogpt.GPT4, "Use the UTF-8 drawing characters and mIRC color codes (using ) to make a monospaced text art 80 characters wide and 30 characters height depicting '"+message+"'.", e, c)
+			}
+			return
 		case "!birdmap":
 			go birdmap(e, message, c)
 			return
@@ -281,7 +292,16 @@ func ircClient(network Network, name string, waitGroup *sync.WaitGroup) {
 
 			go sdRequest(message, c, e)
 			return
+
 		// The models for completion prompts
+		case "!chatgpt":
+			go conversation(gogpt.GPT3Dot5Turbo, message, e, c)
+			return
+		case "!gpt4":
+			if isAdmin(e) {
+				go conversation(gogpt.GPT4, message, e, c)
+			}
+			return
 		case "!davinci":
 			model = gogpt.GPT3TextDavinci003
 			cost = 0.0200
@@ -312,6 +332,10 @@ func ircClient(network Network, name string, waitGroup *sync.WaitGroup) {
 	})
 
 	client.Handlers.Add(girc.PRIVMSG, func(c *girc.Client, e girc.Event) {
+		if shouldIgnore(e.Source.Name) {
+			return
+		}
+
 		if !e.IsFromChannel() {
 			return
 		}
@@ -320,16 +344,8 @@ func ircClient(network Network, name string, waitGroup *sync.WaitGroup) {
 		switch e.Last() {
 		// Display help message
 		case "!help":
-			_ = c.Cmd.Reply(e, "OpenAI Models: !davinci (best), !davinci2, !davinci1, !codex (code generation), !ada, !babbage, !dale (512x512), !dale256 (256x256), !dale1024 (1024x1024 very slow), !ai (default model from config)")
-			_ = c.Cmd.Reply(e, "Other: !aiscii (experimental ascii generation), !birdmap (run port scan on target), !sd (Stable diffusion request) - https://github.com/birdneststream/aibird")
-			return
-
-		case "!modes":
-			// cycle irc channels and update modes
-			for _, channel := range network.Channels {
-				c.Send(&girc.Event{Command: "WHO", Params: []string{channel}})
-				time.Sleep(network.Throttle * time.Millisecond)
-			}
+			_ = c.Cmd.Reply(e, "OpenAI Models: !chatgpt - one shot gpt3.5 model (no context), !davinci (best), !davinci2, !davinci1, !codex (code generation), !ada, !babbage, !dale (512x512), !dale256 (256x256), !dale1024 (1024x1024 very slow), !ai (default model from config)")
+			_ = c.Cmd.Reply(e, "Other: !aiscii (experimental ascii generation), !aiscii4 (gpt4 aiscii generation), !birdmap (run port scan on target), !sd (Stable diffusion request) - https://github.com/birdneststream/aibird")
 			return
 		}
 	})

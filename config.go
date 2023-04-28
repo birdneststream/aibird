@@ -49,6 +49,7 @@ type (
 		Model       string
 		Temperature float32
 		currentKey  int
+		Gpt4Key     string
 	}
 
 	// AiBird specific configurations

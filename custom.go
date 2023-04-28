@@ -3,7 +3,7 @@ package main
 import (
 	"strings"
 
-	gogpt "github.com/sashabaranov/go-gpt3"
+	gogpt "github.com/sashabaranov/go-openai"
 	"github.com/yunginnanet/girc-atomic"
 )
 

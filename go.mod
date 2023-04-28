@@ -5,7 +5,6 @@ go 1.17
 require (
 	git.mills.io/prologic/bitcask v1.0.2
 	github.com/BurntSushi/toml v1.2.1
-	github.com/sashabaranov/go-gpt3 v1.4.0
 	github.com/yunginnanet/girc-atomic v0.7.1
 	golang.org/x/crypto v0.8.0
 )
@@ -19,6 +18,7 @@ require (
 	github.com/orcaman/concurrent-map/v2 v2.0.1 // indirect
 	github.com/pkg/errors v0.9.1 // indirect
 	github.com/plar/go-adaptive-radix-tree v1.0.5 // indirect
+	github.com/sashabaranov/go-openai v1.9.0 // indirect
 	github.com/sirupsen/logrus v1.9.0 // indirect
 	github.com/stretchr/testify v1.8.1 // indirect
 	golang.org/dl v0.0.0-20230404172053-c7dbe52702e1 // indirect

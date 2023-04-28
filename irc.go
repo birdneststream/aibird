@@ -5,8 +5,9 @@ import (
 	"log"
 	"math/rand"
 	"strings"
+	"time"
 
-	gogpt "github.com/sashabaranov/go-gpt3"
+	gogpt "github.com/sashabaranov/go-openai"
 	"github.com/yunginnanet/girc-atomic"
 	"golang.org/x/crypto/sha3"
 )
@@ -36,6 +37,9 @@ func chunkToIrc(c *girc.Client, e girc.Event, message string) {
 				// write message to channel
 				_ = c.Cmd.Reply(e, sendString)
 				sendString = ""
+
+				// Force a throttle for now
+				time.Sleep(550 * time.Millisecond)
 			}
 		}
 
@@ -344,7 +348,7 @@ func cacheChatsForChatGtp(name string, e girc.Event, c *girc.Client) {
 
 		birdBase.Put(key, []byte(strings.Join(sliceChatList, "\n")))
 
-		chatGpt(name, e, c, gpt3Chat)
+		chatGptContext(name, e, c, gpt3Chat)
 
 		return
 	}

@@ -7,7 +7,7 @@ import (
 	"strconv"
 	"strings"
 
-	gogpt "github.com/sashabaranov/go-gpt3"
+	gogpt "github.com/sashabaranov/go-openai"
 	"github.com/yunginnanet/girc-atomic"
 )
 
@@ -70,7 +70,52 @@ func replyToChats(e girc.Event, message string, c *girc.Client) {
 	chunkToIrc(c, e, strings.TrimSpace(resp.Choices[0].Text))
 }
 
-func chatGpt(name string, e girc.Event, c *girc.Client, message []gogpt.ChatCompletionMessage) {
+func conversation(model string, message string, e girc.Event, c *girc.Client) {
+	_ = c.Cmd.Reply(e, "Processing "+model+": "+message)
+
+	conversation := []gogpt.ChatCompletionMessage{}
+
+	conversation = append(conversation, gogpt.ChatCompletionMessage{
+		Role:    "user",
+		Content: message,
+	})
+
+	req := gogpt.ChatCompletionRequest{
+		Model:       model,
+		MaxTokens:   config.OpenAI.Tokens,
+		Messages:    conversation,
+		Temperature: config.OpenAI.Temperature,
+	}
+
+	if model == gogpt.GPT4 {
+		key := config.OpenAI.Gpt4Key
+		resp, err := gogpt.NewClient(key).CreateChatCompletion(ctx, req)
+		if err != nil {
+			handleApiError(c, e, err)
+			return
+		}
+		for _, choice := range resp.Choices {
+			// for each ChatCompletionMessage
+			chunkToIrc(c, e, strings.TrimSpace(choice.Message.Content))
+			return
+		}
+	} else {
+		// Perform the actual API request to openAI
+		resp, err := aiClient().CreateChatCompletion(ctx, req)
+		if err != nil {
+			handleApiError(c, e, err)
+			return
+		}
+		for _, choice := range resp.Choices {
+			// for each ChatCompletionMessage
+			chunkToIrc(c, e, strings.TrimSpace(choice.Message.Content))
+			return
+		}
+	}
+
+}
+
+func chatGptContext(name string, e girc.Event, c *girc.Client, message []gogpt.ChatCompletionMessage) {
 	req := gogpt.ChatCompletionRequest{
 		Model:       gogpt.GPT3Dot5Turbo,
 		MaxTokens:   config.OpenAI.Tokens,
