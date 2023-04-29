@@ -386,7 +386,7 @@ func ircClient(network Network, name string, waitGroup *sync.WaitGroup) {
 		switch e.Last() {
 		// Display help message
 		case "!help":
-			chunkToIrc(c, e, "OpenAI Models: !dan - jailbroken ChatGPT, !chatgpt - one shot gpt3.5 model (no context), !davinci (best), !davinci2, !davinci1, !codex (code generation), !ada, !babbage, !dale (512x512), !dale256 (256x256), !dale1024 (1024x1024 very slow), !ai (default davinci)")
+			chunkToIrc(c, e, "OpenAI Models: !dan - jailbroken ChatGPT, !chatgpt - one shot gpt3.5 model (no context), !davinci (best), !davinci2, !davinci1, !ada, !babbage, !dale (512x512), !dale256 (256x256), !dale1024 (1024x1024 very slow), !ai (default davinci)")
 			chunkToIrc(c, e, "Other: !aiscii (experimental ascii generation), !aiscii3 (gpt3.5 aiscii generation), !aiscii4 (gpt4 aiscii generation), !birdmap (run port scan on target), !sd (Stable diffusion request) - https://github.com/birdneststream/aibird")
 			return
 		}
