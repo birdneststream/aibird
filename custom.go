@@ -7,7 +7,7 @@ import (
 	"github.com/yunginnanet/girc-atomic"
 )
 
-func birdmap(e girc.Event, message string, c *girc.Client) {
+func birdmap(c *girc.Client, e girc.Event, message string) {
 	prompt := "Simulate an nmap scan of host " + message + " and return the results. The nmap results must include funny bird names for unix services. For example 'SecureSeedStorage' and 'SparrowSecureSSH."
 
 	req := gogpt.CompletionRequest{
@@ -19,7 +19,7 @@ func birdmap(e girc.Event, message string, c *girc.Client) {
 		PresencePenalty:  0,
 	}
 
-	_ = c.Cmd.Reply(e, "Running birdmap scan for: "+message+" please wait...")
+	chunkToIrc(c, e, "Running birdmap scan for: "+message+" please wait...")
 
 	resp, err := aiClient().CreateCompletion(ctx, req)
 
@@ -29,14 +29,12 @@ func birdmap(e girc.Event, message string, c *girc.Client) {
 	}
 
 	responseString := strings.TrimSpace(resp.Choices[0].Text)
-	for _, line := range strings.Split(responseString, "\n") {
-		// Write the final message
-		chunkToIrc(c, e, line)
-	}
+	chunkToIrc(c, e, responseString)
+
 }
 
 // aiscii function, hopefully will prevent ping timeouts
-func aiscii(e girc.Event, message string, c *girc.Client) {
+func aiscii(c *girc.Client, e girc.Event, message string) {
 	var asciiName string // ai generated name
 	var responseString string
 
@@ -57,7 +55,7 @@ func aiscii(e girc.Event, message string, c *girc.Client) {
 		PresencePenalty:  0,
 	}
 
-	_ = c.Cmd.Reply(e, "Processing mIRC aiscii art (it can take a while): "+message)
+	chunkToIrc(c, e, "Processing mIRC aiscii art (it can take a while): "+message)
 
 	resp, err := aiClient().CreateCompletion(ctx, req)
 
@@ -91,14 +89,11 @@ func aiscii(e girc.Event, message string, c *girc.Client) {
 		// get alphabet letters from asciiName only
 		asciiName := cleanFileName(asciiName)
 
-		_ = c.Cmd.Reply(e, "@record "+asciiName)
+		chunkToIrc(c, e, "@record "+asciiName)
 	}
 
 	// for each new line break in response choices write to channel
-	for _, line := range strings.Split(responseString, "\n") {
-		// Write the final message
-		_ = c.Cmd.Reply(e, line)
-	}
+	chunkToIrc(c, e, responseString)
 
 	message = "As a snobby reddit intellectual artist, shortly explain your new artistic masterpiece '" + message + "'" + " to the masses."
 

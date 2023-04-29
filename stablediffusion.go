@@ -15,10 +15,10 @@ import (
 	"github.com/yunginnanet/girc-atomic"
 )
 
-func sdRequest(prompt string, c *girc.Client, e girc.Event) {
+func sdRequest(c *girc.Client, e girc.Event, prompt string) {
 	posturl := config.StableDiffusion.Host + "/sdapi/v1/txt2img"
 
-	_ = c.Cmd.Reply(e, "Processing Stable Diffusion: "+prompt+"...")
+	chunkToIrc(c, e, "Processing Stable Diffusion: "+prompt+"...")
 
 	// Bad words for bad chatters
 	if safetyFilter(prompt) {
@@ -60,7 +60,7 @@ func sdRequest(prompt string, c *girc.Client, e girc.Event) {
 	// Prepare sd for http NewRequest
 	reqStr, err := json.Marshal(sd)
 	if err != nil {
-		_ = c.Cmd.Reply(e, err.Error())
+		chunkToIrc(c, e, err.Error())
 		log.Println(err.Error())
 		return
 	}
@@ -70,7 +70,7 @@ func sdRequest(prompt string, c *girc.Client, e girc.Event) {
 
 	if err != nil {
 		log.Println(err.Error())
-		_ = c.Cmd.Reply(e, err.Error())
+		chunkToIrc(c, e, err.Error())
 		return
 	}
 	req.Header.Add("Content-Type", "application/json")
@@ -78,7 +78,7 @@ func sdRequest(prompt string, c *girc.Client, e girc.Event) {
 	res, err := client.Do(req)
 	if err != nil {
 		log.Println(err.Error())
-		_ = c.Cmd.Reply(e, "There as an error processing your request, the SD host may be down or had issues with vram and your request.")
+		chunkToIrc(c, e, "There as an error processing your request, the SD host may be down or had issues with vram and your request.")
 		return
 	}
 	defer res.Body.Close()
@@ -86,7 +86,7 @@ func sdRequest(prompt string, c *girc.Client, e girc.Event) {
 	body, err := ioutil.ReadAll(res.Body)
 	if err != nil {
 		log.Println(err.Error())
-		_ = c.Cmd.Reply(e, "There as an error processing your request, the SD host may be down or had issues with vram and your request.")
+		chunkToIrc(c, e, "There as an error processing your request, the SD host may be down or had issues with vram and your request.")
 		return
 	}
 
@@ -95,12 +95,12 @@ func sdRequest(prompt string, c *girc.Client, e girc.Event) {
 
 	if err != nil {
 		log.Println(err.Error())
-		_ = c.Cmd.Reply(e, "There as an error processing your request, the SD host may be down or had issues with vram and your request.")
+		chunkToIrc(c, e, "There as an error processing your request, the SD host may be down or had issues with vram and your request.")
 		return
 	}
 
 	if res.StatusCode != http.StatusOK {
-		_ = c.Cmd.Reply(e, fmt.Sprint(res.StatusCode))
+		chunkToIrc(c, e, fmt.Sprint(res.StatusCode))
 		return
 	}
 
@@ -115,14 +115,14 @@ func sdRequest(prompt string, c *girc.Client, e girc.Event) {
 	decoded, err := base64.StdEncoding.DecodeString(post.Images[0])
 	if err != nil {
 		log.Println(err.Error())
-		_ = c.Cmd.Reply(e, err.Error())
+		chunkToIrc(c, e, err.Error())
 		return
 	}
 
 	err = ioutil.WriteFile(fileName, decoded, 0644)
 	if err != nil {
 		log.Println(err.Error())
-		_ = c.Cmd.Reply(e, err.Error())
+		chunkToIrc(c, e, err.Error())
 		return
 	}
 
@@ -131,17 +131,17 @@ func sdRequest(prompt string, c *girc.Client, e girc.Event) {
 
 	// download image
 	content := fileHole("https://filehole.org/", fileName)
-	_ = c.Cmd.Reply(e, e.Source.Name+": "+content)
+	chunkToIrc(c, e, e.Source.Name+": "+content)
 }
 
-func sdAdmin(message string, c *girc.Client, e girc.Event) {
+func sdAdmin(c *girc.Client, e girc.Event, message string) {
 	// remove sd from message and trim
 	message = strings.TrimSpace(strings.TrimPrefix(message, "sd"))
 	parts := strings.SplitN(message, " ", 2)
 
 	switch parts[0] {
 	case "vars":
-		_ = c.Cmd.Reply(e, "Stable Diffusion Vars: ")
+		chunkToIrc(c, e, "Stable Diffusion Vars: ")
 		chunkToIrc(c, e, fmt.Sprintf("%+v", config.StableDiffusion))
 		return
 
@@ -155,62 +155,62 @@ func sdAdmin(message string, c *girc.Client, e girc.Event) {
 			// convert parts[1] to int
 			steps, err := strconv.Atoi(parts[1])
 			if err != nil {
-				_ = c.Cmd.Reply(e, err.Error())
+				chunkToIrc(c, e, err.Error())
 				return
 			}
 
 			// update config
 			config.StableDiffusion.Steps = steps
-			_ = c.Cmd.Reply(e, "Updated sd steps to: "+strconv.Itoa(config.StableDiffusion.Steps))
+			chunkToIrc(c, e, "Updated sd steps to: "+strconv.Itoa(config.StableDiffusion.Steps))
 
 		case "width":
 			// convert parts[1] to int
 			width, err := strconv.Atoi(parts[1])
 			if err != nil {
-				_ = c.Cmd.Reply(e, err.Error())
+				chunkToIrc(c, e, err.Error())
 				return
 			}
 
 			// update config
 			config.StableDiffusion.Width = width
-			_ = c.Cmd.Reply(e, "Updated sd width to: "+strconv.Itoa(config.StableDiffusion.Width))
+			chunkToIrc(c, e, "Updated sd width to: "+strconv.Itoa(config.StableDiffusion.Width))
 
 		case "height":
 			// convert parts[1] to int
 			height, err := strconv.Atoi(parts[1])
 			if err != nil {
-				_ = c.Cmd.Reply(e, err.Error())
+				chunkToIrc(c, e, err.Error())
 				return
 			}
 
 			// update config
 			config.StableDiffusion.Height = height
-			_ = c.Cmd.Reply(e, "Updated sd height to: "+strconv.Itoa(config.StableDiffusion.Height))
+			chunkToIrc(c, e, "Updated sd height to: "+strconv.Itoa(config.StableDiffusion.Height))
 
 		case "sampler":
 			if parts[1] != "DDIM" && parts[1] != "Euler a" && parts[1] != "Euler" {
-				_ = c.Cmd.Reply(e, "Invalid sampler, must be 'DDIM', 'Euler a' or 'Euler'")
+				chunkToIrc(c, e, "Invalid sampler, must be 'DDIM', 'Euler a' or 'Euler'")
 				return
 			}
 
 			config.StableDiffusion.Sampler = parts[1]
-			_ = c.Cmd.Reply(e, "Updated sd sampler to: "+config.StableDiffusion.Sampler)
+			chunkToIrc(c, e, "Updated sd sampler to: "+config.StableDiffusion.Sampler)
 
 		case "NegativePrompt":
 			// update config.StableDiffusion.NegativePrompt
 			config.StableDiffusion.NegativePrompt = parts[1]
-			_ = c.Cmd.Reply(e, "Updated sd negativePrompt to: "+config.StableDiffusion.NegativePrompt)
+			chunkToIrc(c, e, "Updated sd negativePrompt to: "+config.StableDiffusion.NegativePrompt)
 
 		case "cfg":
 			// convert string parts[1] to float32
 			cfg, err := strconv.ParseFloat(parts[1], 32)
 			if err != nil {
-				_ = c.Cmd.Reply(e, err.Error())
+				chunkToIrc(c, e, err.Error())
 				return
 			}
 
 			config.StableDiffusion.CfgScale = float32(cfg)
-			_ = c.Cmd.Reply(e, "Updated sd cfg to: "+parts[1])
+			chunkToIrc(c, e, "Updated sd cfg to: "+parts[1])
 		}
 	}
 }

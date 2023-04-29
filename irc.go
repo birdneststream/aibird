@@ -29,21 +29,21 @@ func chunkToIrc(c *girc.Client, e girc.Event, message string) {
 
 		// for each chunk
 		for _, chunk := range chunks {
+
 			// append chunk to sendString
 			sendString += chunk + " "
 
 			// Trim by words for a cleaner output
 			if len(sendString) > 450 {
 				// write message to channel
+				time.Sleep(550 * time.Millisecond)
 				_ = c.Cmd.Reply(e, sendString)
 				sendString = ""
-
-				// Force a throttle for now
-				time.Sleep(550 * time.Millisecond)
 			}
 		}
 
 		// Write the final message
+		time.Sleep(550 * time.Millisecond)
 		_ = c.Cmd.Reply(e, sendString)
 	}
 }
@@ -82,7 +82,9 @@ func isAdmin(e girc.Event) bool {
 
 func shouldIgnore(nick string) bool {
 	for i := 0; i < len(config.AiBird.IgnoreChatsFrom); i++ {
-		if strings.ToLower(cleanFromModes(nick)) == strings.ToLower(config.AiBird.IgnoreChatsFrom[i]) {
+		// strings equalFOld
+		if strings.EqualFold(strings.ToLower(cleanFromModes(nick)), strings.ToLower(config.AiBird.IgnoreChatsFrom[i])) {
+			// if strings.ToLower(cleanFromModes(nick)) == strings.ToLower(config.AiBird.IgnoreChatsFrom[i]) {
 			return true
 		}
 	}
@@ -151,7 +153,7 @@ func isUserMode(name string, channel string, user string, modes string) bool {
 // }
 
 // This builds a temporary list of nicks in a channel
-func cacheNicks(name string, e girc.Event) {
+func cacheNicks(e girc.Event, name string) {
 	var key = []byte(name + "_" + e.Params[2] + "_temp_nick")
 	nicks := strings.Split(e.Last(), " ")
 	tempNickList := ""
@@ -179,7 +181,7 @@ func cacheNicks(name string, e girc.Event) {
 }
 
 // When the end of the nick list is returned we cache the final list and remove the temp
-func saveNicks(name string, e girc.Event) {
+func saveNicks(e girc.Event, name string) {
 	channel := e.Params[1]
 	var key = []byte(name + "_" + channel + "_temp_nick")
 
@@ -198,7 +200,7 @@ func saveNicks(name string, e girc.Event) {
 	birdBase.Put(key, nickList)
 }
 
-func cacheAutoLists(name string, e girc.Event) {
+func cacheAutoLists(e girc.Event, name string) {
 	channel := e.Params[1]
 	user := e.Params[2]
 	host := e.Params[3]
@@ -236,7 +238,7 @@ func isInList(name string, channel string, what string, user string, host string
 }
 
 // Maybe can move this into openai.go
-func cacheChatsForReply(name string, message string, e girc.Event, c *girc.Client) {
+func cacheChatsForReply(c *girc.Client, e girc.Event, name string, message string) {
 	// Get the meta data from the database
 
 	// check if message contains unicode
@@ -262,7 +264,7 @@ func cacheChatsForReply(name string, message string, e girc.Event, c *girc.Clien
 
 			// Send the message to the AI, with a 1 in 3 chance
 			if rand.Intn(3) == 0 {
-				replyToChats(e, message+"\n"+string(chatList), c)
+				replyToChats(c, e, message+"\n"+string(chatList))
 			}
 		}
 
@@ -272,7 +274,7 @@ func cacheChatsForReply(name string, message string, e girc.Event, c *girc.Clien
 	birdBase.Put(key, []byte(message+"."))
 }
 
-func cacheChatsForChatGtp(name string, e girc.Event, c *girc.Client) {
+func cacheChatsForChatGtp(c *girc.Client, e girc.Event, name string) {
 	// Ignore ASCII color codes
 	if strings.Contains(e.Last(), "\x03") {
 		return
@@ -348,7 +350,7 @@ func cacheChatsForChatGtp(name string, e girc.Event, c *girc.Client) {
 
 		birdBase.Put(key, []byte(strings.Join(sliceChatList, "\n")))
 
-		chatGptContext(name, e, c, gpt3Chat)
+		chatGptContext(c, e, name, gpt3Chat)
 
 		return
 	}

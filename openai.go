@@ -11,7 +11,7 @@ import (
 	"github.com/yunginnanet/girc-atomic"
 )
 
-func completion(e girc.Event, message string, c *girc.Client, model string, cost float64) {
+func completion(c *girc.Client, e girc.Event, message string, model string, cost float64) {
 	var responseString string
 
 	req := gogpt.CompletionRequest{
@@ -52,7 +52,7 @@ func completion(e girc.Event, message string, c *girc.Client, model string, cost
 }
 
 // Annoying reply to chats
-func replyToChats(e girc.Event, message string, c *girc.Client) {
+func replyToChats(c *girc.Client, e girc.Event, message string) {
 	req := gogpt.CompletionRequest{
 		Model:       gogpt.GPT3TextDavinci003,
 		MaxTokens:   config.OpenAI.Tokens,
@@ -70,15 +70,8 @@ func replyToChats(e girc.Event, message string, c *girc.Client) {
 	chunkToIrc(c, e, strings.TrimSpace(resp.Choices[0].Text))
 }
 
-func conversation(model string, message string, e girc.Event, c *girc.Client) {
-	_ = c.Cmd.Reply(e, "Processing "+model+": "+message)
-
-	conversation := []gogpt.ChatCompletionMessage{}
-
-	conversation = append(conversation, gogpt.ChatCompletionMessage{
-		Role:    "user",
-		Content: message,
-	})
+func conversation(c *girc.Client, e girc.Event, model string, conversation []gogpt.ChatCompletionMessage) {
+	_ = c.Cmd.Reply(e, "Processing "+model+": "+conversation[len(conversation)-1].Content)
 
 	req := gogpt.ChatCompletionRequest{
 		Model:       model,
@@ -115,7 +108,7 @@ func conversation(model string, message string, e girc.Event, c *girc.Client) {
 
 }
 
-func chatGptContext(name string, e girc.Event, c *girc.Client, message []gogpt.ChatCompletionMessage) {
+func chatGptContext(c *girc.Client, e girc.Event, name string, message []gogpt.ChatCompletionMessage) {
 	req := gogpt.ChatCompletionRequest{
 		Model:       gogpt.GPT3Dot5Turbo,
 		MaxTokens:   config.OpenAI.Tokens,
@@ -147,7 +140,7 @@ func chatGptContext(name string, e girc.Event, c *girc.Client, message []gogpt.C
 	}
 }
 
-func dalle(e girc.Event, message string, c *girc.Client, size string) {
+func dalle(c *girc.Client, e girc.Event, message string, size string) {
 	req := gogpt.ImageRequest{
 		Prompt: message,
 		Size:   size,
