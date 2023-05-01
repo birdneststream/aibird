@@ -14,11 +14,18 @@ protectedHosts = [
 ]
 debug = true
 chatPersonality = "an overexcited milf from outter space"
-replyToChats = true
-replyChance = 1
-replyTotalMessages = 5
-ignoreChatsFrom = ['bot','badspammer']
-chatGptTotalMessages = 20
+replyToChats = true # chat in chat room
+replyChance = 1 # Chance to reply when there is chat room activity
+replyTotalMessages = 5 # Number of chats for context
+ignoreChatsFrom = ['chode','shart','blarf','semen','sludge']
+
+chatGptTotalMessages = 3 # Number of chats to remember for ChatGPT context
+
+# Flood Settings
+# 3 requests within 3 seconds will ignore for 5 minutes
+floodThresholdMessages = 3
+floodThresholdSeconds = 3
+floodIgnoreTime = 5 # minutes
 
 [stablediffusion]
 negativePrompt = ""

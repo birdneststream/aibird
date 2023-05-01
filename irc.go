@@ -350,23 +350,31 @@ func cacheChatsForChatGtp(c *girc.Client, e girc.Event, name string) {
 
 func floodCheck(c *girc.Client, e girc.Event, name string) bool {
 	// Anti flood
-	key := cacheKey(name+e.Params[0]+e.Source.Host+e.Source.Ident, "f")
 	ban := cacheKey(name+e.Params[0]+e.Source.Host+e.Source.Ident, "b")
 
 	if birdBase.Has(ban) {
 		return true
 	}
 
+	key := cacheKey(name+e.Params[0]+e.Source.Host+e.Source.Ident, "f")
+
+	waitTime := config.AiBird.FloodThreshold * time.Second
+
+	// If it's in PM then be more generous
+	if !e.IsFromChannel() {
+		waitTime = time.Second
+	}
+
 	if !birdBase.Has(key) {
-		birdBase.PutWithTTL(key, []byte("1"), 5*time.Second)
+		birdBase.PutWithTTL(key, []byte("1"), waitTime)
 	} else {
 		count, _ := birdBase.Get(key)
 		countInt, _ := strconv.Atoi(string(count))
 		countInt++
 		birdBase.Put(key, []byte(strconv.Itoa(countInt)))
 
-		if countInt > 3 {
-			birdBase.PutWithTTL(ban, []byte("1"), 5*time.Minute)
+		if countInt > config.AiBird.FloodThresholdMessages {
+			birdBase.PutWithTTL(ban, []byte("1"), config.AiBird.FloodIgnoreTime*time.Minute)
 			c.Cmd.Kick(e.Params[0], e.Source.Name, "Birds fly above floods!")
 		}
 

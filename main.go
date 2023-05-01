@@ -409,11 +409,7 @@ func ircClient(network Network, name string, waitGroup *sync.WaitGroup) {
 	})
 
 	client.Handlers.Add(girc.PRIVMSG, func(c *girc.Client, e girc.Event) {
-		if shouldIgnore(e.Source.Name) {
-			return
-		}
-
-		if !e.IsFromChannel() {
+		if shouldIgnore(e.Source.Name) || !e.IsFromChannel() || floodCheck(c, e, name) {
 			return
 		}
 
