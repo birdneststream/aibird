@@ -288,6 +288,8 @@ func ircClient(network Network, name string, waitGroup *sync.WaitGroup) {
 					}
 
 				}
+
+				return
 			}
 			// Dall-e Commands
 		case "!dale":
