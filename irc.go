@@ -1,18 +1,17 @@
 package main
 
 import (
-	"encoding/hex"
 	"log"
 	"math/rand"
+	"strconv"
 	"strings"
 	"time"
 
 	gogpt "github.com/sashabaranov/go-openai"
 	"github.com/yunginnanet/girc-atomic"
-	"golang.org/x/crypto/sha3"
 )
 
-func chunkToIrc(c *girc.Client, e girc.Event, message string) {
+func sendToIrc(c *girc.Client, e girc.Event, message string) {
 	var sendString string
 
 	// for each new line break in response choices write to channel
@@ -46,6 +45,7 @@ func chunkToIrc(c *girc.Client, e girc.Event, message string) {
 		time.Sleep(550 * time.Millisecond)
 		_ = c.Cmd.Reply(e, sendString)
 	}
+
 }
 
 func cleanFromModes(nick string) string {
@@ -206,11 +206,8 @@ func cacheAutoLists(e girc.Event, name string) {
 	host := e.Params[3]
 	status := e.Params[6]
 
-	hash := sha3.Sum224([]byte(name + channel + user + host))
-	hashString := hex.EncodeToString(hash[:])
-
 	// If the user is not in the list and has +v
-	autoVoiceKey := []byte("v" + hashString)
+	autoVoiceKey := cacheKey(name+channel+user+host, "v")
 	if strings.Contains(status, "+") && !birdBase.Has(autoVoiceKey) {
 		birdBase.Put(autoVoiceKey, []byte(""))
 	} else if !strings.Contains(status, "+") {
@@ -218,7 +215,7 @@ func cacheAutoLists(e girc.Event, name string) {
 	}
 
 	// If the user is not in the list and has +o
-	autoOpKey := []byte("o" + hashString)
+	autoOpKey := cacheKey(name+channel+user+host, "o")
 	if strings.Contains(status, "@") && !birdBase.Has(autoOpKey) {
 		birdBase.Put(autoOpKey, []byte(""))
 	} else if !strings.Contains(status, "@") {
@@ -229,12 +226,7 @@ func cacheAutoLists(e girc.Event, name string) {
 
 // This one doesn't rely on e.Params which can change depending on what event has occurred.
 func isInList(name string, channel string, what string, user string, host string) bool {
-	hash := sha3.Sum224([]byte(name + channel + user + host))
-	hashString := hex.EncodeToString(hash[:])
-
-	key := []byte(what + hashString)
-
-	return birdBase.Has(key)
+	return birdBase.Has(cacheKey(name+channel+user+host, what))
 }
 
 // Maybe can move this into openai.go
@@ -284,7 +276,7 @@ func cacheChatsForChatGtp(c *girc.Client, e girc.Event, name string) {
 
 	if e.Last() == "!forget" {
 		birdBase.Delete(key)
-		chunkToIrc(c, e, "Okay starting fresh.")
+		sendToIrc(c, e, "Okay starting fresh.")
 		return
 	}
 
@@ -295,12 +287,12 @@ func cacheChatsForChatGtp(c *girc.Client, e girc.Event, name string) {
 			return
 		}
 
-		chunkToIrc(c, e, string(chatList))
+		sendToIrc(c, e, string(chatList))
 		return
 	}
 
 	if !birdBase.Has(key) {
-		chunkToIrc(c, e, "Type !forget to start fresh.")
+		sendToIrc(c, e, "Type !forget to start fresh.")
 
 		// make new empty key
 		birdBase.Put(key, []byte(""))
@@ -354,4 +346,46 @@ func cacheChatsForChatGtp(c *girc.Client, e girc.Event, name string) {
 
 		return
 	}
+}
+
+func floodCheck(c *girc.Client, e girc.Event, name string) bool {
+	// Anti flood
+	key := cacheKey(name+e.Params[0]+e.Source.Name, "f")
+	ban := cacheKey(name+e.Params[0]+e.Source.Name, "b")
+
+	if birdBase.Has(ban) {
+		return true
+	}
+
+	if !birdBase.Has(key) {
+		birdBase.Put(key, []byte("1"))
+	} else {
+		count, _ := birdBase.Get(key)
+		countInt, _ := strconv.Atoi(string(count))
+		countInt++
+		birdBase.Put(key, []byte(strconv.Itoa(countInt)))
+
+		if countInt > 3 {
+			birdBase.Put(ban, []byte("1"))
+			c.Cmd.Kick(e.Params[0], e.Source.Name, "Birds fly above floods!")
+			go removeFloodBanDelay(c, e, name, 5)
+		}
+
+		return true
+	}
+
+	return false
+}
+
+func removeFloodBanDelay(c *girc.Client, e girc.Event, name string, minutes time.Duration) {
+	time.Sleep(minutes * time.Minute)
+
+	ban := cacheKey(name+e.Params[0]+e.Source.Name, "b")
+	birdBase.Delete(ban)
+	removeFloodCheck(c, e, name)
+}
+
+func removeFloodCheck(c *girc.Client, e girc.Event, name string) {
+	key := cacheKey(name+e.Params[0]+e.Source.Name, "f")
+	birdBase.Delete(key)
 }

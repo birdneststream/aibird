@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"io"
@@ -11,6 +12,8 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+
+	"golang.org/x/crypto/sha3"
 )
 
 func cleanFileName(fileName string) string {
@@ -127,4 +130,11 @@ func downloadFile(URL, fileName string) error {
 	}
 
 	return nil
+}
+
+func cacheKey(key string, what string) []byte {
+	hash := sha3.Sum224([]byte(key))
+	hashString := hex.EncodeToString(hash[:])
+
+	return []byte(what + hashString)
 }

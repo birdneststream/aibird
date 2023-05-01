@@ -159,7 +159,11 @@ func ircClient(network Network, name string, waitGroup *sync.WaitGroup) {
 
 		if !e.IsFromChannel() {
 			// ChatGPT in PM
-			cacheChatsForChatGtp(c, e, name)
+			if floodCheck(c, e, name) {
+				return
+			}
+
+			go cacheChatsForChatGtp(c, e, name)
 			return
 		}
 
@@ -174,7 +178,7 @@ func ircClient(network Network, name string, waitGroup *sync.WaitGroup) {
 				return
 			} else if e.Params[0] == "#birdnest" && !strings.HasPrefix(e.Last(), "!") {
 				// General chats
-				cacheChatsForReply(c, e, name, e.Last())
+				go cacheChatsForReply(c, e, name, e.Last())
 			}
 		}
 
@@ -190,6 +194,10 @@ func ircClient(network Network, name string, waitGroup *sync.WaitGroup) {
 
 		// require both command & prompt
 		if len(parts) < 2 {
+			return
+		}
+
+		if floodCheck(c, e, name) {
 			return
 		}
 
@@ -211,9 +219,9 @@ func ircClient(network Network, name string, waitGroup *sync.WaitGroup) {
 				case "reload":
 					_, err := toml.DecodeFile("config.toml", &config)
 					if err != nil {
-						chunkToIrc(c, e, err.Error())
+						sendToIrc(c, e, err.Error())
 					}
-					chunkToIrc(c, e, "Reloaded config!")
+					sendToIrc(c, e, "Reloaded config!")
 					return
 
 				case "raw":
@@ -221,7 +229,7 @@ func ircClient(network Network, name string, waitGroup *sync.WaitGroup) {
 					message = strings.TrimSpace(strings.TrimPrefix(message, "raw "))
 					event := girc.ParseEvent(message)
 					if event == nil {
-						chunkToIrc(c, e, "Raw string was not valid IRC")
+						sendToIrc(c, e, "Raw string was not valid IRC")
 						return
 					}
 					c.Send(event)
@@ -234,7 +242,7 @@ func ircClient(network Network, name string, waitGroup *sync.WaitGroup) {
 				case "aibird_personality":
 					message = strings.TrimSpace(strings.TrimPrefix(message, "aibird_personality"))
 					config.AiBird.ChatPersonality = message
-					chunkToIrc(c, e, "Set aibird personality to "+message)
+					sendToIrc(c, e, "Set aibird personality to "+message)
 					return
 
 				case "birdbase":
@@ -248,27 +256,33 @@ func ircClient(network Network, name string, waitGroup *sync.WaitGroup) {
 							return
 						}
 
-						chunkToIrc(c, e, string(nickList))
+						sendToIrc(c, e, string(nickList))
 					}
 
 					return
 				}
+
+				removeFloodCheck(c, e, name)
 			}
 
 			return
 			// Dall-e Commands
 		case "!dale":
 			dalle(c, e, message, gogpt.CreateImageSize512x512)
+			removeFloodCheck(c, e, name)
 			return
 		case "!dale256":
 			dalle(c, e, message, gogpt.CreateImageSize256x256)
+			removeFloodCheck(c, e, name)
 			return
 		case "!dale1024":
 			dalle(c, e, message, gogpt.CreateImageSize1024x1024)
+			removeFloodCheck(c, e, name)
 			return
 		// Custom prompt to make better mirc art
 		case "!aiscii":
 			aiscii(c, e, message)
+			removeFloodCheck(c, e, name)
 			return
 		// jail broken chatgpt
 		case "!dan":
@@ -295,6 +309,7 @@ func ircClient(network Network, name string, waitGroup *sync.WaitGroup) {
 				Content: "Provide no explanation or markdown. Use the UTF-8 drawing characters and mIRC color codes (using ) to make a monospaced text art 80 characters wide and 30 characters height depicting '" + message + "'.",
 			})
 			conversation(c, e, gogpt.GPT3Dot5Turbo, chatGptContext)
+			removeFloodCheck(c, e, name)
 			return
 		// gpt4 isn't that impressive for mirc art actually
 		case "!aiscii4":
@@ -309,18 +324,19 @@ func ircClient(network Network, name string, waitGroup *sync.WaitGroup) {
 			return
 		case "!birdmap":
 			birdmap(c, e, message)
+			removeFloodCheck(c, e, name)
 			return
 		// Stable diffusion prompts
 		case "!sd":
-			if !isUserMode(name, e.Params[0], e.Source.Name, "@~") {
-				chunkToIrc(c, e, "Hey there chat pal "+e.Source.Name+", you have to be a birdnest patreon to use stable diffusion! Unless you want to donate your own GPU!")
-				return
-			}
+			// if !isUserMode(name, e.Params[0], e.Source.Name, "@~") {
+			// 	sendToIrc(c, e, "Hey there chat pal "+e.Source.Name+", you have to be a birdnest patreon to use stable diffusion! Unless you want to donate your own GPU!")
+			// 	return
+			// }
 
-			if e.Params[0] != "#birdnest" {
-				chunkToIrc(c, e, "Hey there chat pal "+e.Source.Name+", stable diffusion is only available in #birdnest!")
-				return
-			}
+			// if e.Params[0] != "#birdnest" {
+			// 	sendToIrc(c, e, "Hey there chat pal "+e.Source.Name+", stable diffusion is only available in #birdnest!")
+			// 	return
+			// }
 
 			sdRequest(c, e, message)
 			return
@@ -332,6 +348,7 @@ func ircClient(network Network, name string, waitGroup *sync.WaitGroup) {
 				Content: message,
 			})
 			conversation(c, e, gogpt.GPT3Dot5Turbo, chatGptContext)
+			removeFloodCheck(c, e, name)
 			return
 		// Hot diggitiy gpt-4 is expensive
 		case "!gpt4":
@@ -371,6 +388,7 @@ func ircClient(network Network, name string, waitGroup *sync.WaitGroup) {
 		}
 
 		completion(c, e, message, model, cost)
+		removeFloodCheck(c, e, name)
 	})
 
 	client.Handlers.Add(girc.PRIVMSG, func(c *girc.Client, e girc.Event) {
@@ -386,8 +404,8 @@ func ircClient(network Network, name string, waitGroup *sync.WaitGroup) {
 		switch e.Last() {
 		// Display help message
 		case "!help":
-			chunkToIrc(c, e, "OpenAI Models: !dan - jailbroken ChatGPT, !chatgpt - one shot gpt3.5 model (no context), !davinci (best), !davinci2, !davinci1, !ada, !babbage, !dale (512x512), !dale256 (256x256), !dale1024 (1024x1024 very slow), !ai (default davinci)")
-			chunkToIrc(c, e, "Other: !aiscii (experimental ascii generation), !aiscii3 (gpt3.5 aiscii generation), !aiscii4 (gpt4 aiscii generation), !birdmap (run port scan on target), !sd (Stable diffusion request) - https://github.com/birdneststream/aibird")
+			sendToIrc(c, e, "OpenAI Models: !dan - jailbroken ChatGPT, !chatgpt - one shot gpt3.5 model (no context), !davinci (best), !davinci2, !davinci1, !ada, !babbage, !dale (512x512), !dale256 (256x256), !dale1024 (1024x1024 very slow), !ai (default davinci)")
+			sendToIrc(c, e, "Other: !aiscii (experimental ascii generation), !aiscii3 (gpt3.5 aiscii generation), !aiscii4 (gpt4 aiscii generation), !birdmap (run port scan on target), !sd (Stable diffusion request) - https://github.com/birdneststream/aibird")
 			return
 		}
 	})

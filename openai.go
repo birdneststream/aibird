@@ -48,7 +48,7 @@ func completion(c *girc.Client, e girc.Event, message string, model string, cost
 
 	responseString = strings.TrimSpace(resp.Choices[0].Text) + " ($" + total + ")"
 
-	chunkToIrc(c, e, responseString)
+	sendToIrc(c, e, responseString)
 }
 
 // Annoying reply to chats
@@ -67,7 +67,7 @@ func replyToChats(c *girc.Client, e girc.Event, message string) {
 		return
 	}
 
-	chunkToIrc(c, e, strings.TrimSpace(resp.Choices[0].Text))
+	sendToIrc(c, e, strings.TrimSpace(resp.Choices[0].Text))
 }
 
 func conversation(c *girc.Client, e girc.Event, model string, conversation []gogpt.ChatCompletionMessage) {
@@ -89,7 +89,7 @@ func conversation(c *girc.Client, e girc.Event, model string, conversation []gog
 		}
 		for _, choice := range resp.Choices {
 			// for each ChatCompletionMessage
-			chunkToIrc(c, e, strings.TrimSpace(choice.Message.Content))
+			sendToIrc(c, e, strings.TrimSpace(choice.Message.Content))
 			return
 		}
 	} else {
@@ -101,7 +101,7 @@ func conversation(c *girc.Client, e girc.Event, model string, conversation []gog
 		}
 		for _, choice := range resp.Choices {
 			// for each ChatCompletionMessage
-			chunkToIrc(c, e, strings.TrimSpace(choice.Message.Content))
+			sendToIrc(c, e, strings.TrimSpace(choice.Message.Content))
 			return
 		}
 	}
@@ -126,7 +126,7 @@ func chatGptContext(c *girc.Client, e girc.Event, name string, message []gogpt.C
 	// for each ChatCompletionChoice
 	for _, choice := range resp.Choices {
 		// for each ChatCompletionMessage
-		chunkToIrc(c, e, strings.TrimSpace(choice.Message.Content))
+		sendToIrc(c, e, strings.TrimSpace(choice.Message.Content))
 
 		key := []byte(name + "_" + e.Params[0] + "_chats_cache_gpt_" + e.Source.Name)
 		message := "AI: " + strings.TrimSpace(choice.Message.Content)

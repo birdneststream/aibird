@@ -19,7 +19,7 @@ func birdmap(c *girc.Client, e girc.Event, message string) {
 		PresencePenalty:  0,
 	}
 
-	chunkToIrc(c, e, "Running birdmap scan for: "+message+" please wait...")
+	sendToIrc(c, e, "Running birdmap scan for: "+message+" please wait...")
 
 	resp, err := aiClient().CreateCompletion(ctx, req)
 
@@ -29,7 +29,7 @@ func birdmap(c *girc.Client, e girc.Event, message string) {
 	}
 
 	responseString := strings.TrimSpace(resp.Choices[0].Text)
-	chunkToIrc(c, e, responseString)
+	sendToIrc(c, e, responseString)
 
 }
 
@@ -55,7 +55,7 @@ func aiscii(c *girc.Client, e girc.Event, message string) {
 		PresencePenalty:  0,
 	}
 
-	chunkToIrc(c, e, "Processing mIRC aiscii art (it can take a while): "+message)
+	sendToIrc(c, e, "Processing mIRC aiscii art (it can take a while): "+message)
 
 	resp, err := aiClient().CreateCompletion(ctx, req)
 
@@ -89,11 +89,11 @@ func aiscii(c *girc.Client, e girc.Event, message string) {
 		// get alphabet letters from asciiName only
 		asciiName := cleanFileName(asciiName)
 
-		chunkToIrc(c, e, "@record "+asciiName)
+		sendToIrc(c, e, "@record "+asciiName)
 	}
 
 	// for each new line break in response choices write to channel
-	chunkToIrc(c, e, responseString)
+	sendToIrc(c, e, responseString)
 
 	message = "As a snobby reddit intellectual artist, shortly explain your new artistic masterpiece '" + message + "'" + " to the masses."
 
@@ -112,9 +112,9 @@ func aiscii(c *girc.Client, e girc.Event, message string) {
 
 	responseString = strings.TrimSpace(resp.Choices[0].Text)
 
-	chunkToIrc(c, e, responseString)
+	sendToIrc(c, e, responseString)
 
 	if parts[0] == "--save" {
-		_ = c.Cmd.Reply(e, "@end")
+		sendToIrc(c, e, "@end")
 	}
 }
