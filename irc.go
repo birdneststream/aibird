@@ -350,8 +350,8 @@ func cacheChatsForChatGtp(c *girc.Client, e girc.Event, name string) {
 
 func floodCheck(c *girc.Client, e girc.Event, name string) bool {
 	// Anti flood
-	key := cacheKey(name+e.Params[0]+e.Source.Name, "f")
-	ban := cacheKey(name+e.Params[0]+e.Source.Name, "b")
+	key := cacheKey(name+e.Params[0]+e.Source.Host+e.Source.Ident, "f")
+	ban := cacheKey(name+e.Params[0]+e.Source.Host+e.Source.Ident, "b")
 
 	if birdBase.Has(ban) {
 		return true
@@ -379,13 +379,10 @@ func floodCheck(c *girc.Client, e girc.Event, name string) bool {
 
 func removeFloodBanDelay(c *girc.Client, e girc.Event, name string, minutes time.Duration) {
 	time.Sleep(minutes * time.Minute)
-
-	ban := cacheKey(name+e.Params[0]+e.Source.Name, "b")
-	birdBase.Delete(ban)
+	birdBase.Delete(cacheKey(name+e.Params[0]+e.Source.Host+e.Source.Ident, "b"))
 	removeFloodCheck(c, e, name)
 }
 
 func removeFloodCheck(c *girc.Client, e girc.Event, name string) {
-	key := cacheKey(name+e.Params[0]+e.Source.Name, "f")
-	birdBase.Delete(key)
+	birdBase.Delete(cacheKey(name+e.Params[0]+e.Source.Host+e.Source.Ident, "f"))
 }

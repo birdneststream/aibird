@@ -62,7 +62,7 @@ throttle = 50
 burst = 3
 channels = ["#birdnest"]
 [[networks.birdnest.servers]]
-host = "irc.birdnest.live"
+host = "irc.birdnest.chat"
 port = 6697
 ssl = true
 ipv6 = false
