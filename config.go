@@ -26,12 +26,13 @@ type (
 
 	// IRC
 	Network struct {
-		Nick     string
-		Servers  []Server
-		Channels []string
-		Enabled  bool
-		Throttle time.Duration
-		Burst    int
+		Nick         string
+		Servers      []Server
+		Channels     []string
+		Enabled      bool
+		Throttle     time.Duration
+		Burst        int
+		NickServPass string
 	}
 
 	Server struct {

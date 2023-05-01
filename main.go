@@ -101,6 +101,10 @@ func ircClient(network Network, name string, waitGroup *sync.WaitGroup) {
 		// Nah we will just wait 5 seconds instead hahaha
 	})
 	client.Handlers.Add(girc.RPL_WELCOME, func(c *girc.Client, e girc.Event) {
+		if network.NickServPass != "" {
+			c.Cmd.SendRaw("PRIVMSG NickServ :IDENTIFY " + network.NickServPass)
+		}
+
 		for _, channel := range network.Channels {
 			c.Cmd.Join(channel)
 			time.Sleep(network.Throttle * time.Millisecond)
