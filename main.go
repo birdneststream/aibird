@@ -148,10 +148,14 @@ func ircClient(network Network, name string, waitGroup *sync.WaitGroup) {
 	})
 	client.Handlers.Add(girc.KICK, func(c *girc.Client, e girc.Event) {
 		if e.Params[1] == c.GetNick() {
+			time.Sleep(network.Throttle * time.Millisecond)
 			c.Cmd.Join(e.Params[0])
 		}
 	})
 	client.Handlers.Add(girc.PRIVMSG, func(c *girc.Client, e girc.Event) {
+		// Expire old keys
+		birdBase.RunGC()
+
 		// Ignore own nick and other nicks defined in config.toml
 		if shouldIgnore(e.Source.Name) || e.Source.Name == network.Nick {
 			return
@@ -248,8 +252,9 @@ func ircClient(network Network, name string, waitGroup *sync.WaitGroup) {
 				case "birdbase":
 					message = strings.TrimSpace(strings.TrimPrefix(message, "birdbase"))
 
-					if message == "nicks" {
-						var key = []byte(name + "_" + e.Params[0] + "_nicks")
+					switch message {
+					case "nicks":
+						key := []byte(name + "_" + e.Params[0] + "_nicks")
 						nickList, err := birdBase.Get(key)
 						if err != nil {
 							log.Println(err)
@@ -257,32 +262,46 @@ func ircClient(network Network, name string, waitGroup *sync.WaitGroup) {
 						}
 
 						sendToIrc(c, e, string(nickList))
+						return
+
+					case "stats":
+						stats, err := birdBase.Stats()
+						if err != nil {
+							log.Println(err)
+							sendToIrc(c, e, err.Error())
+							return
+						}
+
+						sendToIrc(c, e, fmt.Sprintf("%+v", stats))
+						return
+
+					case "deleteall":
+						err := birdBase.DeleteAll()
+						if err != nil {
+							log.Println(err)
+							sendToIrc(c, e, err.Error())
+							return
+						}
+
+						sendToIrc(c, e, "Removed all birdBase keys.")
+						return
 					}
 
-					return
 				}
-
-				removeFloodCheck(c, e, name)
 			}
-
-			return
 			// Dall-e Commands
 		case "!dale":
 			dalle(c, e, message, gogpt.CreateImageSize512x512)
-			removeFloodCheck(c, e, name)
 			return
 		case "!dale256":
 			dalle(c, e, message, gogpt.CreateImageSize256x256)
-			removeFloodCheck(c, e, name)
 			return
 		case "!dale1024":
 			dalle(c, e, message, gogpt.CreateImageSize1024x1024)
-			removeFloodCheck(c, e, name)
 			return
 		// Custom prompt to make better mirc art
 		case "!aiscii":
 			aiscii(c, e, message)
-			removeFloodCheck(c, e, name)
 			return
 		// jail broken chatgpt
 		case "!dan":
@@ -309,7 +328,6 @@ func ircClient(network Network, name string, waitGroup *sync.WaitGroup) {
 				Content: "Provide no explanation or markdown. Use the UTF-8 drawing characters and mIRC color codes (using ) to make a monospaced text art 80 characters wide and 30 characters height depicting '" + message + "'.",
 			})
 			conversation(c, e, gogpt.GPT3Dot5Turbo, chatGptContext)
-			removeFloodCheck(c, e, name)
 			return
 		// gpt4 isn't that impressive for mirc art actually
 		case "!aiscii4":
@@ -324,19 +342,18 @@ func ircClient(network Network, name string, waitGroup *sync.WaitGroup) {
 			return
 		case "!birdmap":
 			birdmap(c, e, message)
-			removeFloodCheck(c, e, name)
 			return
 		// Stable diffusion prompts
 		case "!sd":
-			// if !isUserMode(name, e.Params[0], e.Source.Name, "@~") {
-			// 	sendToIrc(c, e, "Hey there chat pal "+e.Source.Name+", you have to be a birdnest patreon to use stable diffusion! Unless you want to donate your own GPU!")
-			// 	return
-			// }
+			if !isUserMode(name, e.Params[0], e.Source.Name, "@~") {
+				sendToIrc(c, e, "Hey there chat pal "+e.Source.Name+", you have to be a birdnest patreon to use stable diffusion! Unless you want to donate your own GPU!")
+				return
+			}
 
-			// if e.Params[0] != "#birdnest" {
-			// 	sendToIrc(c, e, "Hey there chat pal "+e.Source.Name+", stable diffusion is only available in #birdnest!")
-			// 	return
-			// }
+			if e.Params[0] != "#birdnest" {
+				sendToIrc(c, e, "Hey there chat pal "+e.Source.Name+", stable diffusion is only available in #birdnest!")
+				return
+			}
 
 			sdRequest(c, e, message)
 			return
@@ -348,7 +365,6 @@ func ircClient(network Network, name string, waitGroup *sync.WaitGroup) {
 				Content: message,
 			})
 			conversation(c, e, gogpt.GPT3Dot5Turbo, chatGptContext)
-			removeFloodCheck(c, e, name)
 			return
 		// Hot diggitiy gpt-4 is expensive
 		case "!gpt4":
@@ -388,7 +404,6 @@ func ircClient(network Network, name string, waitGroup *sync.WaitGroup) {
 		}
 
 		completion(c, e, message, model, cost)
-		removeFloodCheck(c, e, name)
 	})
 
 	client.Handlers.Add(girc.PRIVMSG, func(c *girc.Client, e girc.Event) {

@@ -21,20 +21,8 @@ func completion(c *girc.Client, e girc.Event, message string, model string, cost
 		Temperature: config.OpenAI.Temperature,
 	}
 
-	if model == gogpt.CodexCodeDavinci002 {
-		req = gogpt.CompletionRequest{
-			Model:            model,
-			MaxTokens:        config.OpenAI.Tokens,
-			Prompt:           message,
-			Temperature:      0,
-			TopP:             1,
-			FrequencyPenalty: 0,
-			PresencePenalty:  0,
-		}
-	}
-
 	// Process a completion request
-	_ = c.Cmd.Reply(e, "Processing: "+message)
+	sendToIrc(c, e, "Processing: "+message)
 
 	// Perform the actual API request to openAI
 	resp, err := aiClient().CreateCompletion(ctx, req)
@@ -71,7 +59,7 @@ func replyToChats(c *girc.Client, e girc.Event, message string) {
 }
 
 func conversation(c *girc.Client, e girc.Event, model string, conversation []gogpt.ChatCompletionMessage) {
-	_ = c.Cmd.Reply(e, "Processing "+model+": "+conversation[len(conversation)-1].Content)
+	sendToIrc(c, e, "Processing "+model+": "+conversation[len(conversation)-1].Content)
 
 	req := gogpt.ChatCompletionRequest{
 		Model:       model,
@@ -148,7 +136,7 @@ func dalle(c *girc.Client, e girc.Event, message string, size string) {
 	}
 
 	// Alert the irc chan that the bot is processing
-	_ = c.Cmd.Reply(e, "Processing Dall-E: "+message)
+	sendToIrc(c, e, "Processing Dall-E: "+message)
 
 	resp, err := aiClient().CreateImage(ctx, req)
 	if err != nil {
@@ -158,7 +146,7 @@ func dalle(c *girc.Client, e girc.Event, message string, size string) {
 
 	daleResponse := saveDalleRequest(message, resp.Data[0].URL)
 
-	_ = c.Cmd.Reply(e, e.Source.Name+": "+daleResponse)
+	sendToIrc(c, e, e.Source.Name+": "+daleResponse)
 }
 
 func saveDalleRequest(prompt string, url string) string {
@@ -187,7 +175,7 @@ func aiClient() *gogpt.Client {
 }
 
 func handleApiError(c *girc.Client, e girc.Event, err error) {
-	_ = c.Cmd.Reply(e, err.Error())
+	sendToIrc(c, e, err.Error())
 
 	// err.Error() contains You exceeded your current quota
 	if strings.Contains(err.Error(), "You exceeded your current quota") {

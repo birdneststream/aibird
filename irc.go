@@ -358,7 +358,7 @@ func floodCheck(c *girc.Client, e girc.Event, name string) bool {
 	}
 
 	if !birdBase.Has(key) {
-		birdBase.Put(key, []byte("1"))
+		birdBase.PutWithTTL(key, []byte("1"), 5*time.Second)
 	} else {
 		count, _ := birdBase.Get(key)
 		countInt, _ := strconv.Atoi(string(count))
@@ -366,23 +366,12 @@ func floodCheck(c *girc.Client, e girc.Event, name string) bool {
 		birdBase.Put(key, []byte(strconv.Itoa(countInt)))
 
 		if countInt > 3 {
-			birdBase.Put(ban, []byte("1"))
+			birdBase.PutWithTTL(ban, []byte("1"), 5*time.Minute)
 			c.Cmd.Kick(e.Params[0], e.Source.Name, "Birds fly above floods!")
-			go removeFloodBanDelay(c, e, name, 5)
 		}
 
 		return true
 	}
 
 	return false
-}
-
-func removeFloodBanDelay(c *girc.Client, e girc.Event, name string, minutes time.Duration) {
-	time.Sleep(minutes * time.Minute)
-	birdBase.Delete(cacheKey(name+e.Params[0]+e.Source.Host+e.Source.Ident, "b"))
-	removeFloodCheck(c, e, name)
-}
-
-func removeFloodCheck(c *girc.Client, e girc.Event, name string) {
-	birdBase.Delete(cacheKey(name+e.Params[0]+e.Source.Host+e.Source.Ident, "f"))
 }
