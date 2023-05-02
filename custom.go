@@ -64,7 +64,7 @@ func aiscii(c *girc.Client, e girc.Event, message string) {
 		return
 	}
 
-	responseString = strings.TrimSpace(resp.Choices[0].Text)
+	responseString = resp.Choices[0].Text
 
 	if parts[0] == "--save" {
 		message = parts[1]

@@ -34,7 +34,7 @@ func completion(c *girc.Client, e girc.Event, message string, model string, cost
 	// resp.Usage.TotalTokens / 1000 * cost
 	total := strconv.FormatFloat((float64(resp.Usage.TotalTokens)/1000)*cost, 'f', 5, 64)
 
-	responseString = strings.TrimSpace(resp.Choices[0].Text) + " ($" + total + ")"
+	responseString = resp.Choices[0].Text + " ($" + total + ")"
 
 	sendToIrc(c, e, responseString)
 }
@@ -55,7 +55,7 @@ func replyToChats(c *girc.Client, e girc.Event, message string) {
 		return
 	}
 
-	sendToIrc(c, e, strings.TrimSpace(resp.Choices[0].Text))
+	sendToIrc(c, e, resp.Choices[0].Text)
 }
 
 func conversation(c *girc.Client, e girc.Event, model string, conversation []gogpt.ChatCompletionMessage) {
@@ -77,7 +77,7 @@ func conversation(c *girc.Client, e girc.Event, model string, conversation []gog
 		}
 		for _, choice := range resp.Choices {
 			// for each ChatCompletionMessage
-			sendToIrc(c, e, strings.TrimSpace(choice.Message.Content))
+			sendToIrc(c, e, choice.Message.Content)
 			return
 		}
 	} else {
@@ -89,7 +89,7 @@ func conversation(c *girc.Client, e girc.Event, model string, conversation []gog
 		}
 		for _, choice := range resp.Choices {
 			// for each ChatCompletionMessage
-			sendToIrc(c, e, strings.TrimSpace(choice.Message.Content))
+			sendToIrc(c, e, choice.Message.Content)
 			return
 		}
 	}
@@ -114,10 +114,10 @@ func chatGptContext(c *girc.Client, e girc.Event, name string, message []gogpt.C
 	// for each ChatCompletionChoice
 	for _, choice := range resp.Choices {
 		// for each ChatCompletionMessage
-		sendToIrc(c, e, strings.TrimSpace(choice.Message.Content))
+		sendToIrc(c, e, choice.Message.Content)
 
 		key := []byte(name + "_" + e.Params[0] + "_chats_cache_gpt_" + e.Source.Name)
-		message := "AI: " + strings.TrimSpace(choice.Message.Content)
+		message := "AI: " + choice.Message.Content
 		chatList, err := birdBase.Get(key)
 		if err != nil {
 			log.Println(err)
