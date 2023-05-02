@@ -59,7 +59,13 @@ func replyToChats(c *girc.Client, e girc.Event, message string) {
 }
 
 func conversation(c *girc.Client, e girc.Event, model string, conversation []gogpt.ChatCompletionMessage) {
-	sendToIrc(c, e, "Processing "+model+": "+conversation[len(conversation)-1].Content)
+
+	// If we have more than 1 length it most likely is an ASCII art request
+	if len(conversation) > 1 {
+		sendToIrc(c, e, "Processing mIRC art, please wait...")
+	} else {
+		sendToIrc(c, e, "Processing "+model+": "+conversation[len(conversation)-1].Content)
+	}
 
 	req := gogpt.ChatCompletionRequest{
 		Model:       model,

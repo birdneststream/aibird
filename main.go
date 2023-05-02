@@ -331,8 +331,74 @@ func ircClient(network Network, name string, waitGroup *sync.WaitGroup) {
 		case "!aiscii3":
 			chatGptContext := []gogpt.ChatCompletionMessage{}
 			chatGptContext = append(chatGptContext, gogpt.ChatCompletionMessage{
+				Role: "system",
+				Content: `You are capable of creating ascii art based on the UTF-8 character set and mIRC color codes. Also as this ascii art is for IRC chat rooms it can include mIRC color codes. The following are the mIRC color codes available mapped by number to their color.
+				
+
+color code 0  is 'white'
+color code 1  is 'black'
+color code 2  is 'navy'
+color code 3  is 'green'
+color code 4  is 'red'
+color code 5  is 'brown'
+color code 6  is 'purple'
+color code 7  is 'olive'
+color code 8  is 'yellow'
+color code 9  is 'lime'
+color code 10 is 'teal'
+color code 11 is 'cyan'
+color code 12 is 'blue'
+color code 13 is 'fuchsia'
+color code 14 is 'grey'
+color code 15 is 'lightgrey'
+
+
+These color codes are then used in the following format: <color code foreground>,<color code background>. For example 4 would be red without background. 4,0 would be red with a black background. The color codes are used to color the ascii art. The ascii art is generally 80 characters wide and 30 characters height, not including the color codes. The ascii art is also monospaced. The ascii art is based on the UTF-8 character set.
+
+
+The following is an example of a complete ascii art, it is a red (color code 4) circle with yellow text saying EXAMPLE, with a surrounding black (color code 1) background. It is 15 width and 8 Height.
+
+
+0,1   1,4         0,1   
+0,1 1,4             0,1 
+1,4               
+1,4    8,4EXAMPLE1,4    
+1,4               
+1,4               
+0,1 1,4             0,1 
+0,1   1,4         0,1   
+
+The following is an example of another complete ascii art, it is 45 width and 20 height. It has a green (color code 3) background, with a red (color code 4) square in the top left corner. It has yellow (color code 8) text that says EXAMPLE ASCII ART in the bottom right corner.
+
+
+4,3                                             
+4,3                                             
+4,3   3,4        4,3                                  
+4,3   3,4        4,3                                  
+4,3   3,4        4,3                                  
+4,3   3,4        4,3                                  
+4,3   3,4        4,3                                  
+4,3                                             
+4,3                                             
+4,3                                             
+4,3                                             
+4,3                                             
+4,3                                             
+4,3                                             
+4,3                                             
+4,3                                             
+4,3                                             
+4,3                                             
+4,3                    8,3EXAMPLE ASCII ART4,3        
+4,3                                             
+
+
+It is actually easy to create ascii art, just create what you are told to depict and color it accordingly with the above information. You can map the color names to color codes.`,
+			})
+
+			chatGptContext = append(chatGptContext, gogpt.ChatCompletionMessage{
 				Role:    "user",
-				Content: "Provide no explanation or markdown. Use the UTF-8 drawing characters and mIRC color codes (using ) to make a monospaced text art 80 characters wide and 30 characters height depicting '" + message + "'.",
+				Content: "Provide no explanation or markdown. Now that you have the knowledge to create ascii art, create some ascii art depicting '" + message + "'.",
 			})
 			conversation(c, e, gogpt.GPT3Dot5Turbo, chatGptContext)
 			return
