@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"fmt"
+	"github.com/yunginnanet/girc-atomic"
 	"log"
 	"os"
 	"strings"
@@ -12,7 +13,6 @@ import (
 	"git.mills.io/prologic/bitcask"
 	"github.com/BurntSushi/toml"
 	gogpt "github.com/sashabaranov/go-openai"
-	"github.com/yunginnanet/girc-atomic"
 )
 
 var config Config
@@ -45,12 +45,17 @@ func main() {
 		if len(network.Servers) == 0 {
 			log.Printf("networks.%s has no servers defined, skipping", name)
 		} else if network.Enabled {
+			log.Printf("networks.%s connecting...", name)
 			waitGroup.Add(1)
 			go ircClient(network, name, &waitGroup)
+		} else {
+			log.Printf("networks.%s is disabled, skipping", name)
 		}
 	}
 
 	waitGroup.Wait()
+
+	log.Println("all done bye")
 
 	//exit
 	os.Exit(0)

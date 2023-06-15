@@ -1,3 +1,6 @@
+# URL to send aiscii asciis to, if blank does not attepmt to send
+recordingUrl = ""
+
 [openai]
 keys = [
 "sk-freeai",

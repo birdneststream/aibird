@@ -57,6 +57,33 @@ func cleanFileName(fileName string) string {
 	return strings.ToLower(fileName)
 }
 
+func recordArt(fileName string, art string) (string, bool) {
+	url := config.RecordingUrl
+	if url == "" {
+		fmt.Println("recording url not configured so not saving art.")
+		return "", false
+	}
+
+	client := &http.Client{}
+	req, err := http.NewRequest("POST", strings.TrimRight(url, "/")+"/"+fileName, strings.NewReader(art))
+	if err != nil {
+		fmt.Println(err)
+		return "failed to record art :(", false
+	}
+	res, err := client.Do(req)
+	if err != nil || res.StatusCode != 200 {
+		fmt.Println(err)
+		return "failed to record art :(", false
+	}
+	body, err := ioutil.ReadAll(res.Body)
+	defer res.Body.Close()
+	if err != nil {
+		fmt.Println(err)
+		return "maybe failed to record art? try " + fileName + " :(", false
+	}
+	return "art saved to " + string(body), true
+}
+
 func fileHole(url string, fileName string) string {
 	method := "POST"
 
