@@ -12,6 +12,7 @@ type (
 		AiBird          AiBird
 		StableDiffusion StableDiffusion
 		Proxy           Proxy
+		RecordingUrl    string
 	}
 
 	// Proxy
