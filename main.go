@@ -399,7 +399,7 @@ func ircClient(network Network, name string, waitGroup *sync.WaitGroup) {
 			sdRequest(c, e, message)
 			return
 		// The models for completion prompts
-		case "!chatgpt":
+		case "!gpt3.5":
 			chatGptContext := []gogpt.ChatCompletionMessage{}
 			chatGptContext = append(chatGptContext, gogpt.ChatCompletionMessage{
 				Role:    "user",
@@ -412,6 +412,14 @@ func ircClient(network Network, name string, waitGroup *sync.WaitGroup) {
 			return
 		case "!bard":
 			bard(c, e, message)
+			return
+		case "!gpt4":
+			chatGptContext := []gogpt.ChatCompletionMessage{}
+			chatGptContext = append(chatGptContext, gogpt.ChatCompletionMessage{
+				Role:    "user",
+				Content: message,
+			})
+			conversation(c, e, gogpt.GPT4, chatGptContext)
 			return
 		case "!davinci":
 			model = gogpt.GPT3Davinci
@@ -450,7 +458,7 @@ func ircClient(network Network, name string, waitGroup *sync.WaitGroup) {
 		// Display help message
 		case "!help":
 			floodCheck(c, e, name)
-			sendToIrc(c, e, "OpenAI Models: !chatgpt, !davinci (newest), !davinci3, !davinci2, !davinci1, !ada, !babbage, !ai (as GPT3Dot5TurboInstruct), !bard (Google Bard), !sd (Stable diffusion)")
+			sendToIrc(c, e, "OpenAI Models: !gpt4, !gpt3.5, !davinci (newest), !davinci3, !davinci2, !davinci1, !ada, !babbage, !ai (as GPT3Dot5TurboInstruct), !bard (Google Bard), !sd (Stable diffusion)")
 			sendToIrc(c, e, "Dall-E 3: !dale, --1024, --1792x1024, --1024x1792, --hd (high quality), --vivid (vivid style), --2 (Dall-E 2)")
 			sendToIrc(c, e, "Other: !aiscii (experimental ascii generation), !birdmap (run port scan on target), !sd (Stable diffusion request) - https://github.com/birdneststream/aibird")
 			return

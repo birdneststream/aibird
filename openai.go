@@ -68,30 +68,16 @@ func conversation(c *girc.Client, e girc.Event, model string, conversation []gog
 		Temperature: config.OpenAI.Temperature,
 	}
 
-	if model == gogpt.GPT4 {
-		key := config.OpenAI.Gpt4Key
-		resp, err := gogpt.NewClient(key).CreateChatCompletion(ctx, req)
-		if err != nil {
-			handleApiError(c, e, err)
-			return
-		}
-		for _, choice := range resp.Choices {
-			// for each ChatCompletionMessage
-			sendToIrc(c, e, choice.Message.Content)
-			return
-		}
-	} else {
-		// Perform the actual API request to openAI
-		resp, err := aiClient().CreateChatCompletion(ctx, req)
-		if err != nil {
-			handleApiError(c, e, err)
-			return
-		}
-		for _, choice := range resp.Choices {
-			// for each ChatCompletionMessage
-			sendToIrc(c, e, choice.Message.Content)
-			return
-		}
+	// Perform the actual API request to openAI
+	resp, err := aiClient().CreateChatCompletion(ctx, req)
+	if err != nil {
+		handleApiError(c, e, err)
+		return
+	}
+	for _, choice := range resp.Choices {
+		// for each ChatCompletionMessage
+		sendToIrc(c, e, choice.Message.Content)
+		return
 	}
 
 }
