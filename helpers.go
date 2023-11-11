@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"io"
@@ -11,6 +12,8 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+
+	"golang.org/x/crypto/sha3"
 )
 
 func cleanFileName(fileName string) string {
@@ -52,6 +55,37 @@ func cleanFileName(fileName string) string {
 	fileName = strings.ReplaceAll(fileName, "}", "-")
 
 	return strings.ToLower(fileName)
+}
+
+func cleanArtName(fileName string) string {
+	return strings.Trim(strings.ReplaceAll(fileName, "--", "-"), "-")
+}
+
+func recordArt(fileName string, art string) (string, bool) {
+	url := config.RecordingUrl
+	if url == "" {
+		fmt.Println("recording url not configured so not saving art.")
+		return "", false
+	}
+
+	client := &http.Client{}
+	req, err := http.NewRequest("POST", strings.TrimRight(url, "/")+"/"+fileName, strings.NewReader(art))
+	if err != nil {
+		fmt.Println(err)
+		return "failed to record art :(", false
+	}
+	res, err := client.Do(req)
+	if err != nil || res.StatusCode != 200 {
+		fmt.Println(err)
+		return "failed to record art :(", false
+	}
+	body, err := ioutil.ReadAll(res.Body)
+	defer res.Body.Close()
+	if err != nil {
+		fmt.Println(err)
+		return "maybe failed to record art? try " + fileName + " :(", false
+	}
+	return "art saved to " + string(body), true
 }
 
 func fileHole(url string, fileName string) string {
@@ -127,4 +161,11 @@ func downloadFile(URL, fileName string) error {
 	}
 
 	return nil
+}
+
+func cacheKey(key string, what string) []byte {
+	hash := sha3.Sum224([]byte(key))
+	hashString := hex.EncodeToString(hash[:])
+
+	return []byte(what + hashString)
 }

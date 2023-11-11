@@ -1,21 +1,41 @@
 package main
 
 import (
-	"context"
 	"log"
 	"math/rand"
+	"strconv"
 	"strings"
+	"time"
 
-	gogpt "github.com/sashabaranov/go-gpt3"
-	"gopkg.in/irc.v3"
+	gogpt "github.com/sashabaranov/go-openai"
+	"github.com/yunginnanet/girc-atomic"
 )
 
-func chunkToIrc(c *irc.Client, channel string, message string) {
+func sendToIrc(c *girc.Client, e girc.Event, message string) {
 	var sendString string
+	markdownQuote := false
+
+	// add irc bold to replace markdown
+	message = strings.Replace(message, "**", "\x02", -1)
+
+	// add irc italics to replace markdown, but only replace "*" and not "* "
+	message = strings.Replace(message, "* ", "  - ", -1)
+	message = strings.Replace(message, "*", "\x1D", -1)
 
 	// for each new line break in response choices write to channel
 	for _, line := range strings.Split(message, "\n") {
 		sendString = ""
+
+		// if the sendString contains ``` set markdownQuote to true
+		if strings.Contains(line, "```") {
+			markdownQuote = !markdownQuote
+			line = strings.Replace(line, "```", "", -1)
+		}
+
+		if markdownQuote {
+			// prepend \x0303 to sendString
+			sendString = "03" + sendString
+		}
 
 		// Remove blank or one/two char lines
 		if len(line) <= 2 {
@@ -27,32 +47,25 @@ func chunkToIrc(c *irc.Client, channel string, message string) {
 
 		// for each chunk
 		for _, chunk := range chunks {
+
 			// append chunk to sendString
 			sendString += chunk + " "
 
 			// Trim by words for a cleaner output
-			if len(sendString) > 380 {
+			if len(sendString) > 450 {
 				// write message to channel
-				c.WriteMessage(&irc.Message{
-					Command: "PRIVMSG",
-					Params: []string{
-						channel,
-						sendString,
-					},
-				})
+				time.Sleep(550 * time.Millisecond)
+
+				_ = c.Cmd.Reply(e, sendString)
 				sendString = ""
 			}
 		}
 
 		// Write the final message
-		c.WriteMessage(&irc.Message{
-			Command: "PRIVMSG",
-			Params: []string{
-				channel,
-				sendString,
-			},
-		})
+		time.Sleep(550 * time.Millisecond)
+		_ = c.Cmd.Reply(e, sendString)
 	}
+
 }
 
 func cleanFromModes(nick string) string {
@@ -64,9 +77,11 @@ func cleanFromModes(nick string) string {
 	return nick
 }
 
-func isAdmin(m *irc.Message) bool {
+func isAdmin(e girc.Event) bool {
 	for i := 0; i < len(config.AiBird.ProtectedHosts); i++ {
-		if strings.Contains(m.Prefix.Host, config.AiBird.ProtectedHosts[i].Host) && config.AiBird.ProtectedHosts[i].Admin {
+		if config.AiBird.ProtectedHosts[i].Host == e.Source.Host &&
+			config.AiBird.ProtectedHosts[i].Ident == cleanFromModes(e.Source.Ident) &&
+			config.AiBird.ProtectedHosts[i].Admin {
 			return true
 		}
 	}
@@ -75,9 +90,9 @@ func isAdmin(m *irc.Message) bool {
 }
 
 // Needs to be rewritten
-// func isProtected(m *irc.Message) bool {
+// func isProtected(e *irc.Message) bool {
 // 	for i := 0; i < len(config.AiBird.ProtectedHosts); i++ {
-// 		if strings.Contains(m.Prefix.Host, config.AiBird.ProtectedHosts[i].Host) {
+// 		if strings.Contains(e.Prefix.Host, config.AiBird.ProtectedHosts[i].Host) {
 // 			return true
 // 		}
 // 	}
@@ -87,7 +102,9 @@ func isAdmin(m *irc.Message) bool {
 
 func shouldIgnore(nick string) bool {
 	for i := 0; i < len(config.AiBird.IgnoreChatsFrom); i++ {
-		if strings.ToLower(cleanFromModes(nick)) == strings.ToLower(config.AiBird.IgnoreChatsFrom[i]) {
+		// strings equalFOld
+		if strings.EqualFold(strings.ToLower(cleanFromModes(nick)), strings.ToLower(config.AiBird.IgnoreChatsFrom[i])) {
+			// if strings.ToLower(cleanFromModes(nick)) == strings.ToLower(config.AiBird.IgnoreChatsFrom[i]) {
 			return true
 		}
 	}
@@ -99,22 +116,24 @@ func isUserMode(name string, channel string, user string, modes string) bool {
 	key := []byte(name + "_" + channel + "_nicks")
 
 	// Get the meta data from the database
-	nickList, err := birdBase.Get(key)
-	if err != nil {
-		log.Println(err)
-		return false
-	}
+	if birdBase.Has(key) {
+		nickList, err := birdBase.Get(key)
+		if err != nil {
+			log.Println(err)
+			return false
+		}
 
-	sliceNickList := strings.Split(string(nickList), " ")
-	whatModes := strings.Split(modes, "")
+		sliceNickList := strings.Split(string(nickList), " ")
+		whatModes := strings.Split(modes, "")
 
-	for j := 0; j < len(sliceNickList); j++ {
-		checkNick := cleanFromModes(sliceNickList[j])
+		for j := 0; j < len(sliceNickList); j++ {
+			checkNick := cleanFromModes(sliceNickList[j])
 
-		if checkNick == user {
-			for k := 0; k < len(whatModes); k++ {
-				if strings.Contains(sliceNickList[j], whatModes[k]) {
-					return true
+			if checkNick == user {
+				for k := 0; k < len(whatModes); k++ {
+					if strings.Contains(sliceNickList[j], whatModes[k]) {
+						return true
+					}
 				}
 			}
 		}
@@ -124,27 +143,27 @@ func isUserMode(name string, channel string, user string, modes string) bool {
 }
 
 // Needs to be rewritten
-// func protectHosts(c *irc.Client, m *irc.Message) {
-// 	switch m.Params[1] {
+// func protectHosts(c *irc.Client, e *irc.Message) {
+// 	switch e.Params[1] {
 // 	case "+b":
-// 		if isProtected(m) {
-// 			c.Write("MODE " + m.Params[0] + " -b " + m.Trailing())
+// 		if isProtected(e) {
+// 			c.Write("MODE " + e.Params[0] + " -b " + e.Trailing())
 
-// 			if !isAdmin(m) {
-// 				c.Write("MODE " + m.Params[0] + " +b *!*@" + m.Prefix.Host)
-// 				c.Write("KICK " + m.Params[0] + " " + m.Prefix.Name + " :Don't mess with the birds!")
+// 			if !isAdmin(e) {
+// 				c.Write("MODE " + e.Params[0] + " +b *!*@" + e.Prefix.Host)
+// 				c.Write("KICK " + e.Params[0] + " " + e.Prefix.Name + " :Don't mess with the birds!")
 // 			}
 
 // 			break
 // 		}
 
 // 	case "-o":
-// 		if isProtected(m) {
-// 			c.Write("MODE " + m.Params[0] + " +o " + m.Params[2])
+// 		if isProtected(e) {
+// 			c.Write("MODE " + e.Params[0] + " +o " + e.Params[2])
 
-// 			if !isAdmin(m) {
-// 				c.Write("MODE " + m.Params[0] + " +b *!*@" + m.Prefix.Host)
-// 				c.Write("KICK " + m.Params[0] + " " + m.Prefix.Name + " :Don't mess with the birds!")
+// 			if !isAdmin(e) {
+// 				c.Write("MODE " + e.Params[0] + " +b *!*@" + e.Prefix.Host)
+// 				c.Write("KICK " + e.Params[0] + " " + e.Prefix.Name + " :Don't mess with the birds!")
 // 			}
 
 // 			break
@@ -154,18 +173,20 @@ func isUserMode(name string, channel string, user string, modes string) bool {
 // }
 
 // This builds a temporary list of nicks in a channel
-func cacheNicks(name string, m *irc.Message) {
-	var key = []byte(name + "_" + m.Params[2] + "_temp_nick")
+func cacheNicks(e girc.Event, name string) {
+	var key = []byte(name + "_" + e.Params[2] + "_temp_nick")
+	nicks := strings.Split(e.Last(), " ")
+	tempNickList := ""
+
+	for i := 0; i < len(nicks); i++ {
+		tempNickList = strings.Trim(tempNickList+" "+strings.Split(nicks[i], "!")[0], " ")
+	}
 
 	// if birdbase key exists create new tempMeta with name and channel then store it
 	if !birdBase.Has(key) {
-		// store tempMeta in the database
-		birdBase.Put(key, []byte(m.Trailing()))
+		birdBase.Put(key, []byte(tempNickList))
 		return
-	}
-
-	// if birdbase key exists get the meta data and append the new meta data to it
-	if birdBase.Has(key) {
+	} else {
 		nickList, err := birdBase.Get(key)
 		if err != nil {
 			log.Println(err)
@@ -173,15 +194,17 @@ func cacheNicks(name string, m *irc.Message) {
 		}
 
 		// store tempMeta in the database
-		birdBase.Put(key, []byte(string(nickList)+" "+m.Trailing()))
+		birdBase.Put(key, []byte(string(nickList)+" "+tempNickList))
 		return
 	}
 
 }
 
 // When the end of the nick list is returned we cache the final list and remove the temp
-func saveNicks(name string, m *irc.Message) {
-	var key = []byte(name + "_" + m.Params[1] + "_temp_nick")
+func saveNicks(e girc.Event, name string) {
+	channel := e.Params[1]
+	var key = []byte(name + "_" + channel + "_temp_nick")
+
 	nickList, err := birdBase.Get(key)
 	if err != nil {
 		log.Println(err)
@@ -193,147 +216,55 @@ func saveNicks(name string, m *irc.Message) {
 		birdBase.Delete(key)
 	}
 
-	key = []byte(name + "_" + m.Params[1] + "_nicks")
+	key = []byte(name + "_" + channel + "_nicks")
 	birdBase.Put(key, nickList)
 }
 
-func cacheAutoLists(name string, m *irc.Message) {
-	channel := m.Params[1]
-	user := m.Params[2]
-	host := m.Params[3]
-	nick := m.Params[5]
-	status := m.Params[6]
+func cacheAutoLists(e girc.Event, name string) {
+	channel := e.Params[1]
+	user := e.Params[2]
+	host := e.Params[3]
+	status := e.Params[6]
 
 	// If the user is not in the list and has +v
-	if strings.Contains(status, "+") && !isInList(name, channel, "voice", user, host, nick) {
-		log.Println("Adding " + nick + " to the auto voice list.")
-
-		autoVoiceKey := []byte(name + "_" + m.Params[1] + "_autovoice")
-		if birdBase.Has(autoVoiceKey) {
-			autoVoiceList, err := birdBase.Get(autoVoiceKey)
-			if err != nil {
-				log.Println(err)
-				return
-			}
-
-			birdBase.Put(autoVoiceKey, []byte(user+" "+host+" "+nick+"#"+string(autoVoiceList)))
-			return
-		}
-
-		birdBase.Put(autoVoiceKey, []byte(user+" "+host+" "+nick))
-		return
+	autoVoiceKey := cacheKey(name+channel+user+host, "v")
+	if strings.Contains(status, "+") && !birdBase.Has(autoVoiceKey) {
+		birdBase.PutWithTTL(autoVoiceKey, []byte(""), time.Hour*24*180)
+	} else if !strings.Contains(status, "+") {
+		birdBase.Delete(autoVoiceKey)
 	}
 
 	// If the user is not in the list and has +o
-	if strings.Contains(status, "@") && !isInList(name, channel, "op", user, host, nick) {
-		log.Println("Adding " + nick + " to the auto op list.")
-
-		autoOpKey := []byte(name + "_" + m.Params[1] + "_autoop")
-		if birdBase.Has(autoOpKey) {
-			autoOpList, err := birdBase.Get(autoOpKey)
-			if err != nil {
-				log.Println(err)
-				return
-			}
-
-			birdBase.Put(autoOpKey, []byte(user+" "+host+" "+nick+"#"+string(autoOpList)))
-			return
-		}
-
-		birdBase.Put(autoOpKey, []byte(user+" "+host+" "+nick))
-		return
+	autoOpKey := cacheKey(name+channel+user+host, "o")
+	if strings.Contains(status, "@") && !birdBase.Has(autoOpKey) {
+		birdBase.PutWithTTL(autoOpKey, []byte(""), time.Hour*24*180)
+	} else if !strings.Contains(status, "@") {
+		birdBase.Delete(autoOpKey)
 	}
 
-	// If the user is in the list and has -v
-	if !strings.Contains(status, "+") && !strings.Contains(status, "@") && isInList(name, channel, "voice", user, host, nick) {
-		log.Println("Removing " + nick + " from the auto voice list.")
-
-		autoVoiceKey := []byte(name + "_" + m.Params[1] + "_autovoice")
-		if birdBase.Has(autoVoiceKey) {
-			autoVoiceList, err := birdBase.Get(autoVoiceKey)
-			if err != nil {
-				log.Println(err)
-				return
-			}
-
-			sliceAutoVoiceList := strings.Split(string(autoVoiceList), "#")
-
-			for j := 0; j < len(sliceAutoVoiceList); j++ {
-				nickDetails := strings.Split(sliceAutoVoiceList[j], " ")
-				if (nickDetails[0] == user) && (nickDetails[1] == host) && (nickDetails[2] == nick) {
-					sliceAutoVoiceList = append(sliceAutoVoiceList[:j], sliceAutoVoiceList[j+1:]...)
-					break
-				}
-			}
-
-			birdBase.Put(autoVoiceKey, []byte(strings.Join(sliceAutoVoiceList, "#")))
-			return
-		}
-	}
-
-	// If the user is in the list and has -o
-	if !strings.Contains(status, "+") && !strings.Contains(status, "@") && isInList(name, channel, "op", user, host, nick) {
-		log.Println("Removing " + nick + " from the auto op list.")
-
-		autoOpKey := []byte(name + "_" + m.Params[1] + "_autoop")
-		if birdBase.Has(autoOpKey) {
-			autoOpList, err := birdBase.Get(autoOpKey)
-			if err != nil {
-				log.Println(err)
-				return
-			}
-
-			sliceAutoOpList := strings.Split(string(autoOpList), "#")
-
-			for j := 0; j < len(sliceAutoOpList); j++ {
-				nickDetails := strings.Split(sliceAutoOpList[j], " ")
-				if (nickDetails[0] == user) && (nickDetails[1] == host) && (nickDetails[2] == nick) {
-					sliceAutoOpList = append(sliceAutoOpList[:j], sliceAutoOpList[j+1:]...)
-					break
-				}
-			}
-
-			birdBase.Put(autoOpKey, []byte(strings.Join(sliceAutoOpList, "#")))
-			return
-		}
-	}
 }
 
-// This one doesn't rely on m.Params which can change depending what event has occurred.
-func isInList(name string, channel string, what string, user string, host string, nick string) bool {
-	key := []byte(name + "_" + channel + "_auto" + what)
-
-	if birdBase.Has(key) {
-		// Get the meta data from the database
-		nickList, err := birdBase.Get(key)
-		if err != nil {
-			log.Println(err)
-			return false
-		}
-
-		sliceNickList := strings.Split(string(nickList), "#")
-
-		for j := 0; j < len(sliceNickList); j++ {
-			nickDetails := strings.Split(sliceNickList[j], " ")
-			if (nickDetails[0] == user) && (nickDetails[1] == host) && (nickDetails[2] == nick) {
-				return true
-			}
-		}
-	}
-
-	return false
+// This one doesn't rely on e.Params which can change depending on what event has occurred.
+func isInList(name string, channel string, what string, user string, host string) bool {
+	return birdBase.Has(cacheKey(name+channel+user+host, what))
 }
 
-func cacheChatsForReply(name string, message string, m *irc.Message, c *irc.Client, aiClient *gogpt.Client, ctx context.Context) {
+// Maybe can move this into openai.go
+func cacheChatsForReply(c *girc.Client, e girc.Event, name string, message string) {
 	// Get the meta data from the database
 
-	// if the string contains \x03 then return
-	if strings.Contains(message, "\x03") {
+	// check if message contains unicode
+	if !strings.ContainsAny(message, "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789") {
 		return
 	}
 
-	key := []byte(name + "_" + m.Params[0] + "_chats_cache")
-	message = m.Prefix.Name + ": " + message
+	key := []byte(name + "_" + e.Params[0] + "_chats_cache")
+	message = e.Source.Name + ": " + message
+
+	// prevent auto complete
+	if !strings.HasSuffix(message, ".") && !strings.HasSuffix(message, "!") && !strings.HasSuffix(message, "?") {
+		message = message + "."
+	}
 
 	if birdBase.Has(key) {
 		chatList, err := birdBase.Get(key)
@@ -342,34 +273,56 @@ func cacheChatsForReply(name string, message string, m *irc.Message, c *irc.Clie
 			return
 		}
 
-		birdBase.Put(key, []byte(message+"."+"\n"+string(chatList)))
+		birdBase.PutWithTTL(key, []byte(string(chatList)+"\n"+message), time.Hour*48)
 
-		sliceChatList := strings.Split(message+"\n"+string(chatList), "\n")
-		if len(sliceChatList) >= config.AiBird.ReplyTotalMessages {
+		sliceChatList := strings.Split(string(chatList)+"\n"+message, "\n")
+		if len(sliceChatList) > config.AiBird.ReplyTotalMessages {
 			birdBase.Delete(key)
 
 			// Send the message to the AI, with a 1 in 3 chance
 			if rand.Intn(config.AiBird.ReplyChance) == 0 {
-				replyToChats(m, message+"\n"+string(chatList), c, aiClient, ctx)
+				// replyToChats(c, e, string(chatList)+"\n"+message)
+				log.Println("Replying to", e.Source.Name, "with", string(chatList)+"\n"+message)
+				llama(c, e, string(chatList)+"\n"+message)
 			}
 		}
 
 		return
 	}
 
-	birdBase.Put(key, []byte(message+"."))
+	birdBase.PutWithTTL(key, []byte(message+"."), time.Hour*48)
 }
 
-// Maybe can move this into openai.go
-func cacheChatsForChatGpt(name string, m *irc.Message, c *irc.Client, aiClient *gogpt.Client, ctx context.Context) {
-	if strings.Contains(m.Trailing(), "\x03") {
+func cacheChatsForChatGtp(c *girc.Client, e girc.Event, name string) {
+	// Ignore ASCII color codes
+	if strings.Contains(e.Last(), "\x03") {
 		return
 	}
 
-	key := []byte(name + "_" + m.Params[0] + "_chats_cache_gpt_" + m.Prefix.Name)
+	key := []byte(name + "_" + e.Params[0] + "_chats_cache_gpt_" + e.Source.Name)
+
+	if e.Last() == "!forget" {
+		birdBase.Delete(key)
+		sendToIrc(c, e, "Okay starting fresh.")
+		return
+	}
+
+	if e.Last() == "!context" {
+		chatList, err := birdBase.Get(key)
+		if err != nil {
+			log.Println(err)
+			return
+		}
+
+		sendToIrc(c, e, string(chatList))
+		return
+	}
 
 	if !birdBase.Has(key) {
-		birdBase.Put(key, []byte(m.Trailing()+"."))
+		sendToIrc(c, e, "Type !forget to start fresh.")
+
+		// make new empty key
+		birdBase.PutWithTTL(key, []byte(""), time.Hour*48)
 	}
 
 	if birdBase.Has(key) {
@@ -379,34 +332,31 @@ func cacheChatsForChatGpt(name string, m *irc.Message, c *irc.Client, aiClient *
 			return
 		}
 
-		birdBase.Put(key, []byte(m.Trailing()+"."+"\n"+string(chatList)))
+		latestChat := string(chatList) + "\n" + e.Last()
+		sliceChatList := strings.Split(latestChat, "\n")
 
-		sliceChatList := strings.Split(m.Trailing()+"\n"+string(chatList), "\n")
-
-		// reverse sliceChatList, seriously golang?
-		for i := len(sliceChatList)/2 - 1; i >= 0; i-- {
-			opp := len(sliceChatList) - 1 - i
-			sliceChatList[i], sliceChatList[opp] = sliceChatList[opp], sliceChatList[i]
-		}
-
-		if len(sliceChatList) >= config.AiBird.ChatGptTotalMessages {
-			sliceChatList = sliceChatList[:config.AiBird.ChatGptTotalMessages]
+		if len(sliceChatList)-1 >= config.AiBird.ChatGptTotalMessages {
+			sliceChatList = sliceChatList[1:]
 		}
 
 		gpt3Chat := []gogpt.ChatCompletionMessage{}
 
-		// Send the message to the AI, with a 1 in 3 chance
 		gpt3Chat = append(gpt3Chat, gogpt.ChatCompletionMessage{
-			Role:    "assistant",
-			Content: "You are an " + config.AiBird.ChatPersonality + ". And must reply to the following messages:",
+			Role:    "system",
+			Content: "You are an " + config.AiBird.ChatPersonality + " and must reply to the following chats:",
 		})
 
 		for i := 0; i < len(sliceChatList); i++ {
-			// if sliceChatList[i] starts with ASSISTANT:
-			if strings.HasPrefix(sliceChatList[i], "ASSISTANT: ") {
+			// if chat is empty, skip
+			if sliceChatList[i] == "" {
+				continue
+			}
+
+			// if sliceChatList starts with "AIBIRD :" then
+			if strings.HasPrefix(sliceChatList[i], "AI: ") {
 				gpt3Chat = append(gpt3Chat, gogpt.ChatCompletionMessage{
 					Role:    "assistant",
-					Content: strings.TrimPrefix(sliceChatList[i], "ASSISTANT: "),
+					Content: strings.Split(sliceChatList[i], "AI: ")[1],
 				})
 			} else {
 				gpt3Chat = append(gpt3Chat, gogpt.ChatCompletionMessage{
@@ -414,18 +364,44 @@ func cacheChatsForChatGpt(name string, m *irc.Message, c *irc.Client, aiClient *
 					Content: sliceChatList[i],
 				})
 			}
+
 		}
 
-		// reverse sliceChatList, seriously golang?
-		for i := len(sliceChatList)/2 - 1; i >= 0; i-- {
-			opp := len(sliceChatList) - 1 - i
-			sliceChatList[i], sliceChatList[opp] = sliceChatList[opp], sliceChatList[i]
-		}
+		birdBase.PutWithTTL(key, []byte(strings.Join(sliceChatList, "\n")), time.Hour*48)
 
-		birdBase.Put(key, []byte(strings.Join(sliceChatList, "\n")))
+		chatGptContext(c, e, name, gpt3Chat)
 
-		chatGpt(name, m, gpt3Chat, c, aiClient, ctx)
 		return
 	}
+}
 
+func floodCheck(c *girc.Client, e girc.Event, name string) bool {
+	// Anti flood
+	ban := cacheKey(name+e.Params[0]+e.Source.Host+e.Source.Ident, "b")
+
+	if birdBase.Has(ban) {
+		return true
+	}
+
+	key := cacheKey(name+e.Params[0]+e.Source.Host+e.Source.Ident, "f")
+
+	waitTime := 3 * time.Second
+
+	if !birdBase.Has(key) {
+		birdBase.PutWithTTL(key, []byte("1"), waitTime)
+	} else {
+		count, _ := birdBase.Get(key)
+		countInt, _ := strconv.Atoi(string(count))
+		countInt++
+		birdBase.PutWithTTL(key, []byte(strconv.Itoa(countInt)), waitTime)
+
+		if countInt > config.AiBird.FloodThresholdMessages {
+			birdBase.PutWithTTL(ban, []byte("1"), config.AiBird.FloodIgnoreTime*time.Minute)
+			c.Cmd.Kick(e.Params[0], e.Source.Name, "Birds fly above floods!")
+		}
+
+		return true
+	}
+
+	return false
 }

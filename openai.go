@@ -1,20 +1,18 @@
 package main
 
 import (
-	"context"
 	"log"
 	"math/rand"
 	"path/filepath"
 	"strconv"
 	"strings"
+	"time"
 
-	gogpt "github.com/sashabaranov/go-gpt3"
-	"gopkg.in/irc.v3"
+	gogpt "github.com/sashabaranov/go-openai"
+	"github.com/yunginnanet/girc-atomic"
 )
 
-func completion(m *irc.Message, message string, c *irc.Client, aiClient *gogpt.Client, ctx context.Context, model string, cost float64) {
-	var responseString string
-
+func completion(c *girc.Client, e girc.Event, message string, model string) {
 	req := gogpt.CompletionRequest{
 		Model:       model,
 		MaxTokens:   config.OpenAI.Tokens,
@@ -22,86 +20,83 @@ func completion(m *irc.Message, message string, c *irc.Client, aiClient *gogpt.C
 		Temperature: config.OpenAI.Temperature,
 	}
 
-	if model == gogpt.CodexCodeDavinci002 {
-		req = gogpt.CompletionRequest{
-			Model:            model,
-			MaxTokens:        config.OpenAI.Tokens,
-			Prompt:           message,
-			Temperature:      0,
-			TopP:             1,
-			FrequencyPenalty: 0,
-			PresencePenalty:  0,
-		}
-	}
-
 	// Process a completion request
-	c.WriteMessage(&irc.Message{
-		Command: "PRIVMSG",
-		Params: []string{
-			m.Params[0],
-			"Processing: " + message,
-		},
-	})
+	sendToIrc(c, e, "Processing: "+message)
 
 	// Perform the actual API request to openAI
-	resp, err := aiClient.CreateCompletion(ctx, req)
+	resp, err := aiClient().CreateCompletion(ctx, req)
 	if err != nil {
-		c.WriteMessage(&irc.Message{
-			Command: "PRIVMSG",
-			Params: []string{
-				m.Params[0],
-				err.Error(),
-			},
-		})
-
-		// err.Error() contains You exceeded your current quota
-		if strings.Contains(err.Error(), "You exceeded your current quota") {
-			log.Println("Key " + whatKey + " has exceeded its quota")
-		}
-
+		handleApiError(c, e, err)
 		return
 	}
 
-	// resp.Usage.TotalTokens / 1000 * cost
-	total := strconv.FormatFloat((float64(resp.Usage.TotalTokens)/1000)*cost, 'f', 5, 64)
-
-	responseString = strings.TrimSpace(resp.Choices[0].Text) + " ($" + total + ")"
-
-	chunkToIrc(c, m.Params[0], responseString)
+	sendToIrc(c, e, resp.Choices[0].Text)
 }
 
 // Annoying reply to chats
-func replyToChats(m *irc.Message, message string, c *irc.Client, aiClient *gogpt.Client, ctx context.Context) {
+func replyToChats(c *girc.Client, e girc.Event, message string) {
 	req := gogpt.CompletionRequest{
-		Model:       gogpt.GPT3TextDavinci003,
+		Model:       gogpt.GPT3Dot5TurboInstruct,
 		MaxTokens:   config.OpenAI.Tokens,
 		Prompt:      "As an " + config.AiBird.ChatPersonality + " reply to the following irc chats: " + message + ".",
 		Temperature: config.OpenAI.Temperature,
 	}
 
 	// Perform the actual API request to openAI
-	resp, err := aiClient.CreateCompletion(ctx, req)
+	resp, err := aiClient().CreateCompletion(ctx, req)
 	if err != nil {
-		c.WriteMessage(&irc.Message{
-			Command: "PRIVMSG",
-			Params: []string{
-				m.Params[0],
-				err.Error(),
-			},
-		})
-
-		// err.Error() contains You exceeded your current quota
-		if strings.Contains(err.Error(), "You exceeded your current quota") {
-			log.Println("Key " + whatKey + " has exceeded its quota")
-		}
-
+		handleApiError(c, e, err)
 		return
 	}
 
-	chunkToIrc(c, m.Params[0], strings.TrimSpace(resp.Choices[0].Text))
+	sendToIrc(c, e, resp.Choices[0].Text)
 }
 
-func chatGpt(name string, m *irc.Message, message []gogpt.ChatCompletionMessage, c *irc.Client, aiClient *gogpt.Client, ctx context.Context) {
+func conversation(c *girc.Client, e girc.Event, model string, conversation []gogpt.ChatCompletionMessage) {
+
+	// If we have more than 1 length it most likely is an ASCII art request
+	if len(conversation) > 1 {
+		sendToIrc(c, e, "Processing mIRC art, please wait...")
+	} else {
+		sendToIrc(c, e, "Processing "+model+": "+conversation[len(conversation)-1].Content)
+	}
+
+	req := gogpt.ChatCompletionRequest{
+		Model:       model,
+		MaxTokens:   config.OpenAI.Tokens,
+		Messages:    conversation,
+		Temperature: config.OpenAI.Temperature,
+	}
+
+	if model == gogpt.GPT4 {
+		key := config.OpenAI.Gpt4Key
+		resp, err := gogpt.NewClient(key).CreateChatCompletion(ctx, req)
+		if err != nil {
+			handleApiError(c, e, err)
+			return
+		}
+		for _, choice := range resp.Choices {
+			// for each ChatCompletionMessage
+			sendToIrc(c, e, choice.Message.Content)
+			return
+		}
+	} else {
+		// Perform the actual API request to openAI
+		resp, err := aiClient().CreateChatCompletion(ctx, req)
+		if err != nil {
+			handleApiError(c, e, err)
+			return
+		}
+		for _, choice := range resp.Choices {
+			// for each ChatCompletionMessage
+			sendToIrc(c, e, choice.Message.Content)
+			return
+		}
+	}
+
+}
+
+func chatGptContext(c *girc.Client, e girc.Event, name string, message []gogpt.ChatCompletionMessage) {
 	req := gogpt.ChatCompletionRequest{
 		Model:       gogpt.GPT3Dot5Turbo,
 		MaxTokens:   config.OpenAI.Tokens,
@@ -110,88 +105,51 @@ func chatGpt(name string, m *irc.Message, message []gogpt.ChatCompletionMessage,
 	}
 
 	// Perform the actual API request to openAI
-	resp, err := aiClient.CreateChatCompletion(ctx, req)
+	resp, err := aiClient().CreateChatCompletion(ctx, req)
 	if err != nil {
-		c.WriteMessage(&irc.Message{
-			Command: "PRIVMSG",
-			Params: []string{
-				m.Params[0],
-				err.Error(),
-			},
-		})
-
-		// err.Error() contains You exceeded your current quota
-		if strings.Contains(err.Error(), "You exceeded your current quota") {
-			log.Println("Key " + whatKey + " has exceeded its quota")
-		}
-
+		handleApiError(c, e, err)
 		return
 	}
 
 	// for each ChatCompletionChoice
 	for _, choice := range resp.Choices {
 		// for each ChatCompletionMessage
-		chunkToIrc(c, m.Prefix.Name, strings.TrimSpace(choice.Message.Content))
+		sendToIrc(c, e, choice.Message.Content)
 
-		key := []byte(name + "_" + m.Params[0] + "_chats_cache_gpt_" + m.Prefix.Name)
-		message := "ASSISTANT: " + strings.TrimSpace(choice.Message.Content)
+		key := []byte(name + "_" + e.Params[0] + "_chats_cache_gpt_" + e.Source.Name)
+		message := "AI: " + choice.Message.Content
 		chatList, err := birdBase.Get(key)
 		if err != nil {
 			log.Println(err)
 			return
 		}
 
-		// reverse sliceChatList, seriously golang?
-		for i := len(chatList)/2 - 1; i >= 0; i-- {
-			opp := len(chatList) - 1 - i
-			chatList[i], chatList[opp] = chatList[opp], chatList[i]
-		}
-
-		if len(chatList) >= config.AiBird.ChatGptTotalMessages {
-			chatList = chatList[:config.AiBird.ChatGptTotalMessages]
-		}
-
-		birdBase.Put(key, []byte(message+"."+"\n"+string(chatList)))
+		birdBase.PutWithTTL(key, []byte(string(chatList)+"\n"+message), time.Hour*48)
 	}
 }
 
-func dalle(m *irc.Message, message string, c *irc.Client, aiClient *gogpt.Client, ctx context.Context, size string) {
+func dalle(c *girc.Client, e girc.Event, message string, size string, model string, quality string, style string) {
 	req := gogpt.ImageRequest{
-		Prompt: message,
-		Size:   size,
-		N:      1,
+		Model:   model,
+		Prompt:  message,
+		Size:    size,
+		N:       1,
+		Quality: quality,
+		Style:   style,
 	}
 
 	// Alert the irc chan that the bot is processing
-	c.WriteMessage(&irc.Message{
-		Command: "PRIVMSG",
-		Params: []string{
-			m.Params[0],
-			"Processing Dall-E: " + message,
-		},
-	})
+	sendToIrc(c, e, "Processing "+model+" "+size+" "+style+" "+quality+": "+message)
 
-	resp, err := aiClient.CreateImage(ctx, req)
+	resp, err := aiClient().CreateImage(ctx, req)
 	if err != nil {
-		c.WriteMessage(&irc.Message{
-			Command: "PRIVMSG",
-			Params: []string{
-				m.Params[0],
-				err.Error(),
-			},
-		})
+		handleApiError(c, e, err)
 		return
 	}
 
 	daleResponse := saveDalleRequest(message, resp.Data[0].URL)
 
-	c.WriteMessage(&irc.Message{
-		Command: "PRIVMSG",
-		Params: []string{
-			m.Params[0],
-			m.Prefix.Name + ": " + daleResponse,
-		},
-	})
+	sendToIrc(c, e, e.Source.Name+": "+daleResponse)
 }
 
 func saveDalleRequest(prompt string, url string) string {
@@ -211,4 +169,19 @@ func saveDalleRequest(prompt string, url string) string {
 	content := fileHole("https://filehole.org/", fileName)
 
 	return string(content)
+}
+
+func aiClient() *gogpt.Client {
+	key := config.OpenAI.nextApiKey()
+	whatKey = key
+	return gogpt.NewClient(key)
+}
+
+func handleApiError(c *girc.Client, e girc.Event, err error) {
+	sendToIrc(c, e, err.Error())
+
+	// err.Error() contains You exceeded your current quota
+	if strings.Contains(err.Error(), "You exceeded your current quota") {
+		log.Println("Key " + whatKey + " has exceeded its quota")
+	}
 }

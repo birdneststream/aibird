@@ -12,6 +12,9 @@ type (
 		AiBird          AiBird
 		StableDiffusion StableDiffusion
 		Proxy           Proxy
+		RecordingUrl    string
+		LocalAi         LocalAi
+		Bard            Bard
 	}
 
 	// Proxy
@@ -26,12 +29,14 @@ type (
 
 	// IRC
 	Network struct {
-		Nick     string
-		Servers  []Server
-		Channels []string
-		Enabled  bool
-		Throttle time.Duration
-		Burst    int
+		Nick         string
+		Servers      []Server
+		Channels     []string
+		Enabled      bool
+		Throttle     time.Duration
+		Burst        int
+		NickServPass string
+		Pass         string
 	}
 
 	Server struct {
@@ -49,19 +54,23 @@ type (
 		Model       string
 		Temperature float32
 		currentKey  int
+		Gpt4Key     string
 	}
 
 	// AiBird specific configurations
 	AiBird struct {
-		ProtectedHosts       []ProtectedHosts
-		Debug                bool
-		ChatPersonality      string
-		ReplyToChats         bool
-		IgnoreChatsFrom      []string
-		ReplyChance          int
-		ReplyTotalMessages   int
-		ChatGptTotalMessages int
-		ChatGptReplyChance   int
+		ProtectedHosts         []ProtectedHosts
+		Debug                  bool
+		Showchat               bool
+		ChatPersonality        string
+		ReplyToChats           bool
+		ReplyChance            int
+		ReplyTotalMessages     int
+		IgnoreChatsFrom        []string
+		ChatGptTotalMessages   int
+		FloodThresholdMessages int
+		FloodThresholdSeconds  time.Duration
+		FloodIgnoreTime        time.Duration
 	}
 
 	// Auto +o on join and admin features
@@ -71,7 +80,7 @@ type (
 		Admin bool
 	}
 
-	// Stable Diffusion
+	// Stable Diffusion Configuration
 	StableDiffusion struct {
 		NegativePrompt string
 		Steps          int
@@ -85,40 +94,20 @@ type (
 		BadWordsPrompt string
 	}
 
-	// Txt2Img API Request
-	StableDiffusionRequest struct {
-		EnableHr          bool                   `json:"enable_hr"`
-		DenoisingStrength int                    `json:"denoising_strength"`
-		FirstphaseWidth   int                    `json:"firstphase_width"`
-		FirstphaseHeight  int                    `json:"firstphase_height"`
-		Prompt            string                 `json:"prompt"`
-		Styles            []string               `json:"styles"`
-		Seed              int                    `json:"seed"`
-		Subseed           int                    `json:"subseed"`
-		SubseedStrength   int                    `json:"subseed_strength"`
-		SeedResizeFromH   int                    `json:"seed_resize_from_h"`
-		SeedResizeFromW   int                    `json:"seed_resize_from_w"`
-		BatchSize         int                    `json:"batch_size"`
-		NIter             int                    `json:"n_iter"`
-		Steps             int                    `json:"steps"`
-		CfgScale          float32                `json:"cfg_scale"`
-		Width             int                    `json:"width"`
-		Height            int                    `json:"height"`
-		RestoreFaces      bool                   `json:"restore_faces"`
-		Tiling            bool                   `json:"tiling"`
-		NegativePrompt    string                 `json:"negative_prompt"`
-		Eta               int                    `json:"eta"`
-		SChurn            int                    `json:"s_churn"`
-		STmax             int                    `json:"s_tmax"`
-		STmin             int                    `json:"s_tmin"`
-		SNoise            int                    `json:"s_noise"`
-		OverrideSettings  map[string]interface{} `json:"override_settings"`
-		SamplerIndex      string                 `json:"sampler_index"`
+	// LocalAI
+	LocalAi struct {
+		Enabled     bool
+		Temperature float32
+		Model       string
+		Host        string
+		MaxTokens   int
 	}
 
-	// Txt2Img API response
-	StableDiffusionResponse struct {
-		Images []string `json:"images"`
+	// Bard
+	Bard struct {
+		Enabled   bool
+		Host      string
+		SessionId string
 	}
 )
 

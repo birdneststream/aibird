@@ -1,29 +1,25 @@
-module example.com/m/v2
+module github.com/birdnest/aibird
 
 go 1.17
 
 require (
 	git.mills.io/prologic/bitcask v1.0.2
-	git.tcp.direct/tcp.direct/database v0.0.0-20220829103039-b85255196bd1
-	github.com/BurntSushi/toml v1.2.1
-	github.com/go-redis/redis v6.15.9+incompatible
-	github.com/sashabaranov/go-gpt3 v1.3.3
-	gopkg.in/irc.v3 v3.1.4
+	github.com/BurntSushi/toml v1.3.2
+	github.com/sashabaranov/go-openai v1.17.5
+	github.com/yunginnanet/girc-atomic v0.7.1
+	golang.org/x/crypto v0.15.0
 )
 
 require (
-	git.tcp.direct/Mirrors/bitcask-mirror v0.0.0-20220228092422-1ec4297c7e34 // indirect
+	git.tcp.direct/kayos/common v0.9.4 // indirect
 	github.com/abcum/lcp v0.0.0-20201209214815-7a3f3840be81 // indirect
+	github.com/araddon/dateparse v0.0.0-20210429162001-6b43995a97de // indirect
 	github.com/gofrs/flock v0.8.1 // indirect
-	github.com/hashicorp/errwrap v1.0.0 // indirect
-	github.com/hashicorp/go-multierror v1.0.0 // indirect
-	github.com/mattn/go-colorable v0.1.12 // indirect
-	github.com/mattn/go-isatty v0.0.14 // indirect
+	github.com/orcaman/concurrent-map/v2 v2.0.1 // indirect
 	github.com/pkg/errors v0.9.1 // indirect
 	github.com/plar/go-adaptive-radix-tree v1.0.5 // indirect
-	github.com/rs/zerolog v1.27.0 // indirect
-	github.com/sirupsen/logrus v1.9.0 // indirect
-	golang.org/x/exp v0.0.0-20230303215020-44a13b063f3e // indirect
-	golang.org/x/net v0.0.0-20220607020251-c690dde0001d // indirect
-	golang.org/x/sys v0.5.0 // indirect
+	github.com/sirupsen/logrus v1.9.3 // indirect
+	github.com/stretchr/testify v1.8.2 // indirect
+	golang.org/x/exp v0.0.0-20231110203233-9a3e6036ecaa // indirect
+	golang.org/x/sys v0.14.0 // indirect
 )

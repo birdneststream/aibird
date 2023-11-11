@@ -1,8 +1,11 @@
+# If you want the bot to save every !aiscii as a POST request
+# Otherwise leave this blank
+recordingUrl = ""
+
 [openai]
 keys = [
-"sk-aishouldbefreeanyway",
-"sk-aishouldbefreeanyway",
-"sk-aishouldbefreeanyway",
+"sk-freeai",
+"sk-freeai",
 ]
 tokens = 2500
 model = "text-davinci-003"
@@ -10,51 +13,48 @@ temperature = 0.8
 
 [aibird]
 protectedHosts = [
-    {host = "yourirchost.com", ident = "nicktopluso", admin = true},
-    {host = "yourirchost.com", ident = "nicktopluso", admin = false},
+    {host = "admin.com", ident = "admin", admin = true},
+    {host = "friendlyadmin.com", ident = "admin", admin = true},
 ]
-debug = false
-chatPersonality = "a snobby reddit intellectual"
-replyToChats = true
-replyChance = 3
-replyTotalMessages = 5
-ignoreChatsFrom = ['bot1','bot2']
+debug = true
+chatPersonality = "an overexcited milf from outter space"
+replyToChats = true # chat in chat room
+replyChance = 1 # Chance to reply when there is chat room activity
+replyTotalMessages = 5 # Number of chats for context
+ignoreChatsFrom = ['chode','shart','blarf','semen','sludge']
 
-[proxy]
-enabled = true
-type = "" # http or https or socks5
-username = ""
-password = ""
-host = ""
-port = 8081
+chatGptTotalMessages = 3 # Number of chats to remember for ChatGPT context
 
-[networks.efnet]
-nick = "aibird"
-channels = ["#birdnest"]
-enabled = true
-throttle = 550
-burst = 3
-servers = [
-    {host="irc.servercentral.net", port = 6667, ssl = false, ipv6 = false},
-    {host="irc.efnet.nl", port = 6667, ssl = false, ipv6 = false}
-]
+# Flood Settings
+# 3 requests within 3 seconds will ignore for 5 minutes
+floodThresholdMessages = 3
+floodThresholdSeconds = 3
+floodIgnoreTime = 5 # minutes
 
+###
+### Google Bard
+###
+[bard]
+enabled = false
+host = "http://127.0.0.1:8079"
+sessionId = "" # This should end with a .
 
-[networks."tcpdirect irc"]
-nick = "aibird"
-channels = ["#birdnest", "#tcpdirect"]
-enabled = true
-throttle = 0
-burst = 0
-[[networks."tcpdirect irc".servers]]
-host = "ircd.chat"
-port = 6697
-ssl = true
-pass = ""
+###
+### LocalAI
+###
+[localai]
+enabled = false
+temperature = 0.7
+model = "ggml-model-q4_0.bin"
+host = "http://127.0.0.1:45332"
+maxTokens = 64
 
+###
+### Stable Diffusion, uses Auto1111 API
+###
 
-[stable-diffusion]
-negativePrompt = "saturated, comic, cartoon"
+[stablediffusion]
+negativePrompt = ""
 steps = 10
 sampler = "DDIM"
 restoreFace = true
@@ -62,5 +62,47 @@ cfgScale = 8
 host = "http://127.0.0.1:7860"
 width = 512
 height = 640
-badWords = ["greta","thunburg"]
-badWordsPrompt = "FBI Agent Making an Arrest."
+badWords = ["greta","thunburg","bindi","irwin"]
+badWordsPrompt = "FBI Agent making an arrest."
+
+###
+### IRC Related
+###
+
+[networks.efnet]
+nick = "aimilf"
+channels = ["#birdnest"]
+enabled = false
+throttle = 550
+burst = 1
+pass = ""
+nickServPass = ""
+servers = [
+    {host="irc.efnet.nl", port = 6697, ssl = true, ipv6 = true},
+]
+
+[networks."tcpdirect irc"]
+nick = "aibird"
+channels = ["#birdnest"]
+enabled = false
+throttle = 0
+burst = 0
+pass = ""
+[[networks."tcpdirect irc".servers]]
+host = "ircd.chat"
+port = 6697
+ssl = true
+nickServPass = ""
+
+[networks.birdnest]
+enabled = false
+nick = "aibird"
+throttle = 50
+burst = 3
+channels = ["#birdnest"]
+[[networks.birdnest.servers]]
+host = "irc.birdnest.chat"
+nickServPass = ""
+port = 6697
+ssl = true
+ipv6 = false
