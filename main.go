@@ -329,7 +329,7 @@ func ircClient(network Network, name string, waitGroup *sync.WaitGroup) {
 		case "!dale":
 			quality := gogpt.CreateImageQualityStandard
 			style := gogpt.CreateImageStyleNatural
-			size := gogpt.CreateImageSize512x512
+			size := gogpt.CreateImageSize1024x1024
 			model := gogpt.CreateImageModelDallE3
 
 			// if string has -hd remove it
