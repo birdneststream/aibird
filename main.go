@@ -10,11 +10,11 @@ import (
 	"sync"
 	"time"
 
-	"github.com/yunginnanet/girc-atomic"
-
 	"git.mills.io/prologic/bitcask"
 	"github.com/BurntSushi/toml"
+	"github.com/dustin/go-humanize"
 	gogpt "github.com/sashabaranov/go-openai"
+	"github.com/yunginnanet/girc-atomic"
 )
 
 var config Config
@@ -148,7 +148,6 @@ func ircClient(network Network, name string, waitGroup *sync.WaitGroup) {
 		_ = c.Cmd.SendRaw("NAMES " + e.Params[0])
 	})
 	client.Handlers.Add(girc.JOIN, func(c *girc.Client, e girc.Event) {
-		// Only want to do these if we already have ops
 		if isUserMode(name, e.Params[0], network.Nick, "@") {
 			// Auto Op
 			if isInList(name, e.Params[0], "o", e.Source.Ident, e.Source.Host) {
@@ -162,8 +161,9 @@ func ircClient(network Network, name string, waitGroup *sync.WaitGroup) {
 				return
 			}
 
-			joinFloodCheck(c, e, name)
 		}
+
+		joinFloodCheck(c, e, name)
 	})
 	client.Handlers.Add(girc.MODE, func(c *girc.Client, e girc.Event) {
 		// If there is a +b on a protected host, remove it.
@@ -171,7 +171,7 @@ func ircClient(network Network, name string, waitGroup *sync.WaitGroup) {
 		go protectHosts(c, e, name)
 
 		// Cache the names list so only +v users at least can use the bot
-		_ = c.Cmd.SendRaw("NAMES " + e.Params[0])
+		// _ = c.Cmd.SendRaw("NAMES " + e.Params[0])
 
 		// Only want to cache this if we have ops
 		if isUserMode(name, e.Params[0], network.Nick, "@") {
@@ -330,6 +330,25 @@ func ircClient(network Network, name string, waitGroup *sync.WaitGroup) {
 
 				return
 			}
+
+		case "!seen":
+			if c.LookupUser(message) != nil {
+				lastActive := c.LookupUser(message).LastActive
+				currentTime := time.Now()
+
+				// get difference in human readable format, e.g 1 Hour Ago
+				difference := currentTime.Sub(lastActive)
+				humanReadable := humanize.Time(time.Now().Add(-difference))
+
+				sendToIrc(c, e, message+" was last active "+humanReadable+".")
+			} else {
+				sendToIrc(c, e, message+" has not been seen before.")
+			}
+			return
+
+		case "!ping":
+			sendToIrc(c, e, "Pong!")
+			return
 
 		// Dall-e 3 Commands
 		case "!dale":

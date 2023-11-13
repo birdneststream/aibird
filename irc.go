@@ -20,11 +20,20 @@ func markdownToIrc(message string) string {
 	message = strings.Replace(message, "* ", " - ", -1)
 	message = strings.Replace(message, "*", "\x1D", -1)
 
+	// underline
+	message = strings.Replace(message, "__", "\x1F", -1)
+
+	// strikethrough
+	message = strings.Replace(message, "~~", "\x1E", -1)
+
+	// quote
+	message = strings.Replace(message, "> ", "03> ", -1)
+
 	markdownFormat := ""
 	for _, line := range strings.Split(message, "\n") {
 		if strings.Contains(line, "```") {
 			markdownQuote = !markdownQuote
-			line = strings.Replace(line, "```", "▔▔▔▔▔▔▔▔▔▔▔", -1)
+			line = strings.Replace(line, "```", "\n", -1)
 		}
 
 		if markdownQuote {
@@ -109,8 +118,6 @@ func isUserMode(name string, channel string, user string, modes string) bool {
 		whatModes := strings.Split(modes, "")
 
 		for j := 0; j < len(sliceNickList); j++ {
-			// get first element before ! of sliceNickList[j]
-			log.Println(sliceNickList[j])
 			checkNick := cleanFromModes(sliceNickList[j])
 
 			if checkNick == user {
@@ -129,13 +136,9 @@ func isUserMode(name string, channel string, user string, modes string) bool {
 // Protects hosts in config.toml from deop
 func protectHosts(c *girc.Client, e girc.Event, name string) {
 	// We don't care if a protected user bans or -o people
-	protectedUser := c.LookupUser(e.Source.Name)
-
-	if protectedUser != nil {
-		for i := 0; i < len(config.AiBird.ProtectedHosts); i++ {
-			if config.AiBird.ProtectedHosts[i].Host == protectedUser.Host && config.AiBird.ProtectedHosts[i].Ident == protectedUser.Ident.String() {
-				return
-			}
+	for i := 0; i < len(config.AiBird.ProtectedHosts); i++ {
+		if config.AiBird.ProtectedHosts[i].Host == e.Source.Host && config.AiBird.ProtectedHosts[i].Ident == e.Source.Ident {
+			return
 		}
 	}
 
@@ -180,7 +183,7 @@ func protectHosts(c *girc.Client, e girc.Event, name string) {
 
 			if strings.Contains(strings.ToLower(config.AiBird.ProtectedHosts[i].Host), strings.ToLower(banHost)) ||
 				strings.Contains(strings.ToLower(config.AiBird.ProtectedHosts[i].Ident), strings.ToLower(banIdent)) {
-				// set mode +o to protected user
+				// set mode -b to protected user
 				c.Cmd.Mode(e.Params[0], "-b", e.Params[2])
 
 				// Kick and ban the user
@@ -198,7 +201,7 @@ func cacheNicks(e girc.Event, name string) {
 	tempNickList := ""
 
 	for i := 0; i < len(nicks); i++ {
-		tempNickList = strings.Trim(tempNickList+" "+nicks[i], " ")
+		tempNickList = strings.Trim(tempNickList+" "+strings.Split(nicks[i], "!")[0], " ")
 	}
 
 	// if birdbase key exists create new tempMeta with name and channel then store it
@@ -295,9 +298,15 @@ func floodCheck(c *girc.Client, e girc.Event, name string) bool {
 }
 
 // Join flood check, if there are a lot of clients that join then we auto +i the channel
-func joinFloodCheck(c *girc.Client, e girc.Event, name string) bool {
+func joinFloodCheck(c *girc.Client, e girc.Event, name string) {
 	key := cacheKey(e.Params[0]+name, "i")
 	waitTime := 3 * time.Second
+
+	// If we have a lot of people rejoin on a netsplit we don't want to trigger this
+	// we can see if the bot already reconises them
+	if c.LookupUser(e.Source.Name) != nil {
+		return
+	}
 
 	if !birdBase.Has(key) {
 		birdBase.PutWithTTL(key, []byte("1"), waitTime)
@@ -307,21 +316,18 @@ func joinFloodCheck(c *girc.Client, e girc.Event, name string) bool {
 		countInt++
 		birdBase.PutWithTTL(key, []byte(strconv.Itoa(countInt)), waitTime)
 
-		if countInt > 2 {
-			birdBase.PutWithTTL(key, []byte("1"), config.AiBird.FloodIgnoreTime*time.Minute)
+		if countInt > 4 {
+			go removeFloodCheck(c, e, name)
 			// +i the channel
 			c.Cmd.Mode(e.Params[0], "+i")
+			c.Cmd.Mode(e.Params[0], "+m")
 		}
 
-		go removeFloodCheck(c, e, name)
-
-		return true
 	}
 
-	return false
 }
 
-// After two minutes remove +i
+// After two minutes remove +i and +m
 func removeFloodCheck(c *girc.Client, e girc.Event, name string) {
 	time.Sleep(2 * time.Minute)
 
@@ -329,4 +335,5 @@ func removeFloodCheck(c *girc.Client, e girc.Event, name string) {
 	birdBase.Delete(key)
 
 	c.Cmd.Mode(e.Params[0], "-i")
+	c.Cmd.Mode(e.Params[0], "-m")
 }

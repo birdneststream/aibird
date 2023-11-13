@@ -179,7 +179,7 @@ func cacheChatsForReply(c *girc.Client, e girc.Event, name string, message strin
 	// Get the meta data from the database
 
 	// check if message contains unicode
-	if !strings.ContainsAny(message, "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789") {
+	if !strings.ContainsAny(message, "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!?.\\/$%^&*()[]") {
 		return
 	}
 
