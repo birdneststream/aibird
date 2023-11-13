@@ -118,21 +118,15 @@ func ircClient(network Network, name string, waitGroup *sync.WaitGroup) {
 			}
 		})
 	}
-
 	client.Handlers.Add(girc.ERROR, func(c *girc.Client, e girc.Event) {
 		log.Println("Server error: " + e.String())
-		//On an error we should wait ~120seconds then reconnect
-		//sometimes the errors are reconnecting too fast etc
-		// Nah we will just wait 5 seconds instead hahaha
 	})
 	client.Handlers.Add(girc.RPL_WELCOME, func(c *girc.Client, e girc.Event) {
 		if network.NickServPass != "" {
-			time.Sleep(network.Throttle * time.Millisecond)
 			_ = c.Cmd.SendRaw("PRIVMSG NickServ :IDENTIFY " + network.Nick + " " + network.NickServPass)
 		}
 
 		for _, channel := range network.Channels {
-			time.Sleep(network.Throttle * time.Millisecond)
 			c.Cmd.Join(channel)
 		}
 	})
@@ -144,6 +138,14 @@ func ircClient(network Network, name string, waitGroup *sync.WaitGroup) {
 	})
 	client.Handlers.Add(girc.RPL_WHOREPLY, func(c *girc.Client, e girc.Event) {
 		cacheAutoLists(e, name)
+	})
+	client.Handlers.Add(girc.NICK, func(c *girc.Client, e girc.Event) {
+		if e.Source.Name == network.Nick {
+			network.Nick = e.Last()
+			return
+		}
+
+		_ = c.Cmd.SendRaw("NAMES " + e.Params[0])
 	})
 	client.Handlers.Add(girc.JOIN, func(c *girc.Client, e girc.Event) {
 		// Only want to do these if we already have ops
@@ -159,26 +161,33 @@ func ircClient(network Network, name string, waitGroup *sync.WaitGroup) {
 				c.Cmd.Mode(e.Params[0], "+v", e.Source.Name)
 				return
 			}
+
+			joinFloodCheck(c, e, name)
 		}
 	})
 	client.Handlers.Add(girc.MODE, func(c *girc.Client, e girc.Event) {
 		// If there is a +b on a protected host, remove it.
 		// This is not so secure at the moment.
-		// go protectHosts(c, e)
+		go protectHosts(c, e, name)
 
-		// Cache the names list
+		// Cache the names list so only +v users at least can use the bot
 		_ = c.Cmd.SendRaw("NAMES " + e.Params[0])
-		time.Sleep(network.Throttle * time.Millisecond)
 
 		// Only want to cache this if we have ops
 		if isUserMode(name, e.Params[0], network.Nick, "@") {
 			_ = c.Cmd.SendRaw("WHO " + e.Params[0])
-			time.Sleep(network.Throttle * time.Millisecond)
+			return
 		}
+
+		// if the mode is +o and this bot
+		if e.Params[1] == "+o" && !isUserMode(name, e.Params[0], network.Nick, "@") {
+			// Cache the names list
+			_ = c.Cmd.SendRaw("WHO " + e.Params[0])
+		}
+
 	})
 	client.Handlers.Add(girc.KICK, func(c *girc.Client, e girc.Event) {
 		if e.Params[1] == c.GetNick() {
-			time.Sleep(network.Throttle * time.Millisecond)
 			c.Cmd.Join(e.Params[0])
 		}
 	})
@@ -190,11 +199,11 @@ func ircClient(network Network, name string, waitGroup *sync.WaitGroup) {
 
 		if !e.IsFromChannel() {
 			// ChatGPT in PM
-			// if floodCheck(c, e, name) {
-			// 	return
-			// }
+			if floodCheck(c, e, name) {
+				return
+			}
 
-			// go cacheChatsForChatGtp(c, e, name)
+			cacheChatsForChatGtp(c, e, name)
 			return
 		}
 
@@ -204,12 +213,9 @@ func ircClient(network Network, name string, waitGroup *sync.WaitGroup) {
 
 		if config.AiBird.ReplyToChats {
 			if strings.HasPrefix(e.Last(), network.Nick) {
-				// If the night is highlighted reply
-				// replyToChats(c, e, e.Last())
-				replyToChats(c, e, e.Last())
+				cacheChatsForChatGtp(c, e, name)
 				return
 			} else if e.Params[0] == "#birdnest" && !strings.HasPrefix(e.Last(), "!") {
-				// General chats
 				go cacheChatsForReply(c, e, name, e.Last())
 			}
 		}
@@ -270,8 +276,8 @@ func ircClient(network Network, name string, waitGroup *sync.WaitGroup) {
 					sdAdmin(c, e, message)
 					return
 
-				case "aibird_personality":
-					message = strings.TrimSpace(strings.TrimPrefix(message, "aibird_personality"))
+				case "personality":
+					message = strings.TrimSpace(strings.TrimPrefix(message, "personality"))
 					config.AiBird.ChatPersonality = message
 					sendToIrc(c, e, "Set aibird personality to "+message)
 					return
@@ -362,6 +368,18 @@ func ircClient(network Network, name string, waitGroup *sync.WaitGroup) {
 				size = gogpt.CreateImageSize1024x1024
 			}
 
+			// if string has 1024x1024 remove it
+			if strings.Contains(message, "--512") {
+				message = strings.Replace(message, "--512", "", -1)
+				size = gogpt.CreateImageSize512x512
+			}
+
+			// if string has 1024x1024 remove it
+			if strings.Contains(message, "--256") {
+				message = strings.Replace(message, "--256", "", -1)
+				size = gogpt.CreateImageSize256x256
+			}
+
 			// if string has -2 remove it
 			if strings.Contains(message, "--2") {
 				if size == gogpt.CreateImageSize1792x1024 || size == gogpt.CreateImageSize1024x1792 {
@@ -371,6 +389,11 @@ func ircClient(network Network, name string, waitGroup *sync.WaitGroup) {
 
 				message = strings.Replace(message, "--2", "", -1)
 				model = gogpt.CreateImageModelDallE2
+			}
+
+			if model == gogpt.CreateImageModelDallE3 && (size == gogpt.CreateImageSize512x512 || size == gogpt.CreateImageSize256x256) {
+				sendToIrc(c, e, "You can't use Dall-e 3 with 512x512 or 256x256")
+				return
 			}
 
 			message = strings.Trim(message, " ")
@@ -406,9 +429,6 @@ func ircClient(network Network, name string, waitGroup *sync.WaitGroup) {
 				Content: message,
 			})
 			conversation(c, e, gogpt.GPT3Dot5Turbo, chatGptContext)
-			return
-		case "!llama":
-			llama(c, e, message)
 			return
 		case "!bard":
 			bard(c, e, message)
@@ -459,7 +479,7 @@ func ircClient(network Network, name string, waitGroup *sync.WaitGroup) {
 		case "!help":
 			floodCheck(c, e, name)
 			sendToIrc(c, e, "OpenAI Models: !gpt4, !gpt3.5, !davinci (newest), !davinci3, !davinci2, !davinci1, !ada, !babbage, !ai (as GPT3Dot5TurboInstruct), !bard (Google Bard), !sd (Stable diffusion)")
-			sendToIrc(c, e, "Dall-E 3: !dale, --1024, --1792x1024, --1024x1792, --hd (high quality), --vivid (vivid style), --2 (Dall-E 2)")
+			sendToIrc(c, e, "Dall-E 3: !dale, --1024, --1792x1024, --1024x1792, --hd (high quality), --vivid (vivid style), --2 (Dall-E 2, can support --256 and --512)")
 			sendToIrc(c, e, "Other: !aiscii (experimental ascii generation), !birdmap (run port scan on target), !sd (Stable diffusion request) - https://github.com/birdneststream/aibird")
 			return
 		}

@@ -40,16 +40,6 @@ host = "http://127.0.0.1:8079"
 sessionId = "" # This should end with a .
 
 ###
-### LocalAI
-###
-[localai]
-enabled = false
-temperature = 0.7
-model = "ggml-model-q4_0.bin"
-host = "http://127.0.0.1:45332"
-maxTokens = 64
-
-###
 ### Stable Diffusion, uses Auto1111 API
 ###
 
@@ -68,31 +58,6 @@ badWordsPrompt = "FBI Agent making an arrest."
 ###
 ### IRC Related
 ###
-
-[networks.efnet]
-nick = "aimilf"
-channels = ["#birdnest"]
-enabled = false
-throttle = 550
-burst = 1
-pass = ""
-nickServPass = ""
-servers = [
-    {host="irc.efnet.nl", port = 6697, ssl = true, ipv6 = true},
-]
-
-[networks."tcpdirect irc"]
-nick = "aibird"
-channels = ["#birdnest"]
-enabled = false
-throttle = 0
-burst = 0
-pass = ""
-[[networks."tcpdirect irc".servers]]
-host = "ircd.chat"
-port = 6697
-ssl = true
-nickServPass = ""
 
 [networks.birdnest]
 enabled = false

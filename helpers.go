@@ -169,3 +169,18 @@ func cacheKey(key string, what string) []byte {
 
 	return []byte(what + hashString)
 }
+
+// This one doesn't rely on e.Params which can change depending on what event has occurred.
+func isInList(name string, channel string, what string, user string, host string) bool {
+	return birdBase.Has(cacheKey(name+channel+user+host, what))
+}
+
+// Remove user modes from nicks
+func cleanFromModes(nick string) string {
+	nick = strings.ReplaceAll(nick, "@", "")
+	nick = strings.ReplaceAll(nick, "+", "")
+	nick = strings.ReplaceAll(nick, "~", "")
+	nick = strings.ReplaceAll(nick, "&", "")
+	nick = strings.ReplaceAll(nick, "%", "")
+	return nick
+}

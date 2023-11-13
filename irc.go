@@ -2,41 +2,49 @@ package main
 
 import (
 	"log"
-	"math/rand"
 	"strconv"
 	"strings"
 	"time"
 
-	gogpt "github.com/sashabaranov/go-openai"
 	"github.com/yunginnanet/girc-atomic"
 )
 
-func sendToIrc(c *girc.Client, e girc.Event, message string) {
-	var sendString string
+// Basic markdown to IRC
+func markdownToIrc(message string) string {
 	markdownQuote := false
 
 	// add irc bold to replace markdown
 	message = strings.Replace(message, "**", "\x02", -1)
 
 	// add irc italics to replace markdown, but only replace "*" and not "* "
-	message = strings.Replace(message, "* ", "  - ", -1)
+	message = strings.Replace(message, "* ", " - ", -1)
 	message = strings.Replace(message, "*", "\x1D", -1)
 
-	// for each new line break in response choices write to channel
+	markdownFormat := ""
 	for _, line := range strings.Split(message, "\n") {
-		sendString = ""
-
-		// if the sendString contains ``` set markdownQuote to true
 		if strings.Contains(line, "```") {
 			markdownQuote = !markdownQuote
-			line = strings.Replace(line, "```", "", -1)
+			line = strings.Replace(line, "```", "▔▔▔▔▔▔▔▔▔▔▔", -1)
 		}
 
 		if markdownQuote {
-			// prepend \x0303 to sendString
-			sendString = "03" + sendString
+			// Make any quote text green
+			line = "03" + line
 		}
 
+		markdownFormat = markdownFormat + "\n" + line
+	}
+
+	return markdownFormat
+}
+
+func sendToIrc(c *girc.Client, e girc.Event, message string) {
+	// Convert any markdown to IRC friendly format
+	message = markdownToIrc(message)
+
+	// for each new line break in response choices write to channel
+	for _, line := range strings.Split(message, "\n") {
+		sendString := ""
 		// Remove blank or one/two char lines
 		if len(line) <= 2 {
 			continue
@@ -53,28 +61,15 @@ func sendToIrc(c *girc.Client, e girc.Event, message string) {
 
 			// Trim by words for a cleaner output
 			if len(sendString) > 450 {
-				// write message to channel
-				time.Sleep(550 * time.Millisecond)
 
 				_ = c.Cmd.Reply(e, sendString)
 				sendString = ""
 			}
 		}
 
-		// Write the final message
-		time.Sleep(550 * time.Millisecond)
 		_ = c.Cmd.Reply(e, sendString)
 	}
 
-}
-
-func cleanFromModes(nick string) string {
-	nick = strings.ReplaceAll(nick, "@", "")
-	nick = strings.ReplaceAll(nick, "+", "")
-	nick = strings.ReplaceAll(nick, "~", "")
-	nick = strings.ReplaceAll(nick, "&", "")
-	nick = strings.ReplaceAll(nick, "%", "")
-	return nick
 }
 
 func isAdmin(e girc.Event) bool {
@@ -89,22 +84,9 @@ func isAdmin(e girc.Event) bool {
 	return false
 }
 
-// Needs to be rewritten
-// func isProtected(e *irc.Message) bool {
-// 	for i := 0; i < len(config.AiBird.ProtectedHosts); i++ {
-// 		if strings.Contains(e.Prefix.Host, config.AiBird.ProtectedHosts[i].Host) {
-// 			return true
-// 		}
-// 	}
-
-// 	return false
-// }
-
 func shouldIgnore(nick string) bool {
 	for i := 0; i < len(config.AiBird.IgnoreChatsFrom); i++ {
-		// strings equalFOld
 		if strings.EqualFold(strings.ToLower(cleanFromModes(nick)), strings.ToLower(config.AiBird.IgnoreChatsFrom[i])) {
-			// if strings.ToLower(cleanFromModes(nick)) == strings.ToLower(config.AiBird.IgnoreChatsFrom[i]) {
 			return true
 		}
 	}
@@ -127,6 +109,8 @@ func isUserMode(name string, channel string, user string, modes string) bool {
 		whatModes := strings.Split(modes, "")
 
 		for j := 0; j < len(sliceNickList); j++ {
+			// get first element before ! of sliceNickList[j]
+			log.Println(sliceNickList[j])
 			checkNick := cleanFromModes(sliceNickList[j])
 
 			if checkNick == user {
@@ -142,35 +126,70 @@ func isUserMode(name string, channel string, user string, modes string) bool {
 	return false
 }
 
-// Needs to be rewritten
-// func protectHosts(c *irc.Client, e *irc.Message) {
-// 	switch e.Params[1] {
-// 	case "+b":
-// 		if isProtected(e) {
-// 			c.Write("MODE " + e.Params[0] + " -b " + e.Trailing())
+// Protects hosts in config.toml from deop
+func protectHosts(c *girc.Client, e girc.Event, name string) {
+	// We don't care if a protected user bans or -o people
+	protectedUser := c.LookupUser(e.Source.Name)
 
-// 			if !isAdmin(e) {
-// 				c.Write("MODE " + e.Params[0] + " +b *!*@" + e.Prefix.Host)
-// 				c.Write("KICK " + e.Params[0] + " " + e.Prefix.Name + " :Don't mess with the birds!")
-// 			}
+	if protectedUser != nil {
+		for i := 0; i < len(config.AiBird.ProtectedHosts); i++ {
+			if config.AiBird.ProtectedHosts[i].Host == protectedUser.Host && config.AiBird.ProtectedHosts[i].Ident == protectedUser.Ident.String() {
+				return
+			}
+		}
+	}
 
-// 			break
-// 		}
+	// Deop on protected user protection
+	if e.Command == "MODE" && e.Params[1] == "-o" {
+		user := c.LookupUser(e.Params[2])
 
-// 	case "-o":
-// 		if isProtected(e) {
-// 			c.Write("MODE " + e.Params[0] + " +o " + e.Params[2])
+		if user != nil {
+			for i := 0; i < len(config.AiBird.ProtectedHosts); i++ {
+				if config.AiBird.ProtectedHosts[i].Host == user.Host {
+					// set mode +o to protected user
+					c.Cmd.Mode(e.Params[0], "+o", user.Nick.String())
 
-// 			if !isAdmin(e) {
-// 				c.Write("MODE " + e.Params[0] + " +b *!*@" + e.Prefix.Host)
-// 				c.Write("KICK " + e.Params[0] + " " + e.Prefix.Name + " :Don't mess with the birds!")
-// 			}
+					// Kick and ban the user
+					c.Cmd.Ban(e.Params[0], e.Source.Host)
+					c.Cmd.Kick(e.Params[0], e.Source.Name, "Birds fly above deop!")
+				}
+			}
+		}
+	}
 
-// 			break
-// 		}
-// 	}
+	// Protect from ban, this needs more testing and should not be relied on
+	if e.Command == "MODE" && e.Params[1] == "+b" {
+		banHost := strings.Split(e.Params[2], "@")[1]
 
-// }
+		// Get the nick and ident
+		banIdentNick := strings.Split(e.Params[2], "@")[0]
+		banNick := strings.Split(banIdentNick, "!")[0]
+		banIdent := strings.Split(banIdentNick, "!")[1]
+
+		if banHost == "*" && banIdent == "*" && banNick == "*" {
+			c.Cmd.Mode(e.Params[0], "-b", e.Params[2])
+
+			// Kick and ban the user
+			c.Cmd.Ban(e.Params[0], e.Source.Host)
+			c.Cmd.Kick(e.Params[0], e.Source.Name, "Birds fly above ban everything!")
+			return
+		}
+
+		for i := 0; i < len(config.AiBird.ProtectedHosts); i++ {
+			log.Println(banHost, banIdent, banNick)
+
+			if strings.Contains(strings.ToLower(config.AiBird.ProtectedHosts[i].Host), strings.ToLower(banHost)) ||
+				strings.Contains(strings.ToLower(config.AiBird.ProtectedHosts[i].Ident), strings.ToLower(banIdent)) {
+				// set mode +o to protected user
+				c.Cmd.Mode(e.Params[0], "-b", e.Params[2])
+
+				// Kick and ban the user
+				c.Cmd.Ban(e.Params[0], e.Source.Host)
+				c.Cmd.Kick(e.Params[0], e.Source.Name, "Birds fly above ban!")
+			}
+		}
+	}
+}
 
 // This builds a temporary list of nicks in a channel
 func cacheNicks(e girc.Event, name string) {
@@ -179,7 +198,7 @@ func cacheNicks(e girc.Event, name string) {
 	tempNickList := ""
 
 	for i := 0; i < len(nicks); i++ {
-		tempNickList = strings.Trim(tempNickList+" "+strings.Split(nicks[i], "!")[0], " ")
+		tempNickList = strings.Trim(tempNickList+" "+nicks[i], " ")
 	}
 
 	// if birdbase key exists create new tempMeta with name and channel then store it
@@ -217,9 +236,10 @@ func saveNicks(e girc.Event, name string) {
 	}
 
 	key = []byte(name + "_" + channel + "_nicks")
-	birdBase.Put(key, nickList)
+	birdBase.PutWithTTL(key, nickList, time.Hour*24*180)
 }
 
+// Remember +o and +v for when users join next time
 func cacheAutoLists(e girc.Event, name string) {
 	channel := e.Params[1]
 	user := e.Params[2]
@@ -241,142 +261,10 @@ func cacheAutoLists(e girc.Event, name string) {
 	} else if !strings.Contains(status, "@") {
 		birdBase.Delete(autoOpKey)
 	}
-
 }
 
-// This one doesn't rely on e.Params which can change depending on what event has occurred.
-func isInList(name string, channel string, what string, user string, host string) bool {
-	return birdBase.Has(cacheKey(name+channel+user+host, what))
-}
-
-// Maybe can move this into openai.go
-func cacheChatsForReply(c *girc.Client, e girc.Event, name string, message string) {
-	// Get the meta data from the database
-
-	// check if message contains unicode
-	if !strings.ContainsAny(message, "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789") {
-		return
-	}
-
-	key := []byte(name + "_" + e.Params[0] + "_chats_cache")
-	message = e.Source.Name + ": " + message
-
-	// prevent auto complete
-	if !strings.HasSuffix(message, ".") && !strings.HasSuffix(message, "!") && !strings.HasSuffix(message, "?") {
-		message = message + "."
-	}
-
-	if birdBase.Has(key) {
-		chatList, err := birdBase.Get(key)
-		if err != nil {
-			log.Println(err)
-			return
-		}
-
-		birdBase.PutWithTTL(key, []byte(string(chatList)+"\n"+message), time.Hour*48)
-
-		sliceChatList := strings.Split(string(chatList)+"\n"+message, "\n")
-		if len(sliceChatList) > config.AiBird.ReplyTotalMessages {
-			birdBase.Delete(key)
-
-			// Send the message to the AI, with a 1 in 3 chance
-			if rand.Intn(config.AiBird.ReplyChance) == 0 {
-				// replyToChats(c, e, string(chatList)+"\n"+message)
-				log.Println("Replying to", e.Source.Name, "with", string(chatList)+"\n"+message)
-				llama(c, e, string(chatList)+"\n"+message)
-			}
-		}
-
-		return
-	}
-
-	birdBase.PutWithTTL(key, []byte(message+"."), time.Hour*48)
-}
-
-func cacheChatsForChatGtp(c *girc.Client, e girc.Event, name string) {
-	// Ignore ASCII color codes
-	if strings.Contains(e.Last(), "\x03") {
-		return
-	}
-
-	key := []byte(name + "_" + e.Params[0] + "_chats_cache_gpt_" + e.Source.Name)
-
-	if e.Last() == "!forget" {
-		birdBase.Delete(key)
-		sendToIrc(c, e, "Okay starting fresh.")
-		return
-	}
-
-	if e.Last() == "!context" {
-		chatList, err := birdBase.Get(key)
-		if err != nil {
-			log.Println(err)
-			return
-		}
-
-		sendToIrc(c, e, string(chatList))
-		return
-	}
-
-	if !birdBase.Has(key) {
-		sendToIrc(c, e, "Type !forget to start fresh.")
-
-		// make new empty key
-		birdBase.PutWithTTL(key, []byte(""), time.Hour*48)
-	}
-
-	if birdBase.Has(key) {
-		chatList, err := birdBase.Get(key)
-		if err != nil {
-			log.Println(err)
-			return
-		}
-
-		latestChat := string(chatList) + "\n" + e.Last()
-		sliceChatList := strings.Split(latestChat, "\n")
-
-		if len(sliceChatList)-1 >= config.AiBird.ChatGptTotalMessages {
-			sliceChatList = sliceChatList[1:]
-		}
-
-		gpt3Chat := []gogpt.ChatCompletionMessage{}
-
-		gpt3Chat = append(gpt3Chat, gogpt.ChatCompletionMessage{
-			Role:    "system",
-			Content: "You are an " + config.AiBird.ChatPersonality + " and must reply to the following chats:",
-		})
-
-		for i := 0; i < len(sliceChatList); i++ {
-			// if chat is empty, skip
-			if sliceChatList[i] == "" {
-				continue
-			}
-
-			// if sliceChatList starts with "AIBIRD :" then
-			if strings.HasPrefix(sliceChatList[i], "AI: ") {
-				gpt3Chat = append(gpt3Chat, gogpt.ChatCompletionMessage{
-					Role:    "assistant",
-					Content: strings.Split(sliceChatList[i], "AI: ")[1],
-				})
-			} else {
-				gpt3Chat = append(gpt3Chat, gogpt.ChatCompletionMessage{
-					Role:    "user",
-					Content: sliceChatList[i],
-				})
-			}
-
-		}
-
-		birdBase.PutWithTTL(key, []byte(strings.Join(sliceChatList, "\n")), time.Hour*48)
-
-		chatGptContext(c, e, name, gpt3Chat)
-
-		return
-	}
-}
-
+// Spam protection
 func floodCheck(c *girc.Client, e girc.Event, name string) bool {
-	// Anti flood
 	ban := cacheKey(name+e.Params[0]+e.Source.Host+e.Source.Ident, "b")
 
 	if birdBase.Has(ban) {
@@ -404,4 +292,41 @@ func floodCheck(c *girc.Client, e girc.Event, name string) bool {
 	}
 
 	return false
+}
+
+// Join flood check, if there are a lot of clients that join then we auto +i the channel
+func joinFloodCheck(c *girc.Client, e girc.Event, name string) bool {
+	key := cacheKey(e.Params[0]+name, "i")
+	waitTime := 3 * time.Second
+
+	if !birdBase.Has(key) {
+		birdBase.PutWithTTL(key, []byte("1"), waitTime)
+	} else {
+		count, _ := birdBase.Get(key)
+		countInt, _ := strconv.Atoi(string(count))
+		countInt++
+		birdBase.PutWithTTL(key, []byte(strconv.Itoa(countInt)), waitTime)
+
+		if countInt > 2 {
+			birdBase.PutWithTTL(key, []byte("1"), config.AiBird.FloodIgnoreTime*time.Minute)
+			// +i the channel
+			c.Cmd.Mode(e.Params[0], "+i")
+		}
+
+		go removeFloodCheck(c, e, name)
+
+		return true
+	}
+
+	return false
+}
+
+// After two minutes remove +i
+func removeFloodCheck(c *girc.Client, e girc.Event, name string) {
+	time.Sleep(2 * time.Minute)
+
+	key := cacheKey(e.Params[0]+name, "i")
+	birdBase.Delete(key)
+
+	c.Cmd.Mode(e.Params[0], "-i")
 }

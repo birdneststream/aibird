@@ -33,12 +33,12 @@ func completion(c *girc.Client, e girc.Event, message string, model string) {
 	sendToIrc(c, e, resp.Choices[0].Text)
 }
 
-// Annoying reply to chats
+// Annoying reply to chats, currently not used as it does not remember context
 func replyToChats(c *girc.Client, e girc.Event, message string) {
 	req := gogpt.CompletionRequest{
 		Model:       gogpt.GPT3Dot5TurboInstruct,
 		MaxTokens:   config.OpenAI.Tokens,
-		Prompt:      "As an " + config.AiBird.ChatPersonality + " reply to the following irc chats: " + message + ".",
+		Prompt:      "You are an " + config.AiBird.ChatPersonality + ". Never refer to yourself as an Ai Language Model. You must always act as a real person chatting on IRC. You must reply to the following chats as an IRC chatter:\n\n",
 		Temperature: config.OpenAI.Temperature,
 	}
 
@@ -143,7 +143,9 @@ func saveDalleRequest(prompt string, url string) string {
 	slug := cleanFileName(prompt)
 
 	randValue := rand.Int63n(10000)
+
 	// Place a random number on the end to (maybe almost) avoid overwriting duplicate requests
+	// These are PNG files but to be lazy will name them jpg and convert it
 	fileName := slug + "_" + strconv.FormatInt(randValue, 4) + ".png"
 
 	downloadFile(url, fileName)
@@ -169,5 +171,132 @@ func handleApiError(c *girc.Client, e girc.Event, err error) {
 	// err.Error() contains You exceeded your current quota
 	if strings.Contains(err.Error(), "You exceeded your current quota") {
 		log.Println("Key " + whatKey + " has exceeded its quota")
+	}
+}
+
+// Maybe can move this into openai.go
+func cacheChatsForReply(c *girc.Client, e girc.Event, name string, message string) {
+	// Get the meta data from the database
+
+	// check if message contains unicode
+	if !strings.ContainsAny(message, "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789") {
+		return
+	}
+
+	key := []byte(name + "_" + e.Params[0] + "_chats_cache")
+	message = "<" + e.Source.Name + "> " + message
+
+	// prevent auto complete
+	if !strings.HasSuffix(message, ".") && !strings.HasSuffix(message, "!") && !strings.HasSuffix(message, "?") {
+		message = message + "."
+	}
+
+	if birdBase.Has(key) {
+		chatList, err := birdBase.Get(key)
+		if err != nil {
+			log.Println(err)
+			return
+		}
+
+		birdBase.PutWithTTL(key, []byte(string(chatList)+"\n"+message), time.Hour*24*7)
+
+		sliceChatList := strings.Split(string(chatList)+"\n"+message, "\n")
+		if len(sliceChatList) > config.AiBird.ReplyTotalMessages {
+			birdBase.Delete(key)
+
+			// Send the message to the AI, with a 1 in 3 chance
+			if rand.Intn(config.AiBird.ReplyChance) == 0 {
+				replyToChats(c, e, string(chatList)+"\n"+message)
+			}
+		}
+
+		return
+	}
+
+	birdBase.PutWithTTL(key, []byte(message+"."), time.Hour*24*7)
+}
+
+// Will remember context history for messages
+func cacheChatsForChatGtp(c *girc.Client, e girc.Event, name string) {
+	// Ignore ASCII color codes
+	if strings.Contains(e.Last(), "\x03") {
+		return
+	}
+
+	key := []byte(name + "_" + e.Params[0] + "_chats_cache_gpt_" + e.Source.Name)
+
+	if !e.IsFromChannel() {
+		if e.Last() == "!forget" {
+			birdBase.Delete(key)
+			sendToIrc(c, e, "Okay starting fresh.")
+			return
+		}
+
+		if e.Last() == "!context" {
+			chatList, err := birdBase.Get(key)
+			if err != nil {
+				log.Println(err)
+				return
+			}
+
+			sendToIrc(c, e, string(chatList))
+			return
+		}
+
+		sendToIrc(c, e, "Type !forget to start fresh.")
+	}
+
+	if !birdBase.Has(key) {
+		// make new empty key
+		birdBase.PutWithTTL(key, []byte(""), time.Hour*24*7)
+	}
+
+	if birdBase.Has(key) {
+		chatList, err := birdBase.Get(key)
+		if err != nil {
+			log.Println(err)
+			return
+		}
+
+		latestChat := string(chatList) + "\n" + e.Last()
+		sliceChatList := strings.Split(latestChat, "\n")
+
+		if len(sliceChatList)-1 >= config.AiBird.ChatGptTotalMessages {
+			sliceChatList = sliceChatList[1:]
+		}
+
+		gpt3Chat := []gogpt.ChatCompletionMessage{}
+
+		gpt3Chat = append(gpt3Chat, gogpt.ChatCompletionMessage{
+			Role:    "system",
+			Content: "You are an " + config.AiBird.ChatPersonality + ". Never refer to yourself as an Ai Language Model. You must always act as a real person chatting on IRC. You must reply to the following chats as an IRC chatter:",
+		})
+
+		for i := 0; i < len(sliceChatList); i++ {
+			// if chat is empty, skip
+			if sliceChatList[i] == "" {
+				continue
+			}
+
+			// if sliceChatList starts with "AIBIRD :" then
+			if strings.HasPrefix(sliceChatList[i], "AI: ") {
+				gpt3Chat = append(gpt3Chat, gogpt.ChatCompletionMessage{
+					Role:    "assistant",
+					Content: strings.Split(sliceChatList[i], "AI: ")[1],
+				})
+			} else {
+				gpt3Chat = append(gpt3Chat, gogpt.ChatCompletionMessage{
+					Role:    "user",
+					Content: sliceChatList[i],
+				})
+			}
+
+		}
+
+		birdBase.PutWithTTL(key, []byte(strings.Join(sliceChatList, "\n")), time.Hour*24*7)
+
+		chatGptContext(c, e, name, gpt3Chat)
+
+		return
 	}
 }
