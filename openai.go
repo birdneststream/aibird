@@ -34,13 +34,16 @@ func completion(c *girc.Client, e girc.Event, message string, model string) {
 }
 
 // Annoying reply to chats, currently not used as it does not remember context
-func replyToChats(c *girc.Client, e girc.Event, message string) {
+func replyToChats(c *girc.Client, e girc.Event, name string, message string) {
 	req := gogpt.CompletionRequest{
-		Model:       gogpt.GPT3Dot5TurboInstruct,
-		MaxTokens:   config.OpenAI.Tokens,
-		Prompt:      "You are an " + config.AiBird.ChatPersonality + ". Never refer to yourself as an Ai Language Model. You must always act as a real person chatting on IRC. You must reply to the following chats as an IRC chatter:\n\n",
+		Model:       gogpt.GPT3TextDavinci003,
+		MaxTokens:   1556,
+		Prompt:      "You are an " + config.AiBird.ChatPersonality + ". Reply to the following context:\n\n" + message,
 		Temperature: config.OpenAI.Temperature,
 	}
+
+	// log req
+	log.Println(req)
 
 	// Perform the actual API request to openAI
 	resp, err := aiClient().CreateCompletion(ctx, req)
@@ -49,7 +52,41 @@ func replyToChats(c *girc.Client, e girc.Event, message string) {
 		return
 	}
 
-	sendToIrc(c, e, resp.Choices[0].Text)
+	key := []byte(name + "_" + e.Params[0] + "_chats_cache")
+
+	message = "You: " + strings.TrimSpace(resp.Choices[0].Text)
+	if birdBase.Has(key) {
+		chatList, err := birdBase.Get(key)
+		if err != nil {
+			log.Println(err)
+			return
+		}
+
+		birdBase.PutWithTTL(key, []byte(string(chatList)+"\n"+message), time.Hour*24*7)
+	}
+
+	// remove you: or me: from message
+
+	// for each \n in messages
+	// if it starts with you: or me:
+	// remove it
+
+	response := ""
+	message = strings.ToLower(message)
+	message = strings.Replace(message, "you:", "", -1)
+	message = strings.Replace(message, "me:", "", -1)
+
+	for _, line := range strings.Split(message, "\n") {
+		line = strings.ToLower(line)
+		if strings.Contains(line, "you:") || strings.Contains(line, "me:") {
+			line = strings.Replace(line, "You:", "", -1)
+			line = strings.Replace(line, "Me:", "", -1)
+		}
+
+		response = response + line + "\n"
+	}
+
+	sendToIrc(c, e, strings.TrimSpace(response))
 }
 
 func conversation(c *girc.Client, e girc.Event, model string, conversation []gogpt.ChatCompletionMessage) {
@@ -184,13 +221,15 @@ func cacheChatsForReply(c *girc.Client, e girc.Event, name string, message strin
 	}
 
 	key := []byte(name + "_" + e.Params[0] + "_chats_cache")
-	message = "<" + e.Source.Name + "> " + message
 
 	// prevent auto complete
 	if !strings.HasSuffix(message, ".") && !strings.HasSuffix(message, "!") && !strings.HasSuffix(message, "?") {
 		message = message + "."
 	}
 
+	message = name + ": " + message
+
+	replyWith := ""
 	if birdBase.Has(key) {
 		chatList, err := birdBase.Get(key)
 		if err != nil {
@@ -198,22 +237,20 @@ func cacheChatsForReply(c *girc.Client, e girc.Event, name string, message strin
 			return
 		}
 
-		birdBase.PutWithTTL(key, []byte(string(chatList)+"\n"+message), time.Hour*24*7)
-
 		sliceChatList := strings.Split(string(chatList)+"\n"+message, "\n")
-		if len(sliceChatList) > config.AiBird.ReplyTotalMessages {
-			birdBase.Delete(key)
-
-			// Send the message to the AI, with a 1 in 3 chance
-			if rand.Intn(config.AiBird.ReplyChance) == 0 {
-				replyToChats(c, e, string(chatList)+"\n"+message)
-			}
+		if len(sliceChatList)-1 >= config.AiBird.ChatGptTotalMessages {
+			sliceChatList = sliceChatList[1:]
+			chatList = []byte(strings.Join(sliceChatList, "\n"))
 		}
 
-		return
+		birdBase.PutWithTTL(key, []byte(string(chatList)+"\n"+message), time.Hour*24*7)
+		replyWith = string(chatList) + "\n" + message
+	} else {
+		birdBase.PutWithTTL(key, []byte(message), time.Hour*24*7)
+		replyWith = message
 	}
 
-	birdBase.PutWithTTL(key, []byte(message+"."), time.Hour*24*7)
+	replyToChats(c, e, name, replyWith)
 }
 
 // Will remember context history for messages

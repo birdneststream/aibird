@@ -13,22 +13,6 @@ import (
 func markdownToIrc(message string) string {
 	markdownQuote := false
 
-	// add irc bold to replace markdown
-	message = strings.Replace(message, "**", "\x02", -1)
-
-	// add irc italics to replace markdown, but only replace "*" and not "* "
-	message = strings.Replace(message, "* ", " - ", -1)
-	message = strings.Replace(message, "*", "\x1D", -1)
-
-	// underline
-	message = strings.Replace(message, "__", "\x1F", -1)
-
-	// strikethrough
-	message = strings.Replace(message, "~~", "\x1E", -1)
-
-	// quote
-	message = strings.Replace(message, "> ", "03> ", -1)
-
 	markdownFormat := ""
 	for _, line := range strings.Split(message, "\n") {
 		if strings.Contains(line, "```") {
@@ -39,6 +23,36 @@ func markdownToIrc(message string) string {
 		if markdownQuote {
 			// Make any quote text green
 			line = "03" + line
+		} else {
+			// if message starts with "> "
+			if strings.HasPrefix(line, "> ") {
+				line = strings.Replace(line, "> ", "03> ", -1)
+			}
+
+			// add irc italics to replace markdown, but only replace "*" and not "* "
+			if strings.HasPrefix(strings.TrimSpace(line), "* ") {
+				line = strings.Replace(line, "* ", " - ", -1)
+			}
+
+			// add irc bold to replace markdown
+			if strings.Count(line, "**")%2 == 0 {
+				line = strings.Replace(line, "**", "\x02", -1)
+			}
+
+			// if line has more than one *
+			if strings.Count(line, "*")%2 == 0 {
+				line = strings.Replace(line, "*", "\x1D", -1)
+			}
+
+			// underline
+			if strings.Count(line, "__")%2 == 0 {
+				line = strings.Replace(line, "__", "\x1F", -1)
+			}
+
+			// strikethrough
+			if strings.Count(line, "~~")%2 == 0 {
+				line = strings.Replace(line, "~~", "\x1E", -1)
+			}
 		}
 
 		markdownFormat = markdownFormat + "\n" + line

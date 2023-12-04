@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"encoding/hex"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -183,4 +184,92 @@ func cleanFromModes(nick string) string {
 	nick = strings.ReplaceAll(nick, "&", "")
 	nick = strings.ReplaceAll(nick, "%", "")
 	return nick
+}
+
+func pasteEe(message string, name string) string {
+
+	if config.AiBird.PasteEeKey == "" {
+		return ""
+	}
+
+	url := "https://api.paste.ee/v1/pastes"
+	method := "POST"
+
+	type PasteEe struct {
+		Description string `json:"description"`
+		Sections    []struct {
+			Name     string `json:"name"`
+			Syntax   string `json:"syntax"`
+			Contents string `json:"contents"`
+		} `json:"sections"`
+	}
+
+	// convert struct to json
+	pasteEe := PasteEe{
+		Description: name,
+		Sections: []struct {
+			Name     string `json:"name"`
+			Syntax   string `json:"syntax"`
+			Contents string `json:"contents"`
+		}{
+			{
+				Name:     name,
+				Syntax:   "text",
+				Contents: message,
+			},
+		},
+	}
+
+	pasteEeJson, err := json.Marshal(pasteEe)
+	if err != nil {
+		fmt.Println(err)
+		return ""
+	}
+
+	payload := bytes.NewBuffer(pasteEeJson)
+
+	client := &http.Client{}
+	req, err := http.NewRequest(method, url, payload)
+
+	if err != nil {
+		fmt.Println(err)
+		return ""
+	}
+	req.Header.Add("Content-Type", "application/json")
+	req.Header.Add("X-Auth-Token", config.AiBird.PasteEeKey)
+	req.Header.Add("Accept", "application/json")
+
+	res, err := client.Do(req)
+	if err != nil {
+		fmt.Println(err)
+		return ""
+	}
+	defer res.Body.Close()
+
+	body, err := ioutil.ReadAll(res.Body)
+	if err != nil {
+		fmt.Println(err)
+		return ""
+	}
+
+	// {"id":"wGSc7","link":"https:\/\/paste.ee\/p\/wGSc7","success":true}
+	type PasteEeResponse struct {
+		Id      string `json:"id"`
+		Link    string `json:"link"`
+		Success bool   `json:"success"`
+	}
+
+	pasteEeResponse := PasteEeResponse{}
+	err = json.Unmarshal(body, &pasteEeResponse)
+
+	if err != nil {
+		fmt.Println(err)
+		return ""
+	}
+
+	if pasteEeResponse.Success {
+		return pasteEeResponse.Link
+	}
+
+	return ""
 }

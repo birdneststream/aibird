@@ -71,6 +71,7 @@ type (
 		FloodThresholdMessages int
 		FloodThresholdSeconds  time.Duration
 		FloodIgnoreTime        time.Duration
+		PasteEeKey             string
 	}
 
 	// Auto +o on join and admin features

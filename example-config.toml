@@ -31,6 +31,9 @@ floodThresholdMessages = 3
 floodThresholdSeconds = 3
 floodIgnoreTime = 5 # minutes
 
+# Save the ai requests to paste.ee afterwards
+pasteEeKey = ""
+
 ###
 ### Google Bard
 ###

@@ -22,6 +22,12 @@ type (
 )
 
 func bard(c *girc.Client, e girc.Event, message string) {
+	saveToPastEe := false
+
+	if strings.Contains(message, "--save") {
+		message = strings.Replace(message, "--save", "", -1)
+		saveToPastEe = true
+	}
 
 	sendToIrc(c, e, "Processing Google Bard: "+message+"...")
 
@@ -74,6 +80,11 @@ func bard(c *girc.Client, e girc.Event, message string) {
 		response := post.Content
 		response = strings.TrimSpace(response)
 
-		sendToIrc(c, e, response)
+		pasteEeLink := ""
+		if saveToPastEe {
+			pasteEeLink = "Saved to: " + pasteEe(response, message)
+		}
+
+		sendToIrc(c, e, response+"\n"+pasteEeLink)
 	}
 }
