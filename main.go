@@ -244,6 +244,11 @@ func ircClient(network Network, name string, waitGroup *sync.WaitGroup) {
 		cmd := parts[0]
 		message := strings.TrimSpace(parts[1])
 
+		// Check for ComfyUI flow files
+		if parseComfyUi(c, e, cmd, message) {
+			return
+		}
+
 		// Model we will use
 		var model string
 
@@ -448,7 +453,7 @@ func ircClient(network Network, name string, waitGroup *sync.WaitGroup) {
 			conversation(c, e, gogpt.GPT4, chatGptContext)
 			return
 		case "!davinci":
-			model = gogpt.GPT3Davinci
+			model = gogpt.GPT3TextDavinci003
 		case "!davinci3":
 			model = gogpt.GPT3TextDavinci003
 		case "!davinci2":
@@ -487,6 +492,7 @@ func ircClient(network Network, name string, waitGroup *sync.WaitGroup) {
 			floodCheck(c, e, name)
 			sendToIrc(c, e, "OpenAI Models: !gpt4, !gpt3.5, !davinci (newest), !davinci3, !davinci2, !davinci1, !curie, !ada, !babbage, !ai (as GPT3Dot5TurboInstruct), !bard (Google Bard), !sd (Stable diffusion)")
 			sendToIrc(c, e, "Dall-E 3: !dale, --1024, --1792x1024, --1024x1792, --hd (high quality), --vivid (vivid style), --2 (Dall-E 2, can support --256 and --512)")
+			sendToIrc(c, e, "ComfyUI: Can drag the png files into ComfyUI to load the workflow. Available workflow files: "+getFlows())
 			sendToIrc(c, e, "Other: !aiscii (experimental ascii generation), !birdmap (run port scan on target), !sd (Stable diffusion request) - https://github.com/birdneststream/aibird")
 			return
 		}
