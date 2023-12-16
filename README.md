@@ -4,7 +4,7 @@
 * Copy `example-config.toml` to `config.toml` and configure to your liking.
 * Can connect to many IRC servers and many channels.
 * Supports multiple Open AI API keys and round robins them.
-* Now also supports Dall-E! Type `!dale babies mosh pit` and the results will be uploaded to filehole.org, the worlds best premier file sharing service.
+* Now also supports Dall-E! Type `!dale babies mosh pit` and the results will be uploaded to hole.birdnest.live, the worlds best premier file sharing service.
 * Updated to support latest OpenAI changes, including Dall-e 3!
 
 ## Some Extra Features

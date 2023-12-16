@@ -15,6 +15,26 @@ type (
 		RecordingUrl    string
 		LocalAi         LocalAi
 		Bard            Bard
+		Uploading       Uploading
+	}
+
+	Uploading struct {
+		Host       string
+		Port       string
+		EndPoint   string
+		Key        string
+		Headers    []Headers
+		PostFields []PostFields
+	}
+
+	Headers struct {
+		Key   string
+		Value string
+	}
+
+	PostFields struct {
+		Key   string
+		Value string
 	}
 
 	// Proxy
@@ -72,6 +92,7 @@ type (
 		FloodThresholdSeconds  time.Duration
 		FloodIgnoreTime        time.Duration
 		PasteEeKey             string
+		SdEnabled              bool
 	}
 
 	// Auto +o on join and admin features

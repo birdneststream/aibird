@@ -2,6 +2,22 @@
 # Otherwise leave this blank
 recordingUrl = ""
 
+# Birdhole uploading, will customise later to allow any standard POST request
+[uploading]
+Host = "https://uploadfiles.com"
+Port = "443"
+EndPoint = "/upload"
+Key = ""
+Headers = [
+    {Key = "X-Api-Key", Value = ""},
+]
+PostFields = [
+    {Key = "url_length", Value = "8"},
+    {Key = "expiry", Value = "432000"},
+    {Key = "descrtipion", Value = ""},
+]
+
+
 [openai]
 keys = [
 "sk-freeai",
@@ -33,6 +49,7 @@ floodIgnoreTime = 5 # minutes
 
 # Save the ai requests to paste.ee afterwards
 pasteEeKey = ""
+sdEnabled = true
 
 ###
 ### Google Bard

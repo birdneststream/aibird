@@ -172,7 +172,7 @@ func sdRequest(c *girc.Client, e girc.Event, prompt string) {
 	fileName = filepath.Base(fileName)
 
 	// download image
-	content := fileHole("https://filehole.org/", fileName)
+	content := birdHole(fileName, prompt)
 	sendToIrc(c, e, e.Source.Name+": "+content)
 }
 

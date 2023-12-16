@@ -191,7 +191,7 @@ func saveDalleRequest(prompt string, url string) string {
 	fileName = filepath.Base(fileName)
 
 	// download image
-	content := fileHole("https://filehole.org/", fileName)
+	content := birdHole(fileName, prompt)
 
 	return string(content)
 }

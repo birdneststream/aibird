@@ -6,8 +6,11 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"image/jpeg"
+	"image/png"
 	"io"
 	"io/ioutil"
+	"log"
 	"mime/multipart"
 	"net/http"
 	"os"
@@ -89,8 +92,60 @@ func recordArt(fileName string, art string) (string, bool) {
 	return "art saved to " + string(body), true
 }
 
-func fileHole(url string, fileName string) string {
-	method := "POST"
+// ToJpeg converts a PNG image to JPEG format
+func ToJpeg(imageBytes []byte) ([]byte, error) {
+
+	// DetectContentType detects the content type
+	contentType := http.DetectContentType(imageBytes)
+
+	switch contentType {
+	case "image/png":
+		// Decode the PNG image bytes
+		img, err := png.Decode(bytes.NewReader(imageBytes))
+
+		if err != nil {
+			return nil, err
+		}
+
+		buf := new(bytes.Buffer)
+
+		// encode the image as a JPEG file
+		if err := jpeg.Encode(buf, img, nil); err != nil {
+			return nil, err
+		}
+
+		return buf.Bytes(), nil
+	}
+
+	return nil, fmt.Errorf("unable to convert %#v to jpeg", contentType)
+}
+
+func birdHole(fileName string, message string) string {
+	// convert to jpg before posting
+	if strings.HasSuffix(fileName, ".png") {
+		imageBytes, err := os.ReadFile(fileName)
+
+		if err != nil {
+			log.Printf("Failed to read image file: %s", err)
+			return "Failed to convert PNG to JPG"
+		}
+
+		// Convert the PNG image to JPEG
+		jpegBytes, err := ToJpeg(imageBytes)
+
+		if err != nil {
+			log.Printf("Failed to convert image: %s", err)
+			return "Failed to convert PNG to JPG"
+		}
+
+		fileName = strings.TrimSuffix(fileName, ".png") + ".jpg"
+		err = os.WriteFile(fileName, jpegBytes, os.ModePerm)
+
+		if err != nil {
+			log.Printf("Failed to write JPEG file: %s", err)
+			return "Failed to convert PNG to JPG"
+		}
+	}
 
 	payload := &bytes.Buffer{}
 	writer := multipart.NewWriter(payload)
@@ -103,23 +158,39 @@ func fileHole(url string, fileName string) string {
 		fmt.Println(errFile1)
 
 	}
+
+	// Wasn't able to use the array from the toml config,
+	// so these are hardcoded.
+	_ = writer.WriteField("url_len", "9")
 	_ = writer.WriteField("expiry", "432000")
-	_ = writer.WriteField("url_len", "5")
+	_ = writer.WriteField("description", message)
+
 	err := writer.Close()
 	if err != nil {
 		fmt.Println(err)
 
 	}
 
-	client := &http.Client{}
-	req, err := http.NewRequest(method, url, payload)
+	// If config.Uploading.EndPoint has no starting / add it
+	if !strings.HasPrefix(config.Uploading.EndPoint, "/") {
+		config.Uploading.EndPoint = "/" + config.Uploading.EndPoint
+	}
 
+	url := config.Uploading.Host + ":" + config.Uploading.Port + config.Uploading.EndPoint
+
+	log.Println(url)
+
+	client := &http.Client{}
+	req, err := http.NewRequest("POST", url, payload)
 	if err != nil {
 		fmt.Println(err)
 
 	}
 
+	// Wasn't able to use the array from the toml config,
+	req.Header.Add("X-Auth-Token", config.Uploading.Key)
 	req.Header.Set("Content-Type", writer.FormDataContentType())
+
 	res, err := client.Do(req)
 	if err != nil {
 		fmt.Println(err)
@@ -133,6 +204,12 @@ func fileHole(url string, fileName string) string {
 
 	}
 	fmt.Println(string(body))
+
+	// delete the file
+	err = os.Remove(fileName)
+	if err != nil {
+		fmt.Println(err)
+	}
 
 	return string(body)
 }

@@ -42,6 +42,7 @@ func getFlows() string {
 }
 
 func parseComfyUi(c *girc.Client, e girc.Event, workflow string, message string) bool {
+
 	// return list of files in comfyui/*.json
 	files, err := listJSONFiles()
 	if err != nil {
@@ -190,7 +191,7 @@ func comfyui(irc *girc.Client, e girc.Event, workflow string, message string) {
 				f.Close()
 				log.Println("Got image: ", v.Filename)
 
-				content := fileHole("https://filehole.org/", v.Filename)
+				content := birdHole(v.Filename, message)
 
 				content = e.Source.Name + ": " + message + " - " + content
 

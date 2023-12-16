@@ -245,7 +245,12 @@ func ircClient(network Network, name string, waitGroup *sync.WaitGroup) {
 		message := strings.TrimSpace(parts[1])
 
 		// Check for ComfyUI flow files
-		if parseComfyUi(c, e, cmd, message) {
+		if (cmd != "!admin" && cmd != "!help") && config.AiBird.SdEnabled {
+			if parseComfyUi(c, e, cmd, message) {
+				return
+			}
+		} else if (cmd != "!admin" && cmd != "!help") && !config.AiBird.SdEnabled {
+			sendToIrc(c, e, "Hey there chat pal "+e.Source.Name+", stable diffusion is currently disabled! Try !dale.")
 			return
 		}
 
@@ -418,17 +423,12 @@ func ircClient(network Network, name string, waitGroup *sync.WaitGroup) {
 		case "!birdmap":
 			birdmap(c, e, message)
 			return
-		// Stable diffusion prompts
+		// Stable diffusion prompts for Auto1111, although not really used anymore.
 		case "!sd":
-			// if !isUserMode(name, e.Params[0], e.Source.Name, "@~") {
-			// 	sendToIrc(c, e, "Hey there chat pal "+e.Source.Name+", you have to be a birdnest patreon to use stable diffusion! Unless you want to donate your own GPU!")
-			// 	return
-			// }
-
-			// if e.Params[0] != "#birdnest" {
-			// 	sendToIrc(c, e, "Hey there chat pal "+e.Source.Name+", stable diffusion is only available in #birdnest!")
-			// 	return
-			// }
+			if !config.AiBird.SdEnabled {
+				sendToIrc(c, e, "Hey there chat pal "+e.Source.Name+", stable diffusion is currently disabled! Try !dale.")
+				return
+			}
 
 			sdRequest(c, e, message)
 			return
