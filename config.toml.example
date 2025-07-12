@@ -1,0 +1,108 @@
+# AI Bird IRC Bot Configuration Example
+# Copy this file to config.toml and modify with your settings
+
+# Main bot configuration
+[aibird]
+actionTrigger = "!"
+floodThreshold = 5
+floodIgnoreMinutes = 10
+
+# Logging configuration
+[logging]
+level = "info"
+format = "json"
+output = "stdout"
+
+# IRC Networks
+[networks.freenode]
+enabled = true
+nick = "aibird"
+user = "aibird"
+name = "AI Bird Bot"
+pass = ""
+nickServPass = ""
+version = "AI Bird Bot v1.0"
+throttle = 0
+pingDelay = 30
+
+# Server configuration for freenode
+[[networks.freenode.servers]]
+host = "chat.freenode.net"
+port = 6667
+ssl = false
+skipSslVerify = false
+
+# Channels for freenode
+[[networks.freenode.channels]]
+name = "#test"
+ai = true
+sd = true
+
+# Example Libera network
+[networks.libera]
+enabled = false
+nick = "aibird"
+user = "aibird"
+name = "AI Bird Bot"
+pass = ""
+nickServPass = ""
+version = "AI Bird Bot v1.0"
+throttle = 0
+pingDelay = 30
+
+[[networks.libera.servers]]
+host = "irc.libera.chat"
+port = 6667
+ssl = false
+skipSslVerify = false
+
+[[networks.libera.channels]]
+name = "#test"
+ai = true
+sd = true
+
+# OpenRouter AI Service Configuration
+[openrouter]
+enabled = true
+apiKey = "your-openrouter-api-key-here"
+baseUrl = "https://openrouter.ai/api/v1"
+defaultModel = "anthropic/claude-3.5-sonnet"
+maxTokens = 4096
+temperature = 0.7
+
+# Gemini AI Service Configuration
+[gemini]
+enabled = false
+apiKey = "your-gemini-api-key-here"
+defaultModel = "gemini-pro"
+maxTokens = 4096
+temperature = 0.7
+
+# Ollama AI Service Configuration
+[ollama]
+enabled = false
+baseUrl = "http://localhost:11434"
+defaultModel = "llama3"
+maxTokens = 4096
+temperature = 0.7
+
+# ComfyUI Image Generation Configuration
+[comfyui]
+enabled = true
+baseUrl = "http://localhost:8188"
+workflowPath = "comfyuijson/"
+defaultWorkflow = "default.json"
+maxConcurrent = 2
+timeout = 300
+
+# HTTP Upload Configuration
+[http]
+uploadEnabled = true
+uploadUrl = "https://your-upload-service.com/upload"
+uploadToken = "your-upload-token-here"
+
+# BirdHole Upload Service
+[birdhole]
+enabled = false
+baseUrl = "https://birdhole.com"
+apiKey = "your-birdhole-api-key-here" 
