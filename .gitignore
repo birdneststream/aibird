@@ -1,0 +1,30 @@
+# Build artifacts
+aibird
+aibird_test
+newaibird
+
+# Configuration files (contains sensitive data)
+config.toml
+*.toml
+deploy.sh
+
+# Database files
+bird.db/
+
+# ComfyUI workflow files
+comfyuijson/
+comfyuiworkflows/
+!comfyuiworkflows/sd-example.json
+
+# Image files
+*.png
+*.jpg
+*.jpeg
+*.gif
+*.webp
+
+# IDE files
+.idea/
+.vscode/
+.cursor
+docs/
