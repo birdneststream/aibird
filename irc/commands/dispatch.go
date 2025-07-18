@@ -82,6 +82,10 @@ func RunQueueableCommand(s state.State, gpu meta.GPUType) {
 		logger.Debug("Command categorized as image", "action", s.Action())
 		// Use existing ParseAiImageWithGPU which accepts GPU parameter
 		ParseAiImageWithGPU(s, gpu)
+	case isVideoCommand(actionLower, s.Config.AiBird):
+		logger.Debug("Command categorized as video", "action", s.Action())
+		// Use existing ParseAiVideoWithGPU which accepts GPU parameter
+		ParseAiVideoWithGPU(s, gpu)
 	case isSoundCommand(actionLower, s.Config.AiBird):
 		logger.Debug("Command categorized as sound", "action", s.Action())
 		// Use existing ParseAiSoundWithGPU which accepts GPU parameter
@@ -103,7 +107,22 @@ func isImageCommand(action string, config settings.AiBird) bool {
 		}
 	}
 
-	// Also check video commands
+	// Only then check if it's a ComfyUI workflow with image/video type
+	workflows := comfyui.GetWorkFlowsSlice()
+	for _, workflow := range workflows {
+		if strings.EqualFold(action, workflow) {
+			workflowFile := "comfyuijson/" + workflow + ".json"
+			meta, err := comfyui.GetAibirdMeta(workflowFile)
+			if err == nil && meta != nil {
+				return meta.Type == "image"
+			}
+		}
+	}
+	return false
+}
+
+func isVideoCommand(action string, config settings.AiBird) bool {
+	// Get video commands from help system FIRST
 	videoHelp := help.VideoHelp(config)
 	for _, cmd := range videoHelp {
 		if strings.EqualFold(action, cmd.Name) {
@@ -118,7 +137,7 @@ func isImageCommand(action string, config settings.AiBird) bool {
 			workflowFile := "comfyuijson/" + workflow + ".json"
 			meta, err := comfyui.GetAibirdMeta(workflowFile)
 			if err == nil && meta != nil {
-				return meta.Type == "image" || meta.Type == "video"
+				return meta.Type == "video"
 			}
 		}
 	}

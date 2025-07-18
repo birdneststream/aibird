@@ -39,6 +39,10 @@ func ParseStandardWithQueue(irc state.State, q *queue.DualQueue) {
 			irc.Send(girc.Fmt(formatHelp("Sound commands: ", help.SoundHelp(irc.Config.AiBird))))
 		}
 
+		if irc.Channel.Video {
+			irc.Send(girc.Fmt(formatHelp("Video commands: ", help.VideoHelp(irc.Config.AiBird))))
+		}
+
 		if irc.Channel.Ai {
 			irc.Send(girc.Fmt(formatHelp("Ai commands: ", help.TextHelp())))
 		}

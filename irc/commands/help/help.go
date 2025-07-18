@@ -90,9 +90,7 @@ func StandardHelp() []Help {
 }
 
 func ImageHelp(config settings.AiBird) []Help {
-	imageHelp := getHelpForWorkflowType("image", config)
-	videoHelp := getHelpForWorkflowType("video", config)
-	return append(imageHelp, videoHelp...)
+	return getHelpForWorkflowType("image", config)
 }
 
 func VideoHelp(config settings.AiBird) []Help {
@@ -224,6 +222,7 @@ func AdminHelp() []Help {
 				{Argument: "--sd", Help: "Enable or disable Stable Diffusion image generation.", Values: "true, false"},
 				{Argument: "--imageDescribe", Help: "Enable or disable image description features.", Values: "true, false"},
 				{Argument: "--sound", Help: "Enable or disable sound features.", Values: "true, false"},
+				{Argument: "--video", Help: "Enable or disable video features.", Values: "true, false"},
 				{Argument: "--actionTrigger", Help: "Set the trigger for actions.", Values: "text"},
 				{Argument: "--trimOutput", Help: "Enable or disable trimming of output for responses.", Values: "true, false"},
 			},
