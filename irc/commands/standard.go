@@ -20,7 +20,7 @@ func ParseStandardWithQueue(irc state.State, q *queue.DualQueue) {
 
 		irc.Send("Type  <command> --help for more information on a command.")
 
-		irc.Send(girc.Fmt("Commands: {b}help{b}, {b}hello{b}, {b}seen{b}, {b}support{b}, {b}queue{b}, {b}models{b}, {b}headlies{b}, {b}ircnews{b}"))
+		irc.Send(girc.Fmt("Commands: {b}help{b}, {b}hello{b}, {b}seen{b}, {b}support{b}, {b}status{b}, {b}models{b}, {b}headlies{b}, {b}ircnews{b}"))
 
 		if irc.Channel.Sd {
 			irc.Send(girc.Fmt("Sd commands: {b}sd{b}, " + comfyui.GetWorkFlows(true)))
@@ -70,21 +70,9 @@ func ParseStandardWithQueue(irc state.State, q *queue.DualQueue) {
 			return
 		}
 		irc.Send(girc.Fmt(formattedStatus))
-
-	case "support":
-		for _, support := range irc.Config.AiBird.Support {
-			irc.Send(girc.Fmt("💲 " + support.Name + ": " + support.Value))
-		}
-		irc.Send(girc.Fmt("After you have {b}supported{b} contact an admin to enable your support only features."))
-		return
-
-	case "queue":
 		if q != nil {
-			ShowQueueStatus(irc, q)
-		} else {
-			irc.Send("❌ Queue status unavailable")
+			irc.Send(ShowQueueStatus(irc, q))
 		}
-		return
 
 	case "models":
 		// List all available image generation models/workflows

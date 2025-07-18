@@ -7,7 +7,7 @@ import (
 	"strings"
 )
 
-func ShowQueueStatus(s state.State, q *queue.DualQueue) {
+func ShowQueueStatus(s state.State, q *queue.DualQueue) string {
 	status := q.GetDetailedStatus()
 
 	// Get currently processing actions
@@ -43,9 +43,8 @@ func ShowQueueStatus(s state.State, q *queue.DualQueue) {
 	}
 
 	if status.Queue4090Length == 0 && status.Queue2070Length == 0 && processing4090 == "" && processing2070 == "" {
-		s.Send("Queue Status: All queues are empty")
-		return
+		return "Queue Status: All queues are empty"
 	}
 
-	s.Send(fmt.Sprintf("Queue Status: %s", strings.Join(messages, " | ")))
+	return fmt.Sprintf("Queue Status: %s", strings.Join(messages, " | "))
 }
