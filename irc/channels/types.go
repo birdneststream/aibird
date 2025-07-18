@@ -13,6 +13,7 @@ type (
 		Sd            bool
 		ImageDescribe bool
 		Sound         bool
+		Video         bool
 		ActionTrigger string
 		Users         []*users.User
 		TrimOutput    bool

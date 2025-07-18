@@ -280,6 +280,7 @@ func handlePrivMsg(c *girc.Client, e girc.Event, network *networks.Network, conf
 			irc.Channel.Ai,
 			irc.Channel.Sd,
 			irc.Channel.Sound,
+			irc.Channel.Video,
 			irc.User.IsAdmin,
 			irc.User.IsOwner,
 		)
@@ -382,6 +383,8 @@ func dispatchCommand(irc state.State, q *queue.DualQueue) {
 			go commands.ParseOwner(irc)
 		case commands.IsSoundCommand(irc.Action(), irc.Config.AiBird):
 			go commands.ParseAiSound(irc)
+		case commands.IsVideoCommand(irc.Action(), irc.Config.AiBird):
+			go commands.ParseAiVideo(irc)
 		default:
 			logger.Warn("Command was valid but no parser was found", "command", irc.Action())
 		}
