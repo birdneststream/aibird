@@ -2,9 +2,11 @@ package commands
 
 import (
 	"aibird/image/comfyui"
+	"aibird/irc/commands/help"
 	"aibird/irc/state"
 	"aibird/queue"
 	"aibird/status"
+	"strings"
 
 	"github.com/lrstanley/girc"
 )
@@ -14,34 +16,41 @@ func ParseStandard(irc state.State) {
 	ParseStandardWithQueue(irc, nil)
 }
 
+func formatHelp(prefix string, commands []help.Help) string {
+	var names []string
+	for _, cmd := range commands {
+		names = append(names, "{b}"+cmd.Name+"{b}")
+	}
+	return prefix + strings.Join(names, ", ")
+}
+
 func ParseStandardWithQueue(irc state.State, q *queue.DualQueue) {
 	switch irc.Command.Action {
 	case "help":
-
 		irc.Send("Type  <command> --help for more information on a command.")
 
-		irc.Send(girc.Fmt("Commands: {b}help{b}, {b}hello{b}, {b}seen{b}, {b}support{b}, {b}status{b}, {b}models{b}, {b}headlies{b}, {b}ircnews{b}"))
+		irc.Send(girc.Fmt(formatHelp("Commands: ", help.StandardHelp())))
 
 		if irc.Channel.Sd {
-			irc.Send(girc.Fmt("Sd commands: {b}sd{b}, " + comfyui.GetWorkFlows(true)))
+			irc.Send(girc.Fmt(formatHelp("Sd commands: ", help.ImageHelp(irc.Config.AiBird))))
 		}
 
 		if irc.Channel.Sound {
-			irc.Send(girc.Fmt("Sound commands: {b}tts{b}"))
+			irc.Send(girc.Fmt(formatHelp("Sound commands: ", help.SoundHelp(irc.Config.AiBird))))
 		}
 
 		if irc.Channel.Ai {
-			irc.Send(girc.Fmt("Ai commands: {b}ai{b}, {b}openrouter{b}, {b}bard{b}, {b}gemini{b} (same as bard)"))
+			irc.Send(girc.Fmt(formatHelp("Ai commands: ", help.TextHelp())))
 		}
 
 		// admin commands help
 		if irc.User.IsAdmin {
-			irc.Send(girc.Fmt("Admin commands: {b}user{b}, {b}op{b}, {b}deop{b}, {b}voice{b}, {b}devoice{b}, {b}kick{b}, {b}ban{b}, {b}unban{b}, {b}topic{b}, {b}join{b}, {b}part{b}, {b}ignore{b}, {b}unignore{b}"))
+			irc.Send(girc.Fmt(formatHelp("Admin commands: ", help.AdminHelp())))
 		}
 
 		// owner commands help
 		if irc.User.IsOwner {
-			irc.Send(girc.Fmt("Owner commands: {b}debug{b}, {b}save{b}, {b}ip{b}"))
+			irc.Send(girc.Fmt(formatHelp("Owner commands: ", help.OwnerHelp())))
 		}
 
 		return
@@ -73,6 +82,13 @@ func ParseStandardWithQueue(irc state.State, q *queue.DualQueue) {
 		if q != nil {
 			irc.Send(ShowQueueStatus(irc, q))
 		}
+	
+	case "support":
+		for _, support := range irc.Config.AiBird.Support {
+			irc.Send(girc.Fmt("💲 " + support.Name + ": " + support.Value))
+		}
+		irc.Send(girc.Fmt("After you have {b}supported{b} contact an admin to enable your support only features."))
+		return
 
 	case "models":
 		// List all available image generation models/workflows
