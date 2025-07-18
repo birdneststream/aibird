@@ -85,13 +85,7 @@ func StandardHelp() []Help {
 			Arguments: []Arguments{},
 			Queueable: false,
 		},
-		{
-			Name:      "queue",
-			Type:      "standard",
-			Help:      "Shows the current status of the command processing queue.",
-			Arguments: []Arguments{},
-			Queueable: false,
-		},
+		
 	}
 }
 
