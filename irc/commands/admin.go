@@ -3,7 +3,6 @@ package commands
 import (
 	"aibird/helpers"
 	"aibird/irc/channels"
-	"aibird/irc/commands/help"
 	"aibird/irc/state"
 	"aibird/irc/users"
 	"aibird/logger"
@@ -44,17 +43,7 @@ func parseAdminCommands(irc state.State, q *queue.DualQueue) {
 			}
 
 			return
-		case "admin":
-			if irc.FindArgument("help", false).(bool) {
-				irc.Send(girc.Fmt(help.Format(help.AdminHelp())))
-				return
-			}
 		case "user":
-			if irc.FindArgument("help", false).(bool) {
-				irc.Send(girc.Fmt(help.FindHelp("user", irc.Config.AiBird)))
-				return
-			}
-
 			var user *users.User
 
 			// Check if we're dealing with ident@host format
@@ -92,11 +81,6 @@ func parseAdminCommands(irc state.State, q *queue.DualQueue) {
 
 			return
 		case "channel":
-			if irc.FindArgument("help", false).(bool) {
-				irc.Send(girc.Fmt(help.FindHelp("channel", irc.Config.AiBird)))
-				return
-			}
-
 			var channel *channels.Channel
 			if irc.IsEmptyMessage() {
 				channel = irc.Network.GetNetworkChannel(helpers.FindChannelNameInEventParams(irc.Event))
@@ -113,11 +97,6 @@ func parseAdminCommands(irc state.State, q *queue.DualQueue) {
 				irc.UpdateChannelBasedOnArgs()
 			}
 		case "network":
-			if irc.FindArgument("help", false).(bool) {
-				irc.Send(girc.Fmt(help.FindHelp("network", irc.Config.AiBird)))
-				return
-			}
-
 			if irc.IsEmptyArguments() {
 				irc.Send(girc.Fmt(irc.Network.String()))
 				return
@@ -126,100 +105,40 @@ func parseAdminCommands(irc state.State, q *queue.DualQueue) {
 			irc.UpdateNetworkBasedOnArgs()
 			return
 		case "sync":
-			if irc.FindArgument("help", false).(bool) {
-				irc.Send(girc.Fmt(help.FindHelp("sync", irc.Config.AiBird)))
-				return
-			}
-
 			irc.Send("Syncing network...")
 			irc.Client.Cmd.SendRaw("WHO " + irc.Channel.Name)
 			return
 		case "op":
-			if irc.FindArgument("help", false).(bool) {
-				irc.Send(girc.Fmt(help.FindHelp("op", irc.Config.AiBird)))
-				return
-			}
-
 			irc.Client.Cmd.Mode(irc.Channel.Name, "+o", irc.Command.Message)
 			return
 		case "deop":
-			if irc.FindArgument("help", false).(bool) {
-				irc.Send(girc.Fmt(help.FindHelp("deop", irc.Config.AiBird)))
-				return
-			}
-
 			irc.Client.Cmd.Mode(irc.Channel.Name, "-o", irc.Command.Message)
 			return
 		case "voice":
-			if irc.FindArgument("help", false).(bool) {
-				irc.Send(girc.Fmt(help.FindHelp("voice", irc.Config.AiBird)))
-				return
-			}
-
 			irc.Client.Cmd.Mode(irc.Channel.Name, "+v", irc.Command.Message)
 			return
 		case "devoice":
-			if irc.FindArgument("help", false).(bool) {
-				irc.Send(girc.Fmt(help.FindHelp("devoice", irc.Config.AiBird)))
-				return
-			}
-
 			irc.Client.Cmd.Mode(irc.Channel.Name, "-v", irc.Command.Message)
 			return
 		case "kick":
-			if irc.FindArgument("help", false).(bool) {
-				irc.Send(girc.Fmt(help.FindHelp("kick", irc.Config.AiBird)))
-				return
-			}
-
 			irc.Client.Cmd.Kick(irc.Channel.Name, irc.Command.Message, "You have been kicked by "+irc.User.NickName)
 			return
 		case "ban":
-			if irc.FindArgument("help", false).(bool) {
-				irc.Send(girc.Fmt(help.FindHelp("ban", irc.Config.AiBird)))
-				return
-			}
-
 			irc.Client.Cmd.Mode(irc.Channel.Name, "+b", irc.Command.Message)
 			return
 		case "unban":
-			if irc.FindArgument("help", false).(bool) {
-				irc.Send(girc.Fmt(help.FindHelp("unban", irc.Config.AiBird)))
-				return
-			}
-
 			irc.Client.Cmd.Mode(irc.Channel.Name, "-b", irc.Command.Message)
 			return
 		case "topic":
-			if irc.FindArgument("help", false).(bool) {
-				irc.Send(girc.Fmt(help.FindHelp("topic", irc.Config.AiBird)))
-				return
-			}
-
 			irc.Client.Cmd.Topic(irc.Channel.Name, irc.Command.Message)
 			return
 		case "join":
-			if irc.FindArgument("help", false).(bool) {
-				irc.Send(girc.Fmt(help.FindHelp("join", irc.Config.AiBird)))
-				return
-			}
-
 			irc.Client.Cmd.Join(irc.Command.Message)
 			return
 		case "part":
-			if irc.FindArgument("help", false).(bool) {
-				irc.Send(girc.Fmt(help.FindHelp("part", irc.Config.AiBird)))
-				return
-			}
-
 			irc.Client.Cmd.Part(irc.Command.Message)
 			return
 		case "ignore":
-			if irc.FindArgument("help", false).(bool) {
-				irc.Send(girc.Fmt(help.FindHelp("ignore", irc.Config.AiBird)))
-				return
-			}
-
 			irc.Send("Ignoring " + irc.Command.Message)
 			user, _ := irc.Channel.GetUserWithNick(irc.Command.Message)
 
@@ -230,11 +149,6 @@ func parseAdminCommands(irc state.State, q *queue.DualQueue) {
 
 			return
 		case "unignore":
-			if irc.FindArgument("help", false).(bool) {
-				irc.Send(girc.Fmt(help.FindHelp("unignore", irc.Config.AiBird)))
-				return
-			}
-
 			irc.Send("Unignoring " + irc.Command.Message)
 			user, _ := irc.Channel.GetUserWithNick(irc.Message())
 
@@ -245,19 +159,9 @@ func parseAdminCommands(irc state.State, q *queue.DualQueue) {
 
 			return
 		case "nick":
-			if irc.FindArgument("help", false).(bool) {
-				irc.Send(girc.Fmt(help.FindHelp("nick", irc.Config.AiBird)))
-				return
-			}
-
 			irc.Client.Cmd.Nick(irc.Command.Message)
 			return
 		case "clearqueue":
-			if irc.FindArgument("help", false).(bool) {
-				irc.Send("Usage: !admin clearqueue [4090|2070|all] - Clear specified queue(s)")
-				return
-			}
-
 			if q == nil {
 				irc.SendError("Queue system not available")
 				return
@@ -282,11 +186,6 @@ func parseAdminCommands(irc state.State, q *queue.DualQueue) {
 			}
 			return
 		case "removecurrent":
-			if irc.FindArgument("help", false).(bool) {
-				irc.Send("Usage: !admin removecurrent - Remove the currently processing item from both queues")
-				return
-			}
-
 			if q == nil {
 				irc.SendError("Queue system not available")
 				return

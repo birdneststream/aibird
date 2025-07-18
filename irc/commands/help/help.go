@@ -16,6 +16,7 @@ type (
 		Help      string
 		Arguments []Arguments
 		Queueable bool // Indicates if this command is queueable
+		Example   string
 	}
 
 	Arguments struct {
@@ -85,7 +86,6 @@ func StandardHelp() []Help {
 			Arguments: []Arguments{},
 			Queueable: false,
 		},
-		
 	}
 }
 
@@ -387,9 +387,11 @@ func FindHelp(name string, config settings.AiBird) string {
 	helpItems = append(helpItems, TextHelp()...)
 
 	var foundItems []Help
+	processed := make(map[string]bool)
 	for _, help := range helpItems {
-		if help.Name == name {
+		if help.Name == name && !processed[name] {
 			foundItems = append(foundItems, help)
+			processed[name] = true
 		}
 	}
 	return Format(foundItems)
@@ -420,6 +422,9 @@ func Format(helpItems []Help) string {
 				}
 				result.WriteString(argInfo + "\n")
 			}
+		}
+		if help.Example != "" {
+			result.WriteString(fmt.Sprintf(" Example: %s\n", help.Example))
 		}
 		result.WriteString("\n") // Add an extra newline for better separation
 	}
@@ -505,6 +510,7 @@ func getHelpForWorkflowType(workflowType string, config settings.AiBird) []Help 
 			Help:      description,
 			Arguments: arguments,
 			Queueable: true, // All ComfyUI workflows are queueable
+			Example:   meta.Example,
 		}
 		helpItems = append(helpItems, helpItem)
 	}
