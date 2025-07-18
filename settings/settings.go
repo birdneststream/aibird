@@ -37,6 +37,16 @@ func LoadConfig() (*Config, error) {
 		return nil, fmt.Errorf("error parsing config file %s: %w", absPath, err)
 	}
 
+	// Set default values for channels
+	for _, network := range config.Networks {
+		for i := range network.Channels {
+			// if Video is not set, default to true
+			if !network.Channels[i].Video {
+				network.Channels[i].Video = true
+			}
+		}
+	}
+
 	// Load service-specific configs
 	if err := loadServiceConfigs(&config); err != nil {
 		return nil, fmt.Errorf("error loading service configs: %w", err)
