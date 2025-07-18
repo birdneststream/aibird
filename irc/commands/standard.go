@@ -29,32 +29,32 @@ func ParseStandardWithQueue(irc state.State, q *queue.DualQueue) {
 	case "help":
 		irc.Send("Type  <command> --help for more information on a command.")
 
-		irc.Send(girc.Fmt(formatHelp("Commands: ", help.StandardHelp())))
+		irc.Send(girc.Fmt(formatHelp("IRC: ", help.StandardHelp())))
 
 		if irc.Channel.Sd {
-			irc.Send(girc.Fmt(formatHelp("Sd commands: ", help.ImageHelp(irc.Config.AiBird))))
+			irc.Send(girc.Fmt(formatHelp("Images: ", help.ImageHelp(irc.Config.AiBird))))
 		}
 
 		if irc.Channel.Sound {
-			irc.Send(girc.Fmt(formatHelp("Sound commands: ", help.SoundHelp(irc.Config.AiBird))))
+			irc.Send(girc.Fmt(formatHelp("Audio: ", help.SoundHelp(irc.Config.AiBird))))
 		}
 
 		if irc.Channel.Video {
-			irc.Send(girc.Fmt(formatHelp("Video commands: ", help.VideoHelp(irc.Config.AiBird))))
+			irc.Send(girc.Fmt(formatHelp("Video: ", help.VideoHelp(irc.Config.AiBird))))
 		}
 
 		if irc.Channel.Ai {
-			irc.Send(girc.Fmt(formatHelp("Ai commands: ", help.TextHelp())))
+			irc.Send(girc.Fmt(formatHelp("Text: ", help.TextHelp())))
 		}
 
 		// admin commands help
 		if irc.User.IsAdmin {
-			irc.Send(girc.Fmt(formatHelp("Admin commands: ", help.AdminHelp())))
+			irc.Send(girc.Fmt(formatHelp("Admin: ", help.AdminHelp())))
 		}
 
 		// owner commands help
 		if irc.User.IsOwner {
-			irc.Send(girc.Fmt(formatHelp("Owner commands: ", help.OwnerHelp())))
+			irc.Send(girc.Fmt(formatHelp("Owner: ", help.OwnerHelp())))
 		}
 
 		return
