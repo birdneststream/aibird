@@ -4,6 +4,7 @@ import (
 	"aibird/birdbase"
 	"aibird/helpers"
 	"aibird/irc/commands"
+	"aibird/irc/commands/help"
 	"aibird/irc/networks"
 	"aibird/irc/state"
 	"aibird/logger"
@@ -341,6 +342,12 @@ func checkFlood(irc state.State) {
 }
 
 func dispatchCommand(irc state.State, q *queue.DualQueue) {
+	if irc.FindArgument("help", false).(bool) {
+		helpMsg := help.FindHelp(irc.Action(), irc.Config.AiBird)
+		irc.Send(girc.Fmt(helpMsg))
+		return
+	}
+
 	if commands.IsQueueableCommand(irc) {
 		// Create QueueItem with model information
 		queueItem := queue.QueueItem{

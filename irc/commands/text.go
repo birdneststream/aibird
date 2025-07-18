@@ -1,7 +1,6 @@
 package commands
 
 import (
-	"aibird/irc/commands/help"
 	"aibird/irc/state"
 	"aibird/logger"
 	"aibird/status"
@@ -15,11 +14,6 @@ import (
 
 func ParseAiText(irc state.State) bool {
 	if irc.IsAction("ai") {
-		if irc.GetBoolArg("help") {
-			irc.Send(help.FindHelp("ai", irc.Config.AiBird))
-			return true
-		}
-
 		if irc.GetBoolArg("info") {
 			irc.ReplyTo(girc.Fmt(fmt.Sprintf("🧠 AI service: %s 🧠 AI model: %s 🧠 Base prompt: %s 🧠 Personality: %s",
 				defaultIfEmpty(irc.User.GetAiService(), "openrouter"),
@@ -155,8 +149,7 @@ func ParseAiText(irc state.State) bool {
 	}
 
 	if (irc.IsAction("bard") || irc.IsAction("gemini")) && irc.Config.Gemini.ApiKey != "" {
-		if irc.IsEmptyMessage() || irc.GetBoolArg("help") {
-			irc.Send(girc.Fmt(help.FindHelp(irc.Action(), irc.Config.AiBird)))
+		if irc.IsEmptyMessage() {
 			return true
 		}
 
