@@ -2,6 +2,7 @@ package help
 
 import (
 	"aibird/image/comfyui"
+	"aibird/irc/state"
 	"aibird/logger"
 	"aibird/settings"
 	"aibird/status"
@@ -378,7 +379,10 @@ func AdminHelp() []Help {
 	}
 }
 
-func FindHelp(name string, config settings.AiBird) string {
+func FindHelp(irc state.State) string {
+	config := irc.Config.AiBird
+	name := irc.Action()
+
 	helpItems := append(AdminHelp(), SoundHelp(config)...)
 	helpItems = append(helpItems, ImageHelp(config)...)
 	helpItems = append(helpItems, VideoHelp(config)...)
@@ -387,14 +391,58 @@ func FindHelp(name string, config settings.AiBird) string {
 
 	var foundItems []Help
 	processed := make(map[string]bool)
-	for _, help := range helpItems {
-		if help.Name == name && !processed[name] {
-			foundItems = append(foundItems, help)
-			processed[name] = true
+
+	if name == "help" {
+		for _, help := range helpItems {
+			if !isCommandDenied(help.Name, irc) && !processed[help.Name] {
+				foundItems = append(foundItems, help)
+				processed[help.Name] = true
+			}
+		}
+	} else {
+		for _, help := range helpItems {
+			if isCommandDenied(help.Name, irc) {
+				continue
+			}
+			if help.Name == name && !processed[name] {
+				foundItems = append(foundItems, help)
+				processed[name] = true
+			}
 		}
 	}
+
 	return Format(foundItems)
 }
+
+func isCommandDenied(commandName string, irc state.State) bool {
+	// Check channel level
+	if irc.Channel != nil {
+		for _, deniedCmd := range irc.Channel.DenyCommands {
+			if strings.EqualFold(commandName, deniedCmd) {
+				return true
+			}
+		}
+	}
+
+	// Check network level
+	if irc.Network != nil {
+		for _, deniedCmd := range irc.Network.DenyCommands {
+			if strings.EqualFold(commandName, deniedCmd) {
+				return true
+			}
+		}
+	}
+
+	// Check global level
+	for _, deniedCmd := range irc.Config.AiBird.DenyCommands {
+		if strings.EqualFold(commandName, deniedCmd) {
+			return true
+		}
+	}
+
+	return false
+}
+
 
 func Format(helpItems []Help) string {
 	var result strings.Builder

@@ -6,6 +6,7 @@
 actionTrigger = "!"
 floodThreshold = 5
 floodIgnoreMinutes = 10
+denyCommands = ["secret"]
 
 # Logging configuration
 [logging]
@@ -24,6 +25,7 @@ nickServPass = ""
 version = "AI Bird Bot v1.0"
 throttle = 0
 pingDelay = 30
+denyCommands = ["uptime"]
 
 # Server configuration for freenode
 [[networks.freenode.servers]]
@@ -37,6 +39,7 @@ skipSslVerify = false
 name = "#test"
 ai = true
 sd = true
+denyCommands = ["ai", "sd"]
 
 # Example Libera network
 [networks.libera]

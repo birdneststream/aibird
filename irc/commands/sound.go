@@ -79,7 +79,7 @@ func ProcessAndUploadAudio(irc state.State, message, response string) {
 func ParseAiSound(irc state.State) bool {
 	if irc.IsAction("tts") {
 		if irc.GetBoolArg("help") || irc.IsEmptyMessage() {
-			irc.Send(girc.Fmt(help.FindHelp("tts", irc.Config.AiBird)))
+			irc.Send(girc.Fmt(help.FindHelp(irc)))
 			return true
 		}
 
@@ -124,7 +124,7 @@ func ParseAiSound(irc state.State) bool {
 		duration, _ := irc.GetStringArg("duration", "")
 
 		if irc.GetBoolArg("help") || url == "" || name == "" {
-			irc.Send(girc.Fmt(help.FindHelp("tts-add", irc.Config.AiBird)))
+			irc.Send(girc.Fmt(help.FindHelp(irc)))
 			return true
 		}
 
@@ -143,7 +143,7 @@ func ParseAiSound(irc state.State) bool {
 
 	if irc.IsAction("music") {
 		if irc.GetBoolArg("help") || irc.IsEmptyMessage() {
-			irc.Send(girc.Fmt(help.FindHelp("music", irc.Config.AiBird)))
+			irc.Send(girc.Fmt(help.FindHelp(irc)))
 			return true
 		}
 
@@ -179,7 +179,7 @@ func ParseAiSound(irc state.State) bool {
 
 	if irc.IsAction("sound") {
 		if irc.GetBoolArg("help") || irc.IsEmptyMessage() {
-			irc.Send(girc.Fmt(help.FindHelp("sound", irc.Config.AiBird)))
+			irc.Send(girc.Fmt(help.FindHelp(irc)))
 			return true
 		}
 
@@ -238,7 +238,7 @@ func ProcessAndUploadAudioWithGPU(irc state.State, message, response string, gpu
 func ParseAiSoundWithGPU(irc state.State, gpu meta.GPUType) bool {
 	if irc.IsAction("tts") {
 		if irc.GetBoolArg("help") || irc.IsEmptyMessage() {
-			irc.Send(girc.Fmt(help.FindHelp("tts", irc.Config.AiBird)))
+			irc.Send(girc.Fmt(help.FindHelp(irc)))
 			return true
 		}
 
@@ -281,7 +281,7 @@ func ParseAiSoundWithGPU(irc state.State, gpu meta.GPUType) bool {
 		duration, _ := irc.GetStringArg("duration", "")
 
 		if irc.GetBoolArg("help") || url == "" || name == "" {
-			irc.Send(girc.Fmt(help.FindHelp("tts-add", irc.Config.AiBird)))
+			irc.Send(girc.Fmt(help.FindHelp(irc)))
 			return true
 		}
 
@@ -300,7 +300,7 @@ func ParseAiSoundWithGPU(irc state.State, gpu meta.GPUType) bool {
 
 	if irc.IsAction("music") {
 		if irc.GetBoolArg("help") || irc.IsEmptyMessage() {
-			irc.Send(girc.Fmt(help.FindHelp("music", irc.Config.AiBird)))
+			irc.Send(girc.Fmt(help.FindHelp(irc)))
 			return true
 		}
 
@@ -336,7 +336,7 @@ func ParseAiSoundWithGPU(irc state.State, gpu meta.GPUType) bool {
 
 	if irc.IsAction("sound") {
 		if irc.GetBoolArg("help") || irc.IsEmptyMessage() {
-			irc.Send(girc.Fmt(help.FindHelp("sound", irc.Config.AiBird)))
+			irc.Send(girc.Fmt(help.FindHelp(irc)))
 			return true
 		}
 

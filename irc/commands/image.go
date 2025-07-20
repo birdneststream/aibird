@@ -21,7 +21,7 @@ import (
 func ParseAiImage(irc state.State) bool {
 	if irc.IsAction("sd") {
 		if irc.GetBoolArg("help") {
-			irc.Send(girc.Fmt(help.FindHelp("sd", irc.Config.AiBird)))
+			irc.Send(girc.Fmt(help.FindHelp(irc)))
 			return true
 		}
 
@@ -34,7 +34,7 @@ func ParseAiImage(irc state.State) bool {
 
 	if comfyui.WorkflowExists(irc.Action()) {
 		if irc.GetBoolArg("help") || irc.IsEmptyMessage() {
-			irc.Send(girc.Fmt(help.FindHelp(irc.Action(), irc.Config.AiBird)))
+			irc.Send(girc.Fmt(help.FindHelp(irc)))
 			return true
 		}
 		var aiEnhancedPrompt string
@@ -141,7 +141,7 @@ func ParseAiImage(irc state.State) bool {
 func ParseAiImageWithGPU(irc state.State, gpu meta.GPUType) bool {
 	if irc.IsAction("sd") {
 		if irc.GetBoolArg("help") {
-			irc.Send(girc.Fmt(help.FindHelp("sd", irc.Config.AiBird)))
+			irc.Send(girc.Fmt(help.FindHelp(irc)))
 			return true
 		}
 
@@ -153,7 +153,7 @@ func ParseAiImageWithGPU(irc state.State, gpu meta.GPUType) bool {
 
 	if comfyui.WorkflowExists(irc.Action()) {
 		if irc.GetBoolArg("help") || irc.IsEmptyMessage() {
-			irc.Send(girc.Fmt(help.FindHelp(irc.Action(), irc.Config.AiBird)))
+			irc.Send(girc.Fmt(help.FindHelp(irc)))
 			return true
 		}
 		var aiEnhancedPrompt string

@@ -22,6 +22,7 @@ type (
 		FloodThreshold     int       `toml:"floodThreshold" validate:"gte=0"`
 		FloodIgnoreMinutes int       `toml:"floodIgnoreMinutes" validate:"gte=0"`
 		ActionTrigger      string    `toml:"actionTrigger" validate:"required"`
+		DenyCommands       []string  `toml:"denyCommands"`
 		AiChatContextLimit int       `toml:"aiChatContextLimit" validate:"gte=0"`
 		Support            []Support `toml:"support"`
 		StatusUrl          string    `toml:"statusUrl" validate:"omitempty,url"`

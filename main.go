@@ -343,8 +343,30 @@ func checkFlood(irc state.State) {
 }
 
 func dispatchCommand(irc state.State, q *queue.DualQueue) {
+	// Check if the command is denied at any level
+	action := irc.Action()
+	if irc.Channel != nil {
+		for _, deniedCmd := range irc.Channel.DenyCommands {
+			if strings.EqualFold(action, deniedCmd) {
+				return
+			}
+		}
+	}
+	if irc.Network != nil {
+		for _, deniedCmd := range irc.Network.DenyCommands {
+			if strings.EqualFold(action, deniedCmd) {
+				return
+			}
+		}
+	}
+	for _, deniedCmd := range irc.Config.AiBird.DenyCommands {
+		if strings.EqualFold(action, deniedCmd) {
+			return
+		}
+	}
+
 	if irc.FindArgument("help", false).(bool) {
-		helpMsg := help.FindHelp(irc.Action(), irc.Config.AiBird)
+		helpMsg := help.FindHelp(irc)
 		irc.Send(girc.Fmt(helpMsg))
 		return
 	}
