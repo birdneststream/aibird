@@ -29,6 +29,7 @@ type (
 		Throttle      int
 		Burst         int
 		ActionTrigger string
+		DenyCommands  []string `toml:"denyCommands"`
 		ModesAtOnce   int
 		Users         []users.User
 		Servers       []servers.Server
