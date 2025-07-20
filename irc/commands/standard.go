@@ -24,37 +24,47 @@ func formatHelp(prefix string, commands []help.Help) string {
 	return prefix + strings.Join(names, ", ")
 }
 
+func filterHelp(commands []help.Help, irc state.State) []help.Help {
+	var filtered []help.Help
+	for _, cmd := range commands {
+		if !help.IsCommandDenied(cmd.Name, irc) {
+			filtered = append(filtered, cmd)
+		}
+	}
+	return filtered
+}
+
 func ParseStandardWithQueue(irc state.State, q *queue.DualQueue) {
 	switch irc.Command.Action {
 	case "help":
 		irc.Send("Type  <command> --help for more information on a command.")
 
-		irc.Send(girc.Fmt(formatHelp("IRC: ", help.StandardHelp())))
+		irc.Send(girc.Fmt(formatHelp("IRC: ", filterHelp(help.StandardHelp(), irc))))
 
 		if irc.Channel.Sd {
-			irc.Send(girc.Fmt(formatHelp("Images: ", help.ImageHelp(irc.Config.AiBird))))
+			irc.Send(girc.Fmt(formatHelp("Images: ", filterHelp(help.ImageHelp(irc.Config.AiBird), irc))))
 		}
 
 		if irc.Channel.Sound {
-			irc.Send(girc.Fmt(formatHelp("Audio: ", help.SoundHelp(irc.Config.AiBird))))
+			irc.Send(girc.Fmt(formatHelp("Audio: ", filterHelp(help.SoundHelp(irc.Config.AiBird), irc))))
 		}
 
 		if irc.Channel.Video {
-			irc.Send(girc.Fmt(formatHelp("Video: ", help.VideoHelp(irc.Config.AiBird))))
+			irc.Send(girc.Fmt(formatHelp("Video: ", filterHelp(help.VideoHelp(irc.Config.AiBird), irc))))
 		}
 
 		if irc.Channel.Ai {
-			irc.Send(girc.Fmt(formatHelp("Text: ", help.TextHelp())))
+			irc.Send(girc.Fmt(formatHelp("Text: ", filterHelp(help.TextHelp(), irc))))
 		}
 
 		// admin commands help
 		if irc.User.IsAdmin {
-			irc.Send(girc.Fmt(formatHelp("Admin: ", help.AdminHelp())))
+			irc.Send(girc.Fmt(formatHelp("Admin: ", filterHelp(help.AdminHelp(), irc))))
 		}
 
 		// owner commands help
 		if irc.User.IsOwner {
-			irc.Send(girc.Fmt(formatHelp("Owner: ", help.OwnerHelp())))
+			irc.Send(girc.Fmt(formatHelp("Owner: ", filterHelp(help.OwnerHelp(), irc))))
 		}
 
 		return

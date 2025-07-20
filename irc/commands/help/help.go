@@ -394,14 +394,14 @@ func FindHelp(irc state.State) string {
 
 	if name == "help" {
 		for _, help := range helpItems {
-			if !isCommandDenied(help.Name, irc) && !processed[help.Name] {
+			if !IsCommandDenied(help.Name, irc) && !processed[help.Name] {
 				foundItems = append(foundItems, help)
 				processed[help.Name] = true
 			}
 		}
 	} else {
 		for _, help := range helpItems {
-			if isCommandDenied(help.Name, irc) {
+			if IsCommandDenied(help.Name, irc) {
 				continue
 			}
 			if help.Name == name && !processed[name] {
@@ -414,7 +414,7 @@ func FindHelp(irc state.State) string {
 	return Format(foundItems)
 }
 
-func isCommandDenied(commandName string, irc state.State) bool {
+func IsCommandDenied(commandName string, irc state.State) bool {
 	// Check channel level
 	if irc.Channel != nil {
 		for _, deniedCmd := range irc.Channel.DenyCommands {
