@@ -1,6 +1,7 @@
 package queue
 
 import (
+	"context"
 	"aibird/image/comfyui"
 	"aibird/logger"
 	"aibird/shared/meta"
@@ -114,10 +115,30 @@ func (dq *DualQueue) processQueueItem(queue *Queue) {
 	if item != nil {
 		logger.Debug("Processing queue item", "gpu", item.GPU, "action", item.State.Action())
 
-		item.Function(item.State, item.GPU)
+		// Create a context with a 4-minute timeout
+		ctx, cancel := context.WithTimeout(context.Background(), 4*time.Minute)
+		defer cancel()
+
+		// Create a channel to signal when the function is complete
+		done := make(chan struct{})
+
+		go func() {
+			item.Function(item.State, item.GPU)
+			close(done)
+		}()
+
+		select {
+		case <-done:
+			// Function completed successfully
+			logger.Debug("Completed queue item", "gpu", item.GPU)
+		case <-ctx.Done():
+			// Timeout occurred
+			logger.Error("Queue item timed out", "gpu", item.GPU, "action", item.State.Action())
+			item.State.Client.Cmd.Message(item.State.Event.Source.Name, "An unknown error occurred, your request has been cancelled. Please try again later.")
+		}
+
 		queue.setProcessing(false)
 		queue.setProcessingItem(nil)
-		logger.Debug("Completed queue item", "gpu", item.GPU)
 	} else {
 		queue.setProcessing(false)
 		queue.setProcessingItem(nil)
