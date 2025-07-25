@@ -109,6 +109,7 @@ func ParseAiImage(irc state.State) bool {
 
 			if err != nil {
 				logger.Error("Birdhole error", "error", err)
+				irc.SendError(err.Error())
 			} else {
 				irc.ReplyTo(upload + " - " + irc.GetActionTrigger() + irc.Action() + " " + message)
 
@@ -225,6 +226,7 @@ func ParseAiImageWithGPU(irc state.State, gpu meta.GPUType) bool {
 
 			if err != nil {
 				logger.Error("Birdhole error", "error", err)
+				irc.SendError(err.Error())
 			} else {
 				irc.ReplyTo(upload + " - " + irc.GetActionTrigger() + irc.Action() + " " + message)
 				return true

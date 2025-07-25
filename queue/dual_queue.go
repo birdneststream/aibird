@@ -1,11 +1,11 @@
 package queue
 
 import (
-	"context"
 	"aibird/image/comfyui"
 	"aibird/logger"
 	"aibird/shared/meta"
 	"aibird/status"
+	"context"
 	"errors"
 	"os"
 	"time"
@@ -134,7 +134,7 @@ func (dq *DualQueue) processQueueItem(queue *Queue) {
 		case <-ctx.Done():
 			// Timeout occurred
 			logger.Error("Queue item timed out", "gpu", item.GPU, "action", item.State.Action())
-			item.State.Client.Cmd.Message(item.State.Event.Source.Name, "An unknown error occurred, your request has been cancelled. Please try again later.")
+			item.State.SendError("An unknown error occurred, your request has been cancelled. Please try again later.")
 		}
 
 		queue.setProcessing(false)
