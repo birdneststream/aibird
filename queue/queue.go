@@ -28,22 +28,26 @@ func (q *Queue) Enqueue(element QueueItem) (string, error) {
 		return "", errors.New("the queue is currently full (limit is 10), please try again in a few minutes")
 	}
 
-	queueLen := len(q.elements) // queue length before adding
+	// Add the new item to the queue
 	q.elements = append(q.elements, element)
 
-	// Only return a queue message if there are items in the queue
-	// If queue is empty, return empty string so no message is sent
-	if queueLen == 0 {
+	// Determine the number of items ahead of the user
+	itemsAhead := len(q.elements) - 1
+	if q.isProcessing() {
+		itemsAhead++
+	}
+
+	// If there are no items ahead, no message is needed
+	if itemsAhead == 0 {
 		return "", nil
 	}
 
-	return fmt.Sprintf("There is %d item%s in the queue. Your request will be processed shortly.", queueLen+1, func() string {
-		if queueLen == 0 {
-			return ""
-		} else {
-			return "s"
-		}
-	}()), nil
+	// Formulate the queue message
+	if itemsAhead == 1 {
+		return "There is 1 item in the queue ahead of you. Your request will be processed shortly.", nil
+	}
+
+	return fmt.Sprintf("There are %d items in the queue ahead of you. Your request will be processed shortly.", itemsAhead), nil
 }
 
 // EnqueueFront adds an element to the start of the queue and returns a message if not empty.
@@ -52,10 +56,15 @@ func (q *Queue) EnqueueFront(element QueueItem, msg string) (string, error) {
 	q.mutex.Lock()
 	defer q.mutex.Unlock()
 
-	wasEmpty := len(q.elements) == 0
+	// The queue is considered "busy" if it's processing an item or already has items.
+	// A VIP user should get a message if they are skipping ahead of others, or if they still have to wait for the current item.
+	isBusy := q.isProcessing() || len(q.elements) > 0
+
 	q.elements = append([]QueueItem{element}, q.elements...)
 
-	if wasEmpty {
+	// Only send a message if the queue was busy. If it was completely idle,
+	// the item will be processed immediately and the processing message will be sent.
+	if !isBusy {
 		return "", nil
 	}
 
