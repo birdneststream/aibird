@@ -6,7 +6,6 @@ import (
 	"encoding/hex"
 	"golang.org/x/crypto/sha3"
 	"io"
-	"time"
 )
 
 func CacheKey(key string) []byte {
@@ -23,6 +22,7 @@ func compress(data []byte) ([]byte, error) {
 		return nil, err
 	}
 	if _, err := gz.Write(data); err != nil {
+		_ = gz.Close()
 		return nil, err
 	}
 	if err := gz.Close(); err != nil {
@@ -41,8 +41,4 @@ func decompress(data []byte) ([]byte, error) {
 	return io.ReadAll(gz)
 }
 
-func MergeKeys() {
-	_ = Data.Merge()
-	time.Sleep(6 * time.Hour)
-	go MergeKeys()
-}
+

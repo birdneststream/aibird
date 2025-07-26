@@ -15,7 +15,7 @@ require (
 	github.com/richinsley/comfy2go v0.6.6
 	github.com/schollz/progressbar/v3 v3.18.0
 	golang.org/x/crypto v0.40.0
-	google.golang.org/api v0.242.0
+	google.golang.org/api v0.243.0
 )
 
 require (
@@ -50,7 +50,7 @@ require (
 	go.opentelemetry.io/otel v1.37.0 // indirect
 	go.opentelemetry.io/otel/metric v1.37.0 // indirect
 	go.opentelemetry.io/otel/trace v1.37.0 // indirect
-	golang.org/x/exp v0.0.0-20250717185816-542afb5b7346 // indirect
+	golang.org/x/exp v0.0.0-20250718183923-645b1fa84792 // indirect
 	golang.org/x/net v0.42.0 // indirect
 	golang.org/x/oauth2 v0.30.0 // indirect
 	golang.org/x/sync v0.16.0 // indirect
@@ -58,10 +58,10 @@ require (
 	golang.org/x/term v0.33.0 // indirect
 	golang.org/x/text v0.27.0 // indirect
 	golang.org/x/time v0.12.0 // indirect
-	google.golang.org/genproto/googleapis/api v0.0.0-20250715232539-7130f93afb79 // indirect
-	google.golang.org/genproto/googleapis/rpc v0.0.0-20250715232539-7130f93afb79 // indirect
-	google.golang.org/grpc v1.73.0 // indirect
+	google.golang.org/genproto/googleapis/api v0.0.0-20250721164621-a45f3dfb1074 // indirect
+	google.golang.org/genproto/googleapis/rpc v0.0.0-20250721164621-a45f3dfb1074 // indirect
+	google.golang.org/grpc v1.74.2 // indirect
 	google.golang.org/protobuf v1.36.6 // indirect
 )
 
-replace github.com/richinsley/comfy2go => github.com/dreamfast/comfy2go v0.0.0-20250622201855-f835ceabaef3
+replace github.com/richinsley/comfy2go => github.com/dreamfast/comfy2go v0.0.0-20250725024440-ab74d41d54e6

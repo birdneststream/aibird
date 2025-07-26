@@ -22,10 +22,19 @@ func Init() {
 
 	go func() {
 		for {
-			time.Sleep(24 * time.Hour)
+			time.Sleep(1 * time.Hour)
 			Merge()
 		}
 	}()
+}
+
+func Close() {
+	logger.Info("Closing database...")
+	Merge()
+	err := Data.Close()
+	if err != nil {
+		logger.Error("Error closing database", "error", err)
+	}
 }
 
 func Merge() {
@@ -76,6 +85,14 @@ func PutStringExpireSeconds(key string, value string, expire int) error {
 		return err
 	}
 	return Data.PutWithTTL(CacheKey(key), compressedValue, time.Second*time.Duration(expire))
+}
+
+func PutIntExpireHours(key string, value int, expire int) error {
+	compressedValue, err := compress([]byte(strconv.Itoa(value)))
+	if err != nil {
+		return err
+	}
+	return Data.PutWithTTL(CacheKey(key), compressedValue, time.Hour*time.Duration(expire))
 }
 
 func Get(key string) ([]byte, error) {
