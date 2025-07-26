@@ -356,8 +356,8 @@ func nagUserToGiveMoney(s State) {
 			return
 		}
 
-		_ = birdbase.PutInt(key, noOfUses)
+		_ = birdbase.PutIntExpireHours(key, noOfUses, 168)
 	} else {
-		_ = birdbase.PutInt(key, 0)
+		_ = birdbase.PutIntExpireHours(key, 0, 168)
 	}
 }

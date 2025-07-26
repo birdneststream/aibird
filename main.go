@@ -40,6 +40,7 @@ func main() {
 
 	// Initialize database
 	birdbase.Init()
+	defer birdbase.Close()
 
 	// Setup signal handling for graceful shutdown
 	ctx, cancel := context.WithCancel(context.Background())
@@ -258,9 +259,6 @@ func handlePrivMsg(c *girc.Client, e girc.Event, network *networks.Network, conf
 	// It is a command, so we initialize state and then perform checks.
 	irc := state.Init(c, e, network, config)
 
-	// Only check for flooding on messages that are commands.
-	checkFlood(irc)
-
 	if irc.User == nil {
 		// This should not happen with the new state.Init logic, but as a safeguard.
 		logger.Warn("Dropping message because user state is nil.", "source", e.Source.String())
@@ -295,6 +293,9 @@ func handlePrivMsg(c *girc.Client, e girc.Event, network *networks.Network, conf
 			"channel", irc.Channel.Name,
 			"network", irc.Network.Name,
 		)
+		// Only check for flooding on messages that are commands.
+		checkFlood(irc)
+
 		dispatchCommand(irc, q)
 	}
 }
