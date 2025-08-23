@@ -22,7 +22,8 @@ func Init() {
 
 	go func() {
 		for {
-			time.Sleep(1 * time.Hour)
+			time.Sleep(30 * time.Minute) // More frequent cleanup
+			cleanupExpiredKeys()
 			Merge()
 		}
 	}()
@@ -30,6 +31,7 @@ func Init() {
 
 func Close() {
 	logger.Info("Closing database...")
+	cleanupExpiredKeys()
 	Merge()
 	err := Data.Close()
 	if err != nil {
@@ -109,4 +111,29 @@ func Has(key string) bool {
 
 func Delete(key string) error {
 	return Data.Delete(CacheKey(key))
+}
+
+func cleanupExpiredKeys() {
+	logger.Info("Cleaning up expired keys...")
+	deletedCount := 0
+	
+	err := Data.Scan([]byte(""), func(key []byte) error {
+		// Try to get the key - if it's expired, Bitcask returns ErrKeyExpired
+		_, err := Data.Get(key)
+		if err == bitcask.ErrKeyExpired {
+			// Delete the expired key
+			if delErr := Data.Delete(key); delErr != nil {
+				logger.Debug("Failed to delete expired key", "error", delErr)
+			} else {
+				deletedCount++
+			}
+		}
+		return nil
+	})
+	
+	if err != nil {
+		logger.Error("Error during expired key cleanup", "error", err)
+	} else {
+		logger.Info("Expired key cleanup complete", "deleted", deletedCount)
+	}
 }
