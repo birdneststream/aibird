@@ -54,7 +54,7 @@ func NewClient(config settings.AiBird) *Client {
 		BaseURL:      config.StatusUrl,
 		StatusApiKey: config.StatusApiKey,
 		HTTPClient: &http.Client{
-			Timeout: 10 * time.Second,
+			Timeout: 45 * time.Second,
 		},
 	}
 }
