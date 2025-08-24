@@ -137,3 +137,18 @@ func cleanupExpiredKeys() {
 		logger.Info("Expired key cleanup complete", "deleted", deletedCount)
 	}
 }
+
+func GetDatabaseStats() (map[string]interface{}, error) {
+	stats, err := Data.Stats()
+	if err != nil {
+		return nil, err
+	}
+	
+	result := map[string]interface{}{
+		"keys":      stats.Keys,
+		"datafiles": stats.Datafiles,
+		"size":      stats.Size,
+	}
+	
+	return result, nil
+}
