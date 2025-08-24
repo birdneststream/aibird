@@ -188,6 +188,13 @@ func OwnerHelp() []Help {
 			Arguments: []Arguments{},
 			Queueable: false,
 		},
+		{
+			Name:      "dbstats",
+			Type:      "owner",
+			Help:      "Display Bitcask database statistics including keys, datafiles, and disk usage.",
+			Arguments: []Arguments{},
+			Queueable: false,
+		},
 	}
 }
 
