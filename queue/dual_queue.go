@@ -8,6 +8,7 @@ import (
 	"context"
 	"errors"
 	"os"
+	"sync"
 	"time"
 )
 
@@ -86,26 +87,69 @@ func (dq *DualQueue) Enqueue(item QueueItem) (string, error) {
 	}
 }
 
-func (dq *DualQueue) ProcessQueues() {
+func (dq *DualQueue) ProcessQueues(ctx context.Context) error {
+	// Use errgroup to manage both goroutines and handle errors
+	type errgroup struct {
+		ctx    context.Context
+		cancel context.CancelFunc
+		wg     sync.WaitGroup
+		errMu  sync.Mutex
+		err    error
+	}
+
+	eg := &errgroup{}
+	eg.ctx, eg.cancel = context.WithCancel(ctx)
+	defer eg.cancel()
+
 	// Process 4090 queue
+	eg.wg.Add(1)
 	go func() {
-		for {
-			if !dq.Queue4090.isProcessing() && !dq.Queue4090.IsEmpty() {
-				dq.processQueueItem(dq.Queue4090)
+		defer eg.wg.Done()
+		if err := dq.processQueue(eg.ctx, dq.Queue4090, "4090"); err != nil {
+			eg.errMu.Lock()
+			if eg.err == nil {
+				eg.err = err
 			}
-			time.Sleep(100 * time.Millisecond)
+			eg.errMu.Unlock()
+			eg.cancel()
 		}
 	}()
 
-	// Process 2070 queue
+	// Process 2070 queue  
+	eg.wg.Add(1)
 	go func() {
-		for {
-			if !dq.Queue2070.isProcessing() && !dq.Queue2070.IsEmpty() {
-				dq.processQueueItem(dq.Queue2070)
+		defer eg.wg.Done()
+		if err := dq.processQueue(eg.ctx, dq.Queue2070, "2070"); err != nil {
+			eg.errMu.Lock()
+			if eg.err == nil {
+				eg.err = err
 			}
-			time.Sleep(100 * time.Millisecond)
+			eg.errMu.Unlock()
+			eg.cancel()
 		}
 	}()
+
+	eg.wg.Wait()
+	eg.errMu.Lock()
+	defer eg.errMu.Unlock()
+	return eg.err
+}
+
+func (dq *DualQueue) processQueue(ctx context.Context, queue *Queue, queueName string) error {
+	ticker := time.NewTicker(100 * time.Millisecond)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-ctx.Done():
+			logger.Info("Queue processing stopped due to context cancellation", "queue", queueName)
+			return ctx.Err()
+		case <-ticker.C:
+			if !queue.isProcessing() && !queue.IsEmpty() {
+				dq.processQueueItem(queue)
+			}
+		}
+	}
 }
 
 func (dq *DualQueue) processQueueItem(queue *Queue) {

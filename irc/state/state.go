@@ -6,6 +6,7 @@ import (
 	"aibird/irc/channels"
 	"aibird/irc/networks"
 	"aibird/irc/users"
+	"aibird/logger"
 	"aibird/settings"
 	"encoding/hex"
 	"errors"
@@ -352,12 +353,18 @@ func nagUserToGiveMoney(s State) {
 
 		if noOfUses > 50 {
 			s.Send("Hey there chat pal " + s.User.NickName + " thanks for using aibird! Please support if you can https://www.patreon.com/birdnestlive or !support for more.")
-			_ = birdbase.Delete(key)
+			if err := birdbase.Delete(key); err != nil {
+				logger.Error("Failed to delete usage counter after support message", "key", key, "error", err)
+			}
 			return
 		}
 
-		_ = birdbase.PutIntExpireHours(key, noOfUses, 168)
+		if err := birdbase.PutIntExpireHours(key, noOfUses, 168); err != nil {
+			logger.Error("Failed to update usage counter", "key", key, "usage", noOfUses, "error", err)
+		}
 	} else {
-		_ = birdbase.PutIntExpireHours(key, 0, 168)
+		if err := birdbase.PutIntExpireHours(key, 0, 168); err != nil {
+			logger.Error("Failed to initialize usage counter", "key", key, "error", err)
+		}
 	}
 }
