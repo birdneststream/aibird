@@ -51,9 +51,16 @@ func main() {
 
 	go func() {
 		sig := <-signalCh
-		logger.Info("Received shutdown signal, initiating shutdown", "signal", sig)
+		logger.Info("SIGNAL RECEIVED: Initiating shutdown", "signal", sig, "timestamp", time.Now())
 		cancel()
 		close(shutdown)
+		
+		// Force exit after timeout if shutdown hangs
+		go func() {
+			time.Sleep(30 * time.Second)
+			logger.Warn("Shutdown timeout reached, forcing exit")
+			os.Exit(1)
+		}()
 	}()
 
 	var wg sync.WaitGroup
@@ -78,19 +85,9 @@ func main() {
 		go ircClient(ctx, &network, config, q, &wg)
 	}
 
-	// Wait for all connections to terminate with a timeout
-	done := make(chan struct{})
-	go func() {
-		defer close(done)
-		wg.Wait()
-	}()
-	
-	select {
-	case <-done:
-		logger.Info("All IRC connections terminated, shutting down")
-	case <-time.After(30 * time.Second):
-		logger.Warn("Shutdown timeout reached, forcing exit")
-	}
+	// Wait for all connections to terminate
+	wg.Wait()
+	logger.Info("All IRC connections terminated, shutting down")
 }
 
 func ircClient(ctx context.Context, network *networks.Network, config *settings.Config, q *queue.DualQueue, wg *sync.WaitGroup) {
