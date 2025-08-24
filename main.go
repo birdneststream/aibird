@@ -56,11 +56,17 @@ func main() {
 		close(shutdown)
 	}()
 
+	var wg sync.WaitGroup
+
 	// Init and start the dual queue process
 	q := queue.NewDualQueue()
-	go q.ProcessQueues()
-
-	var wg sync.WaitGroup
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		if err := q.ProcessQueues(ctx); err != nil && err != context.Canceled {
+			logger.Error("Queue processing error", "error", err)
+		}
+	}()
 
 	for i := range config.Networks {
 		network := config.Networks[i]
@@ -72,8 +78,19 @@ func main() {
 		go ircClient(ctx, &network, config, q, &wg)
 	}
 
-	wg.Wait()
-	logger.Info("All IRC connections terminated, shutting down")
+	// Wait for all connections to terminate with a timeout
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		wg.Wait()
+	}()
+	
+	select {
+	case <-done:
+		logger.Info("All IRC connections terminated, shutting down")
+	case <-time.After(30 * time.Second):
+		logger.Warn("Shutdown timeout reached, forcing exit")
+	}
 }
 
 func ircClient(ctx context.Context, network *networks.Network, config *settings.Config, q *queue.DualQueue, wg *sync.WaitGroup) {
@@ -326,9 +343,17 @@ func checkFlood(irc state.State) {
 			logger.Warn("Failed to set flood key in birdbase", "key", key, "error", err)
 		}
 	} else {
-		countBytes, _ := birdbase.Get(key)
+		countBytes, err := birdbase.Get(key)
+		if err != nil {
+			logger.Warn("Failed to get flood count from database, defaulting to 1", "key", key, "error", err)
+			countBytes = []byte("1")
+		}
 		count := string(countBytes)
-		countInt, _ := strconv.Atoi(count)
+		countInt, err := strconv.Atoi(count)
+		if err != nil {
+			logger.Warn("Failed to parse flood count, defaulting to 1", "key", key, "count", count, "error", err)
+			countInt = 1
+		}
 		countInt++
 		if err := birdbase.PutStringExpireSeconds(key, strconv.Itoa(countInt), floodWindow); err != nil {
 			logger.Warn("Failed to update flood key in birdbase", "key", key, "error", err)

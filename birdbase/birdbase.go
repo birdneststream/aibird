@@ -2,6 +2,7 @@ package birdbase
 
 import (
 	"aibird/logger"
+	"context"
 	"strconv"
 	"time"
 
@@ -10,6 +11,7 @@ import (
 
 var (
 	Data *bitcask.Bitcask
+	maintenanceCancel context.CancelFunc
 )
 
 func Init() {
@@ -20,22 +22,73 @@ func Init() {
 		logger.Fatal("Failed to open database", "error", err)
 	}
 
-	go func() {
-		for {
-			time.Sleep(30 * time.Minute) // More frequent cleanup
+	// Start maintenance loop with context cancellation
+	ctx, cancel := context.WithCancel(context.Background())
+	maintenanceCancel = cancel
+	go maintenanceLoop(ctx)
+}
+
+func maintenanceLoop(ctx context.Context) {
+	ticker := time.NewTicker(30 * time.Minute)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-ctx.Done():
+			logger.Info("Database maintenance loop stopped")
+			return
+		case <-ticker.C:
 			cleanupExpiredKeys()
 			Merge()
 		}
-	}()
+	}
 }
 
 func Close() {
 	logger.Info("Closing database...")
-	cleanupExpiredKeys()
-	Merge()
-	err := Data.Close()
-	if err != nil {
-		logger.Error("Error closing database", "error", err)
+	
+	// Cancel maintenance loop
+	if maintenanceCancel != nil {
+		maintenanceCancel()
+	}
+	
+	// Use a timeout context for shutdown operations to prevent hanging
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	
+	// Final cleanup before shutdown with timeout
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		cleanupExpiredKeys()
+		Merge()
+	}()
+	
+	select {
+	case <-done:
+		logger.Info("Database cleanup completed successfully")
+	case <-ctx.Done():
+		logger.Warn("Database cleanup timed out during shutdown")
+	}
+	
+	// Close database with a separate timeout
+	closeCtx, closeCancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer closeCancel()
+	
+	closeDone := make(chan error, 1)
+	go func() {
+		closeDone <- Data.Close()
+	}()
+	
+	select {
+	case err := <-closeDone:
+		if err != nil {
+			logger.Error("Error closing database", "error", err)
+		} else {
+			logger.Info("Database closed successfully")
+		}
+	case <-closeCtx.Done():
+		logger.Warn("Database close operation timed out")
 	}
 }
 

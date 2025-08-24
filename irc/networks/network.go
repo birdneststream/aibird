@@ -165,9 +165,13 @@ func (n *Network) Save() {
 	go func() {
 		<-n.SaveTimer.C
 		userKey := n.NetworkName + "_users"
-		usersJson, _ := json.Marshal(n.Users)
+		usersJson, err := json.Marshal(n.Users)
+		if err != nil {
+			logger.Error("Failed to marshal network users to JSON", "network", n.NetworkName, "error", err)
+			return
+		}
 		if err := birdbase.PutBytes(userKey, usersJson); err != nil {
-			logger.Error("Error saving network", "error", err)
+			logger.Error("Error saving network users to database", "network", n.NetworkName, "error", err)
 		}
 	}()
 }
