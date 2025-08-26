@@ -149,7 +149,7 @@ func ParseAiImage(irc state.State) bool {
 			logger.Debug("Checking aiscii action", "action", irc.Action(), "isAiscii", irc.IsAction("aiscii"))
 			if irc.IsAction("aiscii") {
 				logger.Debug("Processing aiscii command", "file", response)
-				useHalfblocks := irc.GetBoolArg("halfblocks")
+				useHalfblocks := !irc.GetBoolArg("fullblocks") // Invert: default to halfblocks unless --fullblocks is specified
 				ircArtLines, err := ircart.ConvertPNGToIRCArt(response, useHalfblocks)
 				if err != nil {
 					logger.Error("IRC art conversion failed", "error", err)
@@ -320,7 +320,7 @@ func ParseAiImageWithGPU(irc state.State, gpu meta.GPUType) bool {
 			logger.Debug("Checking aiscii action in GPU function", "action", irc.Action(), "isAiscii", irc.IsAction("aiscii"))
 			if irc.IsAction("aiscii") {
 				logger.Debug("Processing aiscii command in GPU function", "file", response)
-				useHalfblocks := irc.GetBoolArg("halfblocks")
+				useHalfblocks := !irc.GetBoolArg("fullblocks") // Invert: default to halfblocks unless --fullblocks is specified
 				ircArtLines, err := ircart.ConvertPNGToIRCArt(response, useHalfblocks)
 				if err != nil {
 					logger.Error("IRC art conversion failed", "error", err)
