@@ -129,19 +129,29 @@ func Process(irc state.State, aiEnhancedPrompt string, gpu meta.GPUType) (string
 
 		// --- Generic Parameter Processing ---
 		for paramName, paramDef := range metaData.Parameters {
-			rawUserInput := irc.FindArgument(paramName, "").(string)
-			userInputProvided := rawUserInput != ""
+			var rawUserInput interface{}
+			var userInputProvided bool
+			
+			// Handle different parameter types for input retrieval
+			if paramDef.Type == "bool" {
+				rawUserInput = irc.GetBoolArg(paramName)
+				userInputProvided = rawUserInput.(bool) // For booleans, if the flag is present it's true
+			} else {
+				rawUserInput = irc.FindArgument(paramName, "").(string)
+				userInputProvided = rawUserInput.(string) != ""
+			}
 
 			// Special pre-flight check for image URLs to give users faster feedback
 			if paramName == "img" && userInputProvided {
+				imgURL := rawUserInput.(string)
 				// Validate URL to prevent SSRF attacks
-				if !strings.HasPrefix(rawUserInput, "http://") && !strings.HasPrefix(rawUserInput, "https://") {
-					errMsg := fmt.Sprintf("⚠️ Invalid URL scheme for --img: %s", rawUserInput)
+				if !strings.HasPrefix(imgURL, "http://") && !strings.HasPrefix(imgURL, "https://") {
+					errMsg := fmt.Sprintf("⚠️ Invalid URL scheme for --img: %s", imgURL)
 					return "", errors.New(errMsg)
 				}
 
-				logger.Debug("Performing pre-flight check for image URL", "url", rawUserInput)
-				resp, err := http.Head(rawUserInput)
+				logger.Debug("Performing pre-flight check for image URL", "url", imgURL)
+				resp, err := http.Head(imgURL)
 				if err != nil {
 					errMsg := fmt.Sprintf("⚠️ Failed to reach the image URL for --img: %v", err)
 					return "", errors.New(errMsg)
@@ -157,14 +167,31 @@ func Process(irc state.State, aiEnhancedPrompt string, gpu meta.GPUType) (string
 			var finalValue interface{}
 
 			if !userInputProvided {
-				finalValue = paramDef.Default
+				// Set default values based on parameter type
+				if paramDef.Type == "bool" {
+					// Special handling for fullblocks parameter - invert the logic
+					if paramName == "fullblocks" {
+						finalValue = true // Default to halfblock mode (true for ComfyUI half_block_mode)
+					} else {
+						finalValue = false // Other boolean parameters default to false
+					}
+				} else {
+					finalValue = paramDef.Default
+				}
 			} else {
 				var parseErr error
 				switch paramDef.Type {
 				case "string":
-					finalValue = rawUserInput
+					finalValue = rawUserInput.(string)
+				case "bool":
+					// Special handling for fullblocks parameter - invert the boolean
+					if paramName == "fullblocks" {
+						finalValue = !rawUserInput.(bool) // Invert: --fullblocks means disable halfblock mode
+					} else {
+						finalValue = rawUserInput.(bool)
+					}
 				case "int":
-					val, parseErr := strconv.ParseInt(rawUserInput, 10, 64)
+					val, parseErr := strconv.ParseInt(rawUserInput.(string), 10, 64)
 					if parseErr == nil {
 						finalValue = val
 						// Perform validation
@@ -178,7 +205,7 @@ func Process(irc state.State, aiEnhancedPrompt string, gpu meta.GPUType) (string
 						}
 					}
 				case "float":
-					val, parseErr := strconv.ParseFloat(rawUserInput, 64)
+					val, parseErr := strconv.ParseFloat(rawUserInput.(string), 64)
 					if parseErr == nil {
 						finalValue = val
 						// Perform validation
@@ -192,7 +219,7 @@ func Process(irc state.State, aiEnhancedPrompt string, gpu meta.GPUType) (string
 						}
 					}
 				case "lyrics":
-					lyricsPrompt := rawUserInput
+					lyricsPrompt := rawUserInput.(string)
 					var lyrics string
 					var lyErr error
 					if lyricsPrompt == "" {

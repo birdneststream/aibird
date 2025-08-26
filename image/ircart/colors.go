@@ -84,11 +84,25 @@ func FindClosestIRCColor(r, g, b uint8) IRCColor {
 	return closestColor
 }
 
-// FindClosestIRCColorFromColor finds the closest IRC color from a Go color.Color
-func FindClosestIRCColorFromColor(c color.Color) IRCColor {
+// GetIRCColorFromRGB directly maps RGB values to IRC color codes
+// Used for pre-quantized images from ComfyUI where colors are already exact matches
+func GetIRCColorFromRGB(c color.Color) IRCColor {
 	r, g, b, _ := c.RGBA()
 	// Convert from 16-bit to 8-bit
-	return FindClosestIRCColor(uint8(r>>8), uint8(g>>8), uint8(b>>8))
+	r8, g8, b8 := uint8(r>>8), uint8(g>>8), uint8(b>>8)
+	
+	// Direct lookup since ComfyUI outputs exact IRC colors
+	rgbKey := uint32(r8)<<16 | uint32(g8)<<8 | uint32(b8)
+	
+	// Initialize lookup map if needed
+	initRGBLookupMap()
+	
+	if colorCode, exists := rgbToIRCCodeMap[rgbKey]; exists {
+		return IRCColor{Code: colorCode, R: r8, G: g8, B: b8}
+	}
+	
+	// Fallback to closest color if exact match not found (shouldn't happen with ComfyUI)
+	return FindClosestIRCColor(r8, g8, b8)
 }
 
 // FormatIRCColor formats an IRC color code for use in IRC messages
