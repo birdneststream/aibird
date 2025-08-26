@@ -55,9 +55,6 @@ func ConvertPNGToIRCArt(pngFilePath string, useHalfblocks bool) ([]string, error
 		for row := 0; row < blocksY; row += 2 { // Process pairs of half-blocks
 			var line strings.Builder
 			var lastFgColor, lastBgColor = -1, -1
-			
-			// Add initial color reset for IRC client compatibility
-			line.WriteString("\x03")
 
 			for col := 0; col < blocksX; col++ {
 				// Sample pixels from the center of each half-block
@@ -125,8 +122,6 @@ func ConvertPNGToIRCArt(pngFilePath string, useHalfblocks bool) ([]string, error
 				line.WriteString(char)
 			}
 
-			// Add color reset at end of line
-			line.WriteString("\x03")
 			ircLines = append(ircLines, line.String())
 		}
 	} else {
@@ -134,9 +129,6 @@ func ConvertPNGToIRCArt(pngFilePath string, useHalfblocks bool) ([]string, error
 		for row := 0; row < blocksY; row++ {
 			var line strings.Builder
 			var lastColorCode = -1
-			
-			// Add initial color reset for IRC client compatibility
-			line.WriteString("\x03")
 
 			for col := 0; col < blocksX; col++ {
 				// Sample pixel from the center of the block
@@ -162,8 +154,6 @@ func ConvertPNGToIRCArt(pngFilePath string, useHalfblocks bool) ([]string, error
 				line.WriteString(" ")
 			}
 
-			// Add color reset at end of line
-			line.WriteString("\x03")
 			ircLines = append(ircLines, line.String())
 		}
 	}
