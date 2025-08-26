@@ -29,7 +29,7 @@ func Init() {
 }
 
 func maintenanceLoop(ctx context.Context) {
-	ticker := time.NewTicker(30 * time.Minute)
+	ticker := time.NewTicker(1 * time.Hour)
 	defer ticker.Stop()
 
 	for {
@@ -38,8 +38,13 @@ func maintenanceLoop(ctx context.Context) {
 			logger.Info("Database maintenance loop stopped")
 			return
 		case <-ticker.C:
-			cleanupExpiredKeys()
-			Merge()
+			// Run cleanup and merge in separate goroutines to avoid blocking
+			go func() {
+				cleanupExpiredKeys(ctx)
+			}()
+			go func() {
+				Merge()
+			}()
 		}
 	}
 }
@@ -60,7 +65,7 @@ func Close() {
 	done := make(chan struct{})
 	go func() {
 		defer close(done)
-		cleanupExpiredKeys()
+		cleanupExpiredKeys(ctx)
 		Merge()
 	}()
 	
@@ -166,38 +171,113 @@ func Delete(key string) error {
 	return Data.Delete(CacheKey(key))
 }
 
-func cleanupExpiredKeys() {
+func cleanupExpiredKeys(ctx context.Context) {
 	logger.Info("Cleaning up expired keys...")
 	deletedCount := 0
+	const batchSize = 100
+	const maxWorkers = 4
 	
-	err := Data.Scan([]byte(""), func(key []byte) error {
-		// Try to get the key - if it's expired, Bitcask returns ErrKeyExpired
-		_, err := Data.Get(key)
-		if err == bitcask.ErrKeyExpired {
-			// Delete the expired key
-			if delErr := Data.Delete(key); delErr != nil {
-				logger.Debug("Failed to delete expired key", "error", delErr)
-			} else {
-				deletedCount++
+	// Channel to collect keys that need processing
+	keysChan := make(chan []byte, batchSize*maxWorkers)
+	deleteChan := make(chan bool, batchSize*maxWorkers)
+	
+	// Start worker goroutines
+	for range maxWorkers {
+		go func() {
+			for key := range keysChan {
+				select {
+				case <-ctx.Done():
+					return
+				default:
+					// Try to get the key - if it's expired, Bitcask returns ErrKeyExpired
+					_, err := Data.Get(key)
+					if err == bitcask.ErrKeyExpired {
+						// Delete the expired key
+						if delErr := Data.Delete(key); delErr != nil {
+							logger.Debug("Failed to delete expired key", "error", delErr)
+						} else {
+							deleteChan <- true
+						}
+					}
+				}
+			}
+		}()
+	}
+	
+	// Scan keys and distribute to workers
+	go func() {
+		defer close(keysChan)
+		batch := make([][]byte, 0, batchSize)
+		
+		Data.Scan([]byte(""), func(key []byte) error {
+			select {
+			case <-ctx.Done():
+				return ctx.Err()
+			default:
+				// Make a copy of the key since Bitcask reuses the slice
+				keyCopy := make([]byte, len(key))
+				copy(keyCopy, key)
+				batch = append(batch, keyCopy)
+				
+				// Send batch when full
+				if len(batch) >= batchSize {
+					for _, k := range batch {
+						select {
+						case keysChan <- k:
+						case <-ctx.Done():
+							return ctx.Err()
+						}
+					}
+					batch = batch[:0] // Reset slice
+				}
+				return nil
+			}
+		})
+		
+		// Send remaining keys
+		for _, k := range batch {
+			select {
+			case keysChan <- k:
+			case <-ctx.Done():
+				return
 			}
 		}
-		return nil
-	})
+	}()
 	
-	if err != nil {
-		logger.Error("Error during expired key cleanup", "error", err)
-	} else {
-		logger.Info("Expired key cleanup complete", "deleted", deletedCount)
+	// Count deletions with timeout
+	timeout := time.After(55 * time.Minute) // Leave 5 minutes buffer before next run
+	
+	for {
+		select {
+		case <-ctx.Done():
+			logger.Info("Expired key cleanup cancelled", "deleted", deletedCount)
+			return
+		case <-timeout:
+			logger.Info("Expired key cleanup timed out", "deleted", deletedCount)
+			return
+		case deleted, ok := <-deleteChan:
+			if !ok {
+				logger.Info("Expired key cleanup complete", "deleted", deletedCount)
+				return
+			}
+			if deleted {
+				deletedCount++
+				// Log progress every 1000 deletions
+				if deletedCount%1000 == 0 {
+					logger.Debug("Cleanup progress", "deleted", deletedCount)
+				}
+			}
+		}
 	}
 }
 
-func GetDatabaseStats() (map[string]interface{}, error) {
+func GetDatabaseStats() (map[string]any, error) {
 	stats, err := Data.Stats()
 	if err != nil {
 		return nil, err
 	}
 	
-	result := map[string]interface{}{
+	result := map[string]any{
 		"keys":      stats.Keys,
 		"datafiles": stats.Datafiles,
 		"size":      stats.Size,
