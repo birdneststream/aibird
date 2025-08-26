@@ -8,6 +8,7 @@ import (
 	"aibird/settings"
 	"aibird/text"
 	"errors"
+	"regexp"
 	"strings"
 )
 
@@ -99,6 +100,47 @@ func EnhancePrompt(message string, config settings.OllamaConfig) (string, error)
 	userPrompt := "Expand out the following prompt, include details such as camera movements and describe it as a movie scene:" + message
 
 	return SingleRequest(userPrompt, systemPrompt, config)
+}
+
+func GenerateArtFilename(prompt string, config settings.OllamaConfig) (string, error) {
+	systemPrompt := "Generate a short, creative filename for digital artwork. Rules: 1) Use only letters, numbers, and hyphens 2) Maximum 20 characters 3) Describe the main subject/theme 4) No file extensions 5) Return ONLY the filename, nothing else"
+	userPrompt := "Create filename for art prompt: " + prompt
+
+	response, err := SingleRequest(userPrompt, systemPrompt, config)
+	if err != nil {
+		return "", err
+	}
+	
+	// Remove various thinking/reasoning patterns (case insensitive, multiline)
+	patterns := []string{
+		`(?i)<think>.*?</think>`,           // <think></think> tags
+		`(?i)<thinking>.*?</thinking>`,     // <thinking></thinking> tags  
+		`(?i)\*thinks?\*.*?\*`,             // *thinks* ... *
+		`(?i)\*thinking\*.*?\*`,            // *thinking* ... *
+		`(?i)let me think.*?(?:\n|$)`,      // "let me think..." lines
+	}
+	
+	cleaned := response
+	for _, pattern := range patterns {
+		re := regexp.MustCompile(`(?s)` + pattern) // (?s) makes . match newlines
+		cleaned = re.ReplaceAllString(cleaned, "")
+	}
+	
+	// Clean up multiple whitespace and return first non-empty line
+	lines := strings.Split(strings.TrimSpace(cleaned), "\n")
+	for _, line := range lines {
+		line = strings.TrimSpace(line)
+		if line != "" && len(line) <= 30 { // Reasonable filename length
+			return line, nil
+		}
+	}
+	
+	// If nothing good found, return cleaned version truncated
+	result := strings.TrimSpace(cleaned)
+	if len(result) > 30 {
+		result = result[:30]
+	}
+	return result, nil
 }
 
 func SdPrompt(message string, config settings.OllamaConfig) (string, error) {
