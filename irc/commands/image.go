@@ -5,18 +5,72 @@ import (
 	"aibird/http/uploaders/birdhole"
 	"aibird/image"
 	"aibird/image/comfyui"
+	"aibird/image/ircart"
 	"aibird/irc/commands/help"
 	"aibird/irc/state"
 	"aibird/logger"
 	"aibird/text/ollama"
 	"fmt"
+	"io"
+	"net/http"
+	"os"
+	"regexp"
 	"strconv"
 	"strings"
+	"time"
 
 	meta "aibird/shared/meta"
 
 	"github.com/lrstanley/girc"
 )
+
+// slugify converts a string to a URL-friendly slug
+func slugify(input string) string {
+	// Remove non-alphanumeric characters and replace with hyphens
+	reg := regexp.MustCompile(`[^a-zA-Z0-9]+`)
+	slug := reg.ReplaceAllString(strings.TrimSpace(input), "-")
+	// Remove leading/trailing hyphens and convert to lowercase
+	slug = strings.Trim(strings.ToLower(slug), "-")
+	// Limit length to 50 characters
+	if len(slug) > 50 {
+		slug = slug[:50]
+	}
+	return slug
+}
+
+// recordArt posts the IRC art to the recording URL and returns the result
+func recordArt(recordingUrl, fileName, art string) (string, bool) {
+	if recordingUrl == "" {
+		logger.Debug("Recording URL not configured, not saving art")
+		return "", false
+	}
+
+	client := &http.Client{Timeout: 10 * time.Second}
+	url := strings.TrimRight(recordingUrl, "/") + "/" + fileName
+	
+	req, err := http.NewRequest("POST", url, strings.NewReader(art))
+	if err != nil {
+		logger.Error("Failed to create record art request", "error", err)
+		return "failed to record art :(", false
+	}
+	
+	req.Header.Set("Content-Type", "text/plain")
+	
+	res, err := client.Do(req)
+	if err != nil || res.StatusCode != 200 {
+		logger.Error("Failed to record art", "error", err, "status", res.StatusCode)
+		return "failed to record art :(", false
+	}
+	
+	defer res.Body.Close()
+	body, err := io.ReadAll(res.Body)
+	if err != nil {
+		logger.Error("Failed to read record art response", "error", err)
+		return "maybe failed to record art? try " + fileName + " :(", false
+	}
+	
+	return "art saved to " + string(body), true
+}
 
 func ParseAiImage(irc state.State) bool {
 	if irc.IsAction("sd") {
@@ -90,6 +144,59 @@ func ParseAiImage(irc state.State) bool {
 			logger.Error("ComfyUI request failed", "error", err)
 			irc.SendError(err.Error())
 		} else {
+
+			// Special handling for aiscii command - convert to IRC art instead of uploading  
+			logger.Debug("Checking aiscii action", "action", irc.Action(), "isAiscii", irc.IsAction("aiscii"))
+			if irc.IsAction("aiscii") {
+				logger.Debug("Processing aiscii command", "file", response)
+				useHalfblocks := irc.GetBoolArg("halfblocks")
+				ircArtLines, err := ircart.ConvertPNGToIRCArt(response, useHalfblocks)
+				if err != nil {
+					logger.Error("IRC art conversion failed", "error", err)
+					irc.SendError("Failed to convert image to IRC art: " + err.Error())
+					return true
+				}
+
+				// Format the IRC art for sending
+				formattedLines := ircart.FormatIRCArtForIRC(ircArtLines)
+				
+				// Send a header message
+				irc.Send(fmt.Sprintf("🎨 IRC Art for '%s':", message))
+				
+				// Send each line of IRC art
+				for _, line := range formattedLines {
+					irc.Send(line)
+				}
+
+				// Record the art to the recording URL (unless --norecord is specified)
+				if !irc.GetBoolArg("norecord") && irc.Config.AiBird.AsciiRecordingUrl != "" {
+					// Use slugified prompt as filename, trimmed to 250 chars
+					trimmedMessage := message
+					if len(trimmedMessage) > 250 {
+						trimmedMessage = trimmedMessage[:250]
+					}
+					fileName := slugify(trimmedMessage)
+					if fileName == "" {
+						fileName = "unnamed-art"
+					}
+					
+					// Join all lines to create the full art string
+					fullArt := strings.Join(ircArtLines, "\n")
+					recordResult, success := recordArt(irc.Config.AiBird.AsciiRecordingUrl, fileName, fullArt)
+					if success {
+						irc.Send(recordResult)
+					} else if recordResult != "" {
+						irc.Send(recordResult)
+					}
+				}
+
+				// Clean up the PNG file after processing
+				if err := os.Remove(response); err != nil {
+					logger.Debug("Failed to remove PNG file", "file", response, "error", err)
+				}
+				
+				return true
+			}
 
 			fields := []request.Fields{
 				{Key: "panorama", Value: strconv.FormatBool(irc.IsAction("panorama"))},
@@ -208,6 +315,60 @@ func ParseAiImageWithGPU(irc state.State, gpu meta.GPUType) bool {
 			logger.Error("ComfyUI request failed", "error", err)
 			irc.SendError(err.Error())
 		} else {
+			
+			// Special handling for aiscii command - convert to IRC art instead of uploading  
+			logger.Debug("Checking aiscii action in GPU function", "action", irc.Action(), "isAiscii", irc.IsAction("aiscii"))
+			if irc.IsAction("aiscii") {
+				logger.Debug("Processing aiscii command in GPU function", "file", response)
+				useHalfblocks := irc.GetBoolArg("halfblocks")
+				ircArtLines, err := ircart.ConvertPNGToIRCArt(response, useHalfblocks)
+				if err != nil {
+					logger.Error("IRC art conversion failed", "error", err)
+					irc.SendError("Failed to convert image to IRC art: " + err.Error())
+					return true
+				}
+
+				// Format the IRC art for sending
+				formattedLines := ircart.FormatIRCArtForIRC(ircArtLines)
+				
+				// Send a header message
+				irc.Send(fmt.Sprintf("🎨 IRC Art for '%s':", message))
+				
+				// Send each line of IRC art
+				for _, line := range formattedLines {
+					irc.Send(line)
+				}
+
+				// Record the art to the recording URL (unless --norecord is specified)
+				if !irc.GetBoolArg("norecord") && irc.Config.AiBird.AsciiRecordingUrl != "" {
+					// Use slugified prompt as filename, trimmed to 250 chars
+					trimmedMessage := message
+					if len(trimmedMessage) > 250 {
+						trimmedMessage = trimmedMessage[:250]
+					}
+					fileName := slugify(trimmedMessage)
+					if fileName == "" {
+						fileName = "unnamed-art"
+					}
+					
+					// Join all lines to create the full art string
+					fullArt := strings.Join(ircArtLines, "\n")
+					recordResult, success := recordArt(irc.Config.AiBird.AsciiRecordingUrl, fileName, fullArt)
+					if success {
+						irc.Send(recordResult)
+					} else if recordResult != "" {
+						irc.Send(recordResult)
+					}
+				}
+
+				// Clean up the PNG file after processing
+				if err := os.Remove(response); err != nil {
+					logger.Debug("Failed to remove PNG file", "file", response, "error", err)
+				}
+				
+				return true
+			}
+			
 			fields := []request.Fields{
 				{Key: "panorama", Value: strconv.FormatBool(irc.IsAction("panorama"))},
 				{Key: "tags", Value: irc.Action() + "," + irc.Network.NetworkName},
