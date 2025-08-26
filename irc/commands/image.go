@@ -24,6 +24,24 @@ import (
 	"github.com/lrstanley/girc"
 )
 
+// copyFile creates a copy of the source file at the destination path
+func copyFile(src, dst string) error {
+	sourceFile, err := os.Open(src)
+	if err != nil {
+		return err
+	}
+	defer sourceFile.Close()
+
+	destFile, err := os.Create(dst)
+	if err != nil {
+		return err
+	}
+	defer destFile.Close()
+
+	_, err = io.Copy(destFile, sourceFile)
+	return err
+}
+
 // slugify converts a string to a URL-friendly slug
 func slugify(input string) string {
 	// Remove non-alphanumeric characters and replace with hyphens
@@ -149,10 +167,43 @@ func ParseAiImage(irc state.State) bool {
 			logger.Debug("Checking aiscii action", "action", irc.Action(), "isAiscii", irc.IsAction("aiscii"))
 			if irc.IsAction("aiscii") {
 				logger.Debug("Processing aiscii command", "file", response)
+				
+				// Create a copy for IRC art processing (since Birdhole deletes the original)
+				copyPath := response + "_copy"
+				if err := copyFile(response, copyPath); err != nil {
+					logger.Error("Failed to copy file for IRC art processing", "error", err)
+					irc.SendError("Failed to copy image file: " + err.Error())
+					return true
+				}
+				
+				// Upload original to Birdhole (this will delete the original file)
+				fields := []request.Fields{
+					{Key: "panorama", Value: "false"},
+					{Key: "tags", Value: irc.Action() + "," + irc.Network.NetworkName},
+					{Key: "meta_network", Value: irc.Network.NetworkName},
+					{Key: "meta_nick", Value: irc.User.NickName},
+					{Key: "meta_prompt", Value: message},
+				}
+				
+				upload, err := birdhole.BirdHole(response, message, fields, irc.Config.Birdhole)
+				if err != nil {
+					logger.Error("Birdhole upload failed for aiscii", "error", err)
+					// Clean up copy on error
+					os.Remove(copyPath)
+					irc.SendError("Failed to upload image: " + err.Error())
+					return true
+				}
+				
+				// Send the Birdhole link first
+				irc.Send(fmt.Sprintf("🖼️ Original image: %s", upload))
+				
+				// Now convert to IRC art using the copy
 				useHalfblocks := !irc.GetBoolArg("fullblocks") // Invert: default to halfblocks unless --fullblocks is specified
-				ircArtLines, err := ircart.ConvertPNGToIRCArt(response, useHalfblocks)
+				ircArtLines, err := ircart.ConvertPNGToIRCArt(copyPath, useHalfblocks)
 				if err != nil {
 					logger.Error("IRC art conversion failed", "error", err)
+					// Clean up copy on error
+					os.Remove(copyPath)
 					irc.SendError("Failed to convert image to IRC art: " + err.Error())
 					return true
 				}
@@ -190,9 +241,9 @@ func ParseAiImage(irc state.State) bool {
 					}
 				}
 
-				// Clean up the PNG file after processing
-				if err := os.Remove(response); err != nil {
-					logger.Debug("Failed to remove PNG file", "file", response, "error", err)
+				// Clean up the copy file after processing
+				if err := os.Remove(copyPath); err != nil {
+					logger.Debug("Failed to remove copy file", "file", copyPath, "error", err)
 				}
 				
 				return true
@@ -320,10 +371,43 @@ func ParseAiImageWithGPU(irc state.State, gpu meta.GPUType) bool {
 			logger.Debug("Checking aiscii action in GPU function", "action", irc.Action(), "isAiscii", irc.IsAction("aiscii"))
 			if irc.IsAction("aiscii") {
 				logger.Debug("Processing aiscii command in GPU function", "file", response)
+				
+				// Create a copy for IRC art processing (since Birdhole deletes the original)
+				copyPath := response + "_copy"
+				if err := copyFile(response, copyPath); err != nil {
+					logger.Error("Failed to copy file for IRC art processing", "error", err)
+					irc.SendError("Failed to copy image file: " + err.Error())
+					return true
+				}
+				
+				// Upload original to Birdhole (this will delete the original file)
+				fields := []request.Fields{
+					{Key: "panorama", Value: "false"},
+					{Key: "tags", Value: irc.Action() + "," + irc.Network.NetworkName},
+					{Key: "meta_network", Value: irc.Network.NetworkName},
+					{Key: "meta_nick", Value: irc.User.NickName},
+					{Key: "meta_prompt", Value: message},
+				}
+				
+				upload, err := birdhole.BirdHole(response, message, fields, irc.Config.Birdhole)
+				if err != nil {
+					logger.Error("Birdhole upload failed for aiscii", "error", err)
+					// Clean up copy on error
+					os.Remove(copyPath)
+					irc.SendError("Failed to upload image: " + err.Error())
+					return true
+				}
+				
+				// Send the Birdhole link first
+				irc.Send(fmt.Sprintf("🖼️ Original image: %s", upload))
+				
+				// Now convert to IRC art using the copy
 				useHalfblocks := !irc.GetBoolArg("fullblocks") // Invert: default to halfblocks unless --fullblocks is specified
-				ircArtLines, err := ircart.ConvertPNGToIRCArt(response, useHalfblocks)
+				ircArtLines, err := ircart.ConvertPNGToIRCArt(copyPath, useHalfblocks)
 				if err != nil {
 					logger.Error("IRC art conversion failed", "error", err)
+					// Clean up copy on error
+					os.Remove(copyPath)
 					irc.SendError("Failed to convert image to IRC art: " + err.Error())
 					return true
 				}
@@ -361,9 +445,9 @@ func ParseAiImageWithGPU(irc state.State, gpu meta.GPUType) bool {
 					}
 				}
 
-				// Clean up the PNG file after processing
-				if err := os.Remove(response); err != nil {
-					logger.Debug("Failed to remove PNG file", "file", response, "error", err)
+				// Clean up the copy file after processing
+				if err := os.Remove(copyPath); err != nil {
+					logger.Debug("Failed to remove copy file", "file", copyPath, "error", err)
 				}
 				
 				return true
