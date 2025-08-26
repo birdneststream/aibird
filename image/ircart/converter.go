@@ -59,6 +59,9 @@ func ConvertPNGToIRCArt(pngFilePath string, useHalfblocks bool) ([]string, error
 		for row := 0; row < height; row++ {
 			var line strings.Builder
 			var lastFgColor, lastBgColor = -1, -1
+			
+			// Add initial color reset for IRC client compatibility
+			line.WriteString("\x03")
 
 			// Process each character position in the row
 			for col := 0; col < width; col++ {
@@ -142,6 +145,9 @@ func ConvertPNGToIRCArt(pngFilePath string, useHalfblocks bool) ([]string, error
 		for row := 0; row < height; row++ {
 			var line strings.Builder
 			var lastColorCode = -1
+			
+			// Add initial color reset for IRC client compatibility
+			line.WriteString("\x03")
 
 			// Process each character position in the row
 			for col := 0; col < width; col++ {
