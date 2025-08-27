@@ -56,6 +56,18 @@ func slugify(input string) string {
 	return slug
 }
 
+// convertToDetailURL converts a direct image URL to a Birdhole detail page URL
+// Example: https://domain.com/abc123.jpg -> https://domain.com/detail/abc123.jpg
+func convertToDetailURL(imageURL string) string {
+	// Find the last slash and insert "/detail" before the filename
+	lastSlash := strings.LastIndex(imageURL, "/")
+	if lastSlash == -1 {
+		return imageURL // Return original if no slash found
+	}
+	
+	return imageURL[:lastSlash] + "/detail" + imageURL[lastSlash:]
+}
+
 // recordArt posts the IRC art to the recording URL and returns the result
 func recordArt(recordingUrl, fileName, art string) (string, bool) {
 	if recordingUrl == "" {
@@ -194,12 +206,13 @@ func ParseAiImage(irc state.State) bool {
 					return true
 				}
 				
-				// Send the Birdhole link first
-				irc.Send(fmt.Sprintf("🖼️ Original image: %s", upload))
+				// Send the Birdhole detail page link (not direct image)
+				detailURL := convertToDetailURL(upload)
+				irc.Send(fmt.Sprintf("🖼️ Original image: %s", detailURL))
 				
 				// Now convert to IRC art using the copy
 				useHalfblocks := !irc.GetBoolArg("fullblocks") // Invert: default to halfblocks unless --fullblocks is specified
-				ircArtLines, err := ircart.ConvertPNGToIRCArt(copyPath, useHalfblocks)
+				ircArtLines, err := ircart.ExtractOrConvertIRCArt(copyPath, useHalfblocks)
 				if err != nil {
 					logger.Error("IRC art conversion failed", "error", err)
 					// Clean up copy on error
@@ -398,12 +411,13 @@ func ParseAiImageWithGPU(irc state.State, gpu meta.GPUType) bool {
 					return true
 				}
 				
-				// Send the Birdhole link first
-				irc.Send(fmt.Sprintf("🖼️ Original image: %s", upload))
+				// Send the Birdhole detail page link (not direct image)
+				detailURL := convertToDetailURL(upload)
+				irc.Send(fmt.Sprintf("🖼️ Original image: %s", detailURL))
 				
 				// Now convert to IRC art using the copy
 				useHalfblocks := !irc.GetBoolArg("fullblocks") // Invert: default to halfblocks unless --fullblocks is specified
-				ircArtLines, err := ircart.ConvertPNGToIRCArt(copyPath, useHalfblocks)
+				ircArtLines, err := ircart.ExtractOrConvertIRCArt(copyPath, useHalfblocks)
 				if err != nil {
 					logger.Error("IRC art conversion failed", "error", err)
 					// Clean up copy on error
