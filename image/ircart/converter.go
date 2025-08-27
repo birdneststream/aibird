@@ -1,12 +1,32 @@
 package ircart
 
 import (
+	"aibird/image/exifparser"
 	"aibird/logger"
 	"fmt"
 	"image/png"
 	"os"
 	"strings"
 )
+
+// ExtractOrConvertIRCArt attempts to extract IRC art from PNG EXIF data first,
+// then falls back to pixel-based conversion if EXIF data is unavailable
+func ExtractOrConvertIRCArt(pngFilePath string, useHalfblocks bool) ([]string, error) {
+	logger.Debug("Attempting to extract IRC art from EXIF data", "file", pngFilePath)
+	
+	// First, try to extract IRC art from EXIF UserComment
+	ircArtLines, err := exifparser.ExtractIRCArtFromPNG(pngFilePath)
+	if err == nil && len(ircArtLines) > 0 {
+		logger.Debug("Successfully extracted IRC art from EXIF", "lines", len(ircArtLines))
+		return ircArtLines, nil
+	}
+	
+	// Log the EXIF extraction attempt result
+	logger.Debug("EXIF extraction failed, falling back to pixel conversion", "error", err)
+	
+	// Fall back to pixel-based conversion
+	return ConvertPNGToIRCArt(pngFilePath, useHalfblocks)
+}
 
 // ConvertPNGToIRCArt converts a PNG file to IRC art format
 // Expects a pre-processed image from ComfyUI with perfect 8x15 pixel blocks
