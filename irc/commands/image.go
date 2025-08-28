@@ -12,12 +12,9 @@ import (
 	"aibird/text/ollama"
 	"fmt"
 	"io"
-	"net/http"
 	"os"
-	"regexp"
 	"strconv"
 	"strings"
-	"time"
 
 	meta "aibird/shared/meta"
 
@@ -42,19 +39,6 @@ func copyFile(src, dst string) error {
 	return err
 }
 
-// slugify converts a string to a URL-friendly slug
-func slugify(input string) string {
-	// Remove non-alphanumeric characters and replace with hyphens
-	reg := regexp.MustCompile(`[^a-zA-Z0-9]+`)
-	slug := reg.ReplaceAllString(strings.TrimSpace(input), "-")
-	// Remove leading/trailing hyphens and convert to lowercase
-	slug = strings.Trim(strings.ToLower(slug), "-")
-	// Limit length to 50 characters
-	if len(slug) > 50 {
-		slug = slug[:50]
-	}
-	return slug
-}
 
 // convertToDetailURL converts a direct image URL to a Birdhole detail page URL
 // Example: https://domain.com/abc123.jpg -> https://domain.com/detail/abc123.jpg
@@ -125,28 +109,6 @@ func processAisciiCommand(irc state.State, response, message string) bool {
 		irc.Send(line)
 	}
 
-	// Record the art to the recording URL (unless --norecord is specified)
-	if !irc.GetBoolArg("norecord") && irc.Config.AiBird.AsciiRecordingUrl != "" {
-		// Use slugified prompt as filename, trimmed to 250 chars
-		trimmedMessage := message
-		if len(trimmedMessage) > 250 {
-			trimmedMessage = trimmedMessage[:250]
-		}
-		fileName := slugify(trimmedMessage)
-		if fileName == "" {
-			fileName = "unnamed-art"
-		}
-
-		// Join all lines to create the full art string
-		fullArt := strings.Join(ircArtLines, "\n")
-		recordResult, success := recordArt(irc.Config.AiBird.AsciiRecordingUrl, fileName, fullArt)
-		if success {
-			irc.Send(recordResult)
-		} else if recordResult != "" {
-			irc.Send(recordResult)
-		}
-	}
-
 	// Clean up the copy file after processing
 	if err := os.Remove(copyPath); err != nil {
 		logger.Debug("Failed to remove copy file", "file", copyPath, "error", err)
@@ -155,39 +117,6 @@ func processAisciiCommand(irc state.State, response, message string) bool {
 	return true
 }
 
-// recordArt posts the IRC art to the recording URL and returns the result
-func recordArt(recordingUrl, fileName, art string) (string, bool) {
-	if recordingUrl == "" {
-		logger.Debug("Recording URL not configured, not saving art")
-		return "", false
-	}
-
-	client := &http.Client{Timeout: 10 * time.Second}
-	url := strings.TrimRight(recordingUrl, "/") + "/" + fileName
-
-	req, err := http.NewRequest("POST", url, strings.NewReader(art))
-	if err != nil {
-		logger.Error("Failed to create record art request", "error", err)
-		return "failed to record art :(", false
-	}
-
-	req.Header.Set("Content-Type", "text/plain")
-
-	res, err := client.Do(req)
-	if err != nil || res.StatusCode != 200 {
-		logger.Error("Failed to record art", "error", err, "status", res.StatusCode)
-		return "failed to record art :(", false
-	}
-
-	defer res.Body.Close()
-	body, err := io.ReadAll(res.Body)
-	if err != nil {
-		logger.Error("Failed to read record art response", "error", err)
-		return "maybe failed to record art? try " + fileName + " :(", false
-	}
-
-	return "art saved to " + string(body), true
-}
 
 func ParseAiImage(irc state.State) bool {
 	if irc.IsAction("sd") {
