@@ -72,3 +72,5 @@ require (
 )
 
 replace github.com/richinsley/comfy2go => github.com/dreamfast/comfy2go v0.0.0-20250725024440-ab74d41d54e6
+
+replace github.com/lrstanley/girc => github.com/birdneststream/girc v0.0.0-20250828073659-2021c99698d2

@@ -13,17 +13,17 @@ import (
 // then falls back to pixel-based conversion if EXIF data is unavailable
 func ExtractOrConvertIRCArt(pngFilePath string, useHalfblocks bool) ([]string, error) {
 	logger.Debug("Attempting to extract IRC art from EXIF data", "file", pngFilePath)
-	
+
 	// First, try to extract IRC art from EXIF UserComment
 	ircArtLines, err := exifparser.ExtractIRCArtFromPNG(pngFilePath)
 	if err == nil && len(ircArtLines) > 0 {
 		logger.Debug("Successfully extracted IRC art from EXIF", "lines", len(ircArtLines))
 		return ircArtLines, nil
 	}
-	
+
 	// Log the EXIF extraction attempt result
 	logger.Debug("EXIF extraction failed, falling back to pixel conversion", "error", err)
-	
+
 	// Fall back to pixel-based conversion
 	return ConvertPNGToIRCArt(pngFilePath, useHalfblocks)
 }
@@ -57,7 +57,7 @@ func ConvertPNGToIRCArt(pngFilePath string, useHalfblocks bool) ([]string, error
 	const BLOCK_HEIGHT = 15
 
 	var ircLines []string
-	
+
 	// Calculate dimensions based on perfect blocks from ComfyUI
 	blocksX := imgWidth / BLOCK_WIDTH
 	var blocksY int
@@ -78,15 +78,15 @@ func ConvertPNGToIRCArt(pngFilePath string, useHalfblocks bool) ([]string, error
 
 			for col := 0; col < blocksX; col++ {
 				// Sample pixels from the center of each half-block
-				topX := col * BLOCK_WIDTH + BLOCK_WIDTH/2
-				topY := row * BLOCK_HEIGHT/2 + BLOCK_HEIGHT/4 // Center of top half-block
-				
-				bottomX := col * BLOCK_WIDTH + BLOCK_WIDTH/2  
-				bottomY := (row+1) * BLOCK_HEIGHT/2 + BLOCK_HEIGHT/4 // Center of bottom half-block
+				topX := col*BLOCK_WIDTH + BLOCK_WIDTH/2
+				topY := row*BLOCK_HEIGHT/2 + BLOCK_HEIGHT/4 // Center of top half-block
+
+				bottomX := col*BLOCK_WIDTH + BLOCK_WIDTH/2
+				bottomY := (row+1)*BLOCK_HEIGHT/2 + BLOCK_HEIGHT/4 // Center of bottom half-block
 
 				// Get colors from the pre-quantized image (direct lookup)
 				topIrcColor := GetIRCColorFromRGB(img.At(topX, topY))
-				
+
 				var bottomIrcColor IRCColor
 				if row+1 < blocksY {
 					bottomIrcColor = GetIRCColorFromRGB(img.At(bottomX, bottomY))
@@ -106,7 +106,7 @@ func ConvertPNGToIRCArt(pngFilePath string, useHalfblocks bool) ([]string, error
 					bgColor = topIrcColor.Code
 				} else {
 					// Different colors - use half block
-					char = "▀" // Upper half block
+					char = "▀"                    // Upper half block
 					fgColor = topIrcColor.Code    // Foreground = top half
 					bgColor = bottomIrcColor.Code // Background = bottom half
 				}
@@ -120,13 +120,13 @@ func ConvertPNGToIRCArt(pngFilePath string, useHalfblocks bool) ([]string, error
 					} else {
 						actualFg = fgColor
 					}
-					
+
 					// Use most compact format while maintaining irssi compatibility
 					if actualFg < 10 && bgColor < 10 {
 						// Both single digit - shortest format: \x035,7 (5 bytes)
 						line.WriteString(fmt.Sprintf("\x03%d,%d", actualFg, bgColor))
 					} else if actualFg < 10 {
-						// Only fg is single digit: \x035,15 (6 bytes)  
+						// Only fg is single digit: \x035,15 (6 bytes)
 						line.WriteString(fmt.Sprintf("\x03%d,%d", actualFg, bgColor))
 					} else if bgColor < 10 {
 						// Only bg is single digit: \x0315,5 (6 bytes)
@@ -152,8 +152,8 @@ func ConvertPNGToIRCArt(pngFilePath string, useHalfblocks bool) ([]string, error
 
 			for col := 0; col < blocksX; col++ {
 				// Sample pixel from the center of the block
-				centerX := col * BLOCK_WIDTH + BLOCK_WIDTH/2
-				centerY := row * BLOCK_HEIGHT + BLOCK_HEIGHT/2
+				centerX := col*BLOCK_WIDTH + BLOCK_WIDTH/2
+				centerY := row*BLOCK_HEIGHT + BLOCK_HEIGHT/2
 
 				// Get color from the pre-quantized image (direct lookup)
 				ircColor := GetIRCColorFromRGB(img.At(centerX, centerY))

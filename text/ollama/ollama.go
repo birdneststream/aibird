@@ -110,22 +110,22 @@ func GenerateArtFilename(prompt string, config settings.OllamaConfig) (string, e
 	if err != nil {
 		return "", err
 	}
-	
+
 	// Remove various thinking/reasoning patterns (case insensitive, multiline)
 	patterns := []string{
-		`(?i)<think>.*?</think>`,           // <think></think> tags
-		`(?i)<thinking>.*?</thinking>`,     // <thinking></thinking> tags  
-		`(?i)\*thinks?\*.*?\*`,             // *thinks* ... *
-		`(?i)\*thinking\*.*?\*`,            // *thinking* ... *
-		`(?i)let me think.*?(?:\n|$)`,      // "let me think..." lines
+		`(?i)<think>.*?</think>`,       // <think></think> tags
+		`(?i)<thinking>.*?</thinking>`, // <thinking></thinking> tags
+		`(?i)\*thinks?\*.*?\*`,         // *thinks* ... *
+		`(?i)\*thinking\*.*?\*`,        // *thinking* ... *
+		`(?i)let me think.*?(?:\n|$)`,  // "let me think..." lines
 	}
-	
+
 	cleaned := response
 	for _, pattern := range patterns {
 		re := regexp.MustCompile(`(?s)` + pattern) // (?s) makes . match newlines
 		cleaned = re.ReplaceAllString(cleaned, "")
 	}
-	
+
 	// Clean up multiple whitespace and return first non-empty line
 	lines := strings.Split(strings.TrimSpace(cleaned), "\n")
 	for _, line := range lines {
@@ -134,7 +134,7 @@ func GenerateArtFilename(prompt string, config settings.OllamaConfig) (string, e
 			return line, nil
 		}
 	}
-	
+
 	// If nothing good found, return cleaned version truncated
 	result := strings.TrimSpace(cleaned)
 	if len(result) > 30 {

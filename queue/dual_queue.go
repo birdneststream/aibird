@@ -115,7 +115,7 @@ func (dq *DualQueue) ProcessQueues(ctx context.Context) error {
 		}
 	}()
 
-	// Process 2070 queue  
+	// Process 2070 queue
 	eg.wg.Add(1)
 	go func() {
 		defer eg.wg.Done()

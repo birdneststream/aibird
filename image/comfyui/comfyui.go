@@ -131,7 +131,7 @@ func Process(irc state.State, aiEnhancedPrompt string, gpu meta.GPUType) (string
 		for paramName, paramDef := range metaData.Parameters {
 			var rawUserInput interface{}
 			var userInputProvided bool
-			
+
 			// Handle different parameter types for input retrieval
 			if paramDef.Type == "bool" {
 				rawUserInput = irc.GetBoolArg(paramName)
