@@ -102,7 +102,7 @@ func processAisciiCommand(irc state.State, response, message string) bool {
 
 	// Send each line of IRC art
 	for _, line := range formattedLines {
-		irc.Client.Cmd.SendRaw(fmt.Sprintf("PRIVMSG %s :%s", irc.Channel.Name, line))
+		irc.Client.Cmd.SendRawNoSplit(fmt.Sprintf("PRIVMSG %s :%s", irc.Channel.Name, line))
 	}
 
 	// Clean up the copy file after processing

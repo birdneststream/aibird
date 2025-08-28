@@ -11,7 +11,6 @@ import (
 	"fmt"
 	"regexp"
 	"strings"
-	"time"
 
 	"github.com/lrstanley/girc"
 )
@@ -126,7 +125,6 @@ func ParseStandardWithQueue(irc state.State, q *queue.DualQueue) {
 	}
 }
 
-
 func ParsePlay(irc state.State) {
 	if irc.Message() == "--help" || irc.Message() == "" {
 		irc.Send(help.FindHelp(irc))
@@ -142,8 +140,6 @@ func ParsePlay(irc state.State) {
 		irc.Send(girc.Fmt("❌ Invalid URL. Must be from https://hole.birdnest.live/derived/{id}.png/{id}.txt"))
 		return
 	}
-
-	logger.Debug("Fetching ASCII art from URL", "url", url)
 
 	// Create HTTP request to fetch the text file
 	req := &request.Request{
@@ -182,9 +178,5 @@ func ParsePlay(irc state.State) {
 			// Fallback to regular SendRaw if SendRawNoSplit fails
 			irc.Client.Cmd.SendRaw(ircCommand)
 		}
-
-		time.Sleep(150 * time.Millisecond) // Small delay for scrolling effect
 	}
-
-	irc.Send(girc.Fmt("🎭 ASCII art playback complete"))
 }
