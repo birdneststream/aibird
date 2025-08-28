@@ -1,12 +1,17 @@
 package commands
 
 import (
+	"aibird/http/request"
 	"aibird/image/comfyui"
 	"aibird/irc/commands/help"
 	"aibird/irc/state"
+	"aibird/logger"
 	"aibird/queue"
 	"aibird/status"
+	"fmt"
+	"regexp"
 	"strings"
+	"time"
 
 	"github.com/lrstanley/girc"
 )
@@ -96,7 +101,7 @@ func ParseStandardWithQueue(irc state.State, q *queue.DualQueue) {
 		if q != nil {
 			irc.Send(ShowQueueStatus(irc, q))
 		}
-	
+
 	case "support":
 		for _, support := range irc.Config.AiBird.Support {
 			irc.Send(girc.Fmt("💲 " + support.Name + ": " + support.Value))
@@ -116,5 +121,70 @@ func ParseStandardWithQueue(irc state.State, q *queue.DualQueue) {
 		ParseHeadlines(irc)
 	case "ircnews":
 		ParseIrcNews(irc)
+	case "play":
+		ParsePlay(irc)
 	}
+}
+
+
+func ParsePlay(irc state.State) {
+	if irc.Message() == "--help" || irc.Message() == "" {
+		irc.Send(help.FindHelp(irc))
+		return
+	}
+
+	url := strings.TrimSpace(irc.Message())
+
+	// Validate URL pattern: must be https://hole.birdnest.live/derived/{id}.png/{id}.txt
+	urlPattern := regexp.MustCompile(`^https://hole\.birdnest\.live/derived/([a-zA-Z0-9]+)\.png/([a-zA-Z0-9]+)\.txt$`)
+	matches := urlPattern.FindStringSubmatch(url)
+	if len(matches) != 3 || matches[1] != matches[2] {
+		irc.Send(girc.Fmt("❌ Invalid URL. Must be from https://hole.birdnest.live/derived/{id}.png/{id}.txt"))
+		return
+	}
+
+	logger.Debug("Fetching ASCII art from URL", "url", url)
+
+	// Create HTTP request to fetch the text file
+	req := &request.Request{
+		Url:    url,
+		Method: "GET",
+	}
+
+	var content string
+	err := req.Call(&content)
+	if err != nil {
+		logger.Error("Failed to fetch ASCII art", "url", url, "error", err)
+		irc.Send(girc.Fmt("❌ Failed to fetch ASCII art: " + err.Error()))
+		return
+	}
+
+	// Split content into lines and send each line with a small delay
+	lines := strings.Split(content, "\n")
+	if len(lines) == 0 {
+		irc.Send(girc.Fmt("❌ No content found in file"))
+		return
+	}
+
+	irc.Send(girc.Fmt("🎭 Playing ASCII art..."))
+
+	// Send each line with a small delay to create scrolling effect
+	for _, line := range lines {
+		// Skip empty lines at the beginning/end but preserve internal spacing
+		if strings.TrimSpace(line) == "" && (line == lines[0] || line == lines[len(lines)-1]) {
+			continue
+		}
+
+		// Use SendRawNoSplit to bypass girc's message splitting that breaks ASCII art
+		ircCommand := fmt.Sprintf("PRIVMSG %s :%s", irc.Channel.Name, line)
+		err := irc.Client.Cmd.SendRawNoSplit(ircCommand)
+		if err != nil {
+			// Fallback to regular SendRaw if SendRawNoSplit fails
+			irc.Client.Cmd.SendRaw(ircCommand)
+		}
+
+		time.Sleep(150 * time.Millisecond) // Small delay for scrolling effect
+	}
+
+	irc.Send(girc.Fmt("🎭 ASCII art playback complete"))
 }

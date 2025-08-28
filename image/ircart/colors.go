@@ -7,7 +7,7 @@ import (
 
 // IRCColor represents an IRC color with its code and RGB values
 type IRCColor struct {
-	Code int
+	Code    int
 	R, G, B uint8
 }
 
@@ -35,7 +35,6 @@ var IRCColorPalette = []IRCColor{
 	{95, 159, 159, 159}, {96, 188, 188, 188}, {97, 226, 226, 226}, {98, 255, 255, 255},
 }
 
-
 // rgbToIRCCodeMap creates a direct lookup map from RGB values to IRC color codes
 var rgbToIRCCodeMap = make(map[uint32]int)
 
@@ -44,7 +43,7 @@ func initRGBLookupMap() {
 	if len(rgbToIRCCodeMap) > 0 {
 		return // Already initialized
 	}
-	
+
 	for _, ircColor := range IRCColorPalette {
 		// Pack RGB into a uint32 for fast lookup: (R << 16) | (G << 8) | B
 		rgbKey := uint32(ircColor.R)<<16 | uint32(ircColor.G)<<8 | uint32(ircColor.B)
@@ -55,20 +54,20 @@ func initRGBLookupMap() {
 // FindClosestIRCColor finds IRC color using direct RGB lookup (ComfyUI pre-quantizes to exact colors)
 func FindClosestIRCColor(r, g, b uint8) IRCColor {
 	initRGBLookupMap()
-	
+
 	// Pack RGB into lookup key
 	rgbKey := uint32(r)<<16 | uint32(g)<<8 | uint32(b)
-	
+
 	// Direct lookup - should always find exact match since ComfyUI quantized to these colors
 	if colorCode, exists := rgbToIRCCodeMap[rgbKey]; exists {
 		return IRCColor{Code: colorCode, R: r, G: g, B: b}
 	}
-	
+
 	// Fallback to closest match (shouldn't be needed with quantized input)
 	// Use simple RGB distance for speed
 	minDistance := float64(999999)
 	var closestColor IRCColor
-	
+
 	for _, ircColor := range IRCColorPalette {
 		dr := float64(r) - float64(ircColor.R)
 		dg := float64(g) - float64(ircColor.G)
@@ -90,17 +89,17 @@ func GetIRCColorFromRGB(c color.Color) IRCColor {
 	r, g, b, _ := c.RGBA()
 	// Convert from 16-bit to 8-bit
 	r8, g8, b8 := uint8(r>>8), uint8(g>>8), uint8(b>>8)
-	
+
 	// Direct lookup since ComfyUI outputs exact IRC colors
 	rgbKey := uint32(r8)<<16 | uint32(g8)<<8 | uint32(b8)
-	
+
 	// Initialize lookup map if needed
 	initRGBLookupMap()
-	
+
 	if colorCode, exists := rgbToIRCCodeMap[rgbKey]; exists {
 		return IRCColor{Code: colorCode, R: r8, G: g8, B: b8}
 	}
-	
+
 	// Fallback to closest color if exact match not found (shouldn't happen with ComfyUI)
 	return FindClosestIRCColor(r8, g8, b8)
 }

@@ -40,5 +40,3 @@ func decompress(data []byte) ([]byte, error) {
 	defer gz.Close()
 	return io.ReadAll(gz)
 }
-
-

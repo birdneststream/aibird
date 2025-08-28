@@ -6,7 +6,7 @@ import (
 	"strings"
 
 	pngstructure "github.com/dsoprea/go-png-image-structure/v2"
-	
+
 	"aibird/logger"
 )
 
@@ -32,7 +32,7 @@ func ExtractIRCArtFromPNG(filePath string) ([]string, error) {
 	if !ok {
 		return nil, fmt.Errorf("failed to access PNG chunks")
 	}
-	
+
 	// Search through text chunks for Comment data
 	for _, chunk := range cs.Chunks() {
 		if isTextChunk(chunk.Type) {
@@ -41,7 +41,7 @@ func ExtractIRCArtFromPNG(filePath string) ([]string, error) {
 			}
 		}
 	}
-	
+
 	return nil, fmt.Errorf("no IRC art found in PNG")
 }
 
@@ -53,13 +53,13 @@ func isTextChunk(chunkType string) bool {
 // extractFromTextChunk attempts to extract IRC art from a single text chunk
 func extractFromTextChunk(chunk *pngstructure.Chunk) ([]string, error) {
 	textContent := string(chunk.Data)
-	
+
 	// Check for Comment keyword (format: "Comment\0content")
 	const commentPrefix = "Comment\x00"
 	if !strings.HasPrefix(textContent, commentPrefix) {
 		return nil, fmt.Errorf("chunk does not contain Comment keyword")
 	}
-	
+
 	commentData := textContent[len(commentPrefix):]
 	return parseIRCArtJSON(commentData)
 }
@@ -71,21 +71,21 @@ func parseIRCArtJSON(commentData string) ([]string, error) {
 	if jsonStart < 0 {
 		return nil, fmt.Errorf("no JSON found in comment data")
 	}
-	
+
 	jsonContent := commentData[jsonStart:]
-	
+
 	// Parse JSON into IRCArtData structure
 	var artData IRCArtData
 	if err := json.Unmarshal([]byte(jsonContent), &artData); err != nil {
 		return nil, fmt.Errorf("failed to parse IRC art JSON: %w", err)
 	}
-	
+
 	if artData.IRC == "" {
 		return nil, fmt.Errorf("IRC art data is empty")
 	}
-	
+
 	logger.Debug("Successfully extracted IRC art from PNG", "size", len(artData.IRC))
-	
+
 	// Split IRC art into lines for transmission
 	return strings.Split(artData.IRC, "\n"), nil
 }

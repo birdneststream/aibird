@@ -87,6 +87,16 @@ func StandardHelp() []Help {
 			Arguments: []Arguments{},
 			Queueable: false,
 		},
+		{
+			Name: "play",
+			Type: "standard",
+			Help: "Play IRC ASCII art from a birdhole derived text file URL.",
+			Arguments: []Arguments{
+				{Argument: "<url>", Help: "URL to the ASCII art text file (must be from hole.birdnest.live/derived)", Values: ""},
+			},
+			Queueable: false,
+			Example:   "play https://hole.birdnest.live/derived/vf5t3imvd6jc.png/vf5t3imvd6jc.txt",
+		},
 	}
 }
 
@@ -449,7 +459,6 @@ func IsCommandDenied(commandName string, irc state.State) bool {
 
 	return false
 }
-
 
 func Format(helpItems []Help) string {
 	var result strings.Builder

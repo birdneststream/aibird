@@ -33,7 +33,7 @@ func handleDbStats(irc state.State) {
 		irc.ReplyTo(fmt.Sprintf("Error getting database stats: %v", err))
 		return
 	}
-	
+
 	// Get file system size of database directory
 	dbPath := "bird.db"
 	var totalSize int64
@@ -46,19 +46,19 @@ func handleDbStats(irc state.State) {
 		}
 		return nil
 	})
-	
+
 	if err != nil {
 		irc.ReplyTo(fmt.Sprintf("Error calculating disk usage: %v", err))
 		return
 	}
-	
+
 	// Format size in human readable format
 	sizeStr := formatBytes(totalSize)
 	bitcaskSize := formatBytes(stats["size"].(int64))
-	
-	response := fmt.Sprintf("Database Status: %d keys | %d datafiles | Bitcask size: %s | Disk usage: %s", 
+
+	response := fmt.Sprintf("Database Status: %d keys | %d datafiles | Bitcask size: %s | Disk usage: %s",
 		stats["keys"], stats["datafiles"], bitcaskSize, sizeStr)
-	
+
 	irc.ReplyTo(response)
 }
 

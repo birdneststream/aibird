@@ -10,7 +10,7 @@ import (
 )
 
 var (
-	Data *bitcask.Bitcask
+	Data              *bitcask.Bitcask
 	maintenanceCancel context.CancelFunc
 )
 
@@ -51,16 +51,16 @@ func maintenanceLoop(ctx context.Context) {
 
 func Close() {
 	logger.Info("Closing database...")
-	
+
 	// Cancel maintenance loop
 	if maintenanceCancel != nil {
 		maintenanceCancel()
 	}
-	
+
 	// Use a timeout context for shutdown operations to prevent hanging
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
-	
+
 	// Final cleanup before shutdown with timeout
 	done := make(chan struct{})
 	go func() {
@@ -68,23 +68,23 @@ func Close() {
 		cleanupExpiredKeys(ctx)
 		Merge()
 	}()
-	
+
 	select {
 	case <-done:
 		logger.Info("Database cleanup completed successfully")
 	case <-ctx.Done():
 		logger.Warn("Database cleanup timed out during shutdown")
 	}
-	
+
 	// Close database with a separate timeout
 	closeCtx, closeCancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer closeCancel()
-	
+
 	closeDone := make(chan error, 1)
 	go func() {
 		closeDone <- Data.Close()
 	}()
-	
+
 	select {
 	case err := <-closeDone:
 		if err != nil {
@@ -176,11 +176,11 @@ func cleanupExpiredKeys(ctx context.Context) {
 	deletedCount := 0
 	const batchSize = 100
 	const maxWorkers = 4
-	
+
 	// Channel to collect keys that need processing
 	keysChan := make(chan []byte, batchSize*maxWorkers)
 	deleteChan := make(chan bool, batchSize*maxWorkers)
-	
+
 	// Start worker goroutines
 	for range maxWorkers {
 		go func() {
@@ -203,12 +203,12 @@ func cleanupExpiredKeys(ctx context.Context) {
 			}
 		}()
 	}
-	
+
 	// Scan keys and distribute to workers
 	go func() {
 		defer close(keysChan)
 		batch := make([][]byte, 0, batchSize)
-		
+
 		Data.Scan([]byte(""), func(key []byte) error {
 			select {
 			case <-ctx.Done():
@@ -218,7 +218,7 @@ func cleanupExpiredKeys(ctx context.Context) {
 				keyCopy := make([]byte, len(key))
 				copy(keyCopy, key)
 				batch = append(batch, keyCopy)
-				
+
 				// Send batch when full
 				if len(batch) >= batchSize {
 					for _, k := range batch {
@@ -233,7 +233,7 @@ func cleanupExpiredKeys(ctx context.Context) {
 				return nil
 			}
 		})
-		
+
 		// Send remaining keys
 		for _, k := range batch {
 			select {
@@ -243,10 +243,10 @@ func cleanupExpiredKeys(ctx context.Context) {
 			}
 		}
 	}()
-	
+
 	// Count deletions with timeout
 	timeout := time.After(55 * time.Minute) // Leave 5 minutes buffer before next run
-	
+
 	for {
 		select {
 		case <-ctx.Done():
@@ -276,12 +276,12 @@ func GetDatabaseStats() (map[string]any, error) {
 	if err != nil {
 		return nil, err
 	}
-	
+
 	result := map[string]any{
 		"keys":      stats.Keys,
 		"datafiles": stats.Datafiles,
 		"size":      stats.Size,
 	}
-	
+
 	return result, nil
 }

@@ -54,7 +54,7 @@ func main() {
 		logger.Info("SIGNAL RECEIVED: Initiating shutdown", "signal", sig, "timestamp", time.Now())
 		cancel()
 		close(shutdown)
-		
+
 		// Force exit after timeout if shutdown hangs
 		go func() {
 			time.Sleep(30 * time.Second)

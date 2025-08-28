@@ -39,7 +39,6 @@ func copyFile(src, dst string) error {
 	return err
 }
 
-
 // convertToDetailURL converts a direct image URL to a Birdhole detail page URL
 // Example: https://domain.com/abc123.jpg -> https://domain.com/detail/abc123.jpg
 func convertToDetailURL(imageURL string) string {
@@ -83,10 +82,6 @@ func processAisciiCommand(irc state.State, response, message string) bool {
 		return true
 	}
 
-	// Send the Birdhole detail page link (not direct image)
-	detailURL := convertToDetailURL(upload)
-	irc.Send(fmt.Sprintf("🖼️ Grab the IRC and ANSI for this at: %s", detailURL))
-
 	// Now convert to IRC art using the copy
 	useHalfblocks := !irc.GetBoolArg("fullblocks") // Invert: default to halfblocks unless --fullblocks is specified
 	ircArtLines, err := ircart.ExtractOrConvertIRCArt(copyPath, useHalfblocks)
@@ -102,11 +97,12 @@ func processAisciiCommand(irc state.State, response, message string) bool {
 	formattedLines := ircart.FormatIRCArtForIRC(ircArtLines)
 
 	// Send a header message
-	irc.Send(fmt.Sprintf("🎨 IRC Art for '%s':", message))
+	detailURL := convertToDetailURL(upload)
+	irc.Send(fmt.Sprintf("🎨 IRC Art for '%s' download the ascii here %s:", message, detailURL))
 
 	// Send each line of IRC art
 	for _, line := range formattedLines {
-		irc.Send(line)
+		irc.Client.Cmd.SendRaw(fmt.Sprintf("PRIVMSG %s :%s", irc.Channel.Name, line))
 	}
 
 	// Clean up the copy file after processing
@@ -116,7 +112,6 @@ func processAisciiCommand(irc state.State, response, message string) bool {
 
 	return true
 }
-
 
 func ParseAiImage(irc state.State) bool {
 	if irc.IsAction("sd") {
