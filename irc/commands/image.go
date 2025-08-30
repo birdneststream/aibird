@@ -94,19 +94,19 @@ func processAisciiCommand(irc state.State, response, message string) bool {
 		return true
 	}
 
-	// Store ASCII art in memory for record command
+	// Format the IRC art for sending
+	formattedLines := ircart.FormatIRCArtForIRC(ircArtLines)
+
+	// Store the formatted ASCII art (same as what displays in IRC) in memory for record command
 	asciistore.GetManager().Store(
 		irc.User.NickName,
 		irc.Network.NetworkName,
 		irc.Channel.Name,
-		ircArtLines,
+		formattedLines,
 		message,
 		useHalfblocks,
 	)
 	logger.Debug("Stored ASCII art for user", "user", irc.User.NickName, "network", irc.Network.NetworkName, "channel", irc.Channel.Name)
-
-	// Format the IRC art for sending
-	formattedLines := ircart.FormatIRCArtForIRC(ircArtLines)
 
 	// Send a header message
 	detailURL := convertToDetailURL(upload)
