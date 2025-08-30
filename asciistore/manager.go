@@ -1,9 +1,11 @@
 package asciistore
 
 import (
-	"aibird/http/request"
 	"aibird/logger"
+	"bytes"
 	"fmt"
+	"io"
+	"net/http"
 	"regexp"
 	"strings"
 	"sync"
@@ -32,32 +34,46 @@ func (s *ASCIIStore) RecordToService(user, network, channel, recordingUrl string
 	}
 
 	filename := s.GenerateFilename(art)
-	artText := s.FormatArt(art)
+	artText := s.FormatArtForRecording(art)
 
-	req := &request.Request{
-		Url:     strings.TrimRight(recordingUrl, "/") + "/" + filename,
-		Method:  "POST",
-		Payload: artText,
-	}
-
-	// Add content-type header for text
-	req.AddHeader("Content-Type", "text/plain")
-
-	logger.Debug("Recording ASCII art", "url", req.Url, "filename", filename, "user", user)
-
-	var response string
-	err := req.Call(&response)
+	// Create raw HTTP request to avoid JSON encoding
+	url := strings.TrimRight(recordingUrl, "/") + "/" + filename
+	
+	// Create HTTP request with raw text body
+	httpReq, err := http.NewRequest("POST", url, bytes.NewReader([]byte(artText)))
 	if err != nil {
-		logger.Error("Failed to record ASCII art", "error", err, "url", req.Url)
+		return "Failed to create request", err
+	}
+	
+	httpReq.Header.Set("Content-Type", "text/plain")
+	
+	logger.Debug("Recording ASCII art", "url", url, "filename", filename, "user", user)
+	
+	// Execute the request
+	client := &http.Client{}
+	httpResp, err := client.Do(httpReq)
+	if err != nil {
+		logger.Error("Failed to record ASCII art", "error", err, "url", url)
 		return "Failed to record art :(", err
 	}
+	defer httpResp.Body.Close()
+
+	// Read response body
+	var responseBody []byte
+	responseBody, err = io.ReadAll(httpResp.Body)
+	if err != nil {
+		logger.Error("Failed to read response", "error", err)
+		return "Failed to read response", err
+	}
+	
+	responseText := string(responseBody)
 
 	// Clear the stored ASCII art after successful recording to prevent duplicates
 	s.Clear(user, network, channel)
 
-	logger.Info("Successfully recorded ASCII art", "filename", filename, "user", user, "response", response)
+	logger.Info("Successfully recorded ASCII art", "filename", filename, "user", user, "response", responseText)
 	logger.Debug("Cleared stored ASCII art after recording", "user", user, "network", network, "channel", channel)
-	return "Art saved to " + response, nil
+	return "Art saved to " + responseText, nil
 }
 
 func (s *ASCIIStore) GenerateFilename(art *ASCIIArt) string {
@@ -72,17 +88,10 @@ func (s *ASCIIStore) GenerateFilename(art *ASCIIArt) string {
 	return filename + "-" + timestamp
 }
 
-func (s *ASCIIStore) FormatArt(art *ASCIIArt) string {
+func (s *ASCIIStore) FormatArtForRecording(art *ASCIIArt) string {
 	var sb strings.Builder
 
-	// Add metadata as comments
-	sb.WriteString("# Generated ASCII Art\n")
-	sb.WriteString("# Prompt: " + art.Prompt + "\n")
-	sb.WriteString(fmt.Sprintf("# Created by: %s on %s %s\n", art.User, art.Network, art.Channel))
-	sb.WriteString("# Created at: " + art.Timestamp.Format("2006-01-02 15:04:05") + "\n")
-	sb.WriteString("\n")
-
-	// Add ASCII art lines
+	// The lines are already properly formatted from FormatIRCArtForIRC, just join them
 	for _, line := range art.Lines {
 		sb.WriteString(line + "\n")
 	}
