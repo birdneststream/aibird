@@ -97,6 +97,14 @@ func StandardHelp() []Help {
 			Queueable: false,
 			Example:   "play https://hole.birdnest.live/derived/vf5t3imvd6jc.png/vf5t3imvd6jc.txt",
 		},
+		{
+			Name:      "record",
+			Type:      "standard",
+			Help:      "Record the most recently generated ASCII art to the configured recording service.",
+			Arguments: []Arguments{},
+			Queueable: false,
+			Example:   "record",
+		},
 	}
 }
 

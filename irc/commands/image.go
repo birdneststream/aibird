@@ -1,6 +1,7 @@
 package commands
 
 import (
+	"aibird/asciistore"
 	"aibird/http/request"
 	"aibird/http/uploaders/birdhole"
 	"aibird/image"
@@ -92,6 +93,17 @@ func processAisciiCommand(irc state.State, response, message string) bool {
 		irc.SendError("Failed to convert image to IRC art: " + err.Error())
 		return true
 	}
+
+	// Store ASCII art in memory for record command
+	asciistore.GetManager().Store(
+		irc.User.NickName,
+		irc.Network.NetworkName,
+		irc.Channel.Name,
+		ircArtLines,
+		message,
+		useHalfblocks,
+	)
+	logger.Debug("Stored ASCII art for user", "user", irc.User.NickName, "network", irc.Network.NetworkName, "channel", irc.Channel.Name)
 
 	// Format the IRC art for sending
 	formattedLines := ircart.FormatIRCArtForIRC(ircArtLines)
