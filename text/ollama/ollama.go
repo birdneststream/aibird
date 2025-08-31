@@ -46,11 +46,11 @@ func ChatRequest(irc state.State) (string, error) {
 		},
 	}
 
-	if irc.FindArgument("ds", false).(bool) {
+	if dsArg, ok := irc.FindArgument("ds", false).(bool); ok && dsArg {
 		requestBody.Model = "deepseek-r1:8b"
 	}
 
-	if irc.FindArgument("dsqwen", false).(bool) {
+	if dsqwenArg, ok := irc.FindArgument("dsqwen", false).(bool); ok && dsqwenArg {
 		requestBody.Model = "deepseek-r1:32b"
 	}
 

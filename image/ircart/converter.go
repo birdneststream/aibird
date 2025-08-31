@@ -32,11 +32,11 @@ func ExtractOrConvertIRCArt(pngFilePath string, useHalfblocks bool) ([]string, e
 // ConvertPNGToIRCArt converts a PNG file to IRC art format
 // Expects a pre-processed image from ComfyUI with perfect 8x15 pixel blocks
 // Returns a slice of strings, each representing one line of IRC art
-func ConvertPNGToIRCArt(pngFilePath string, useHalfblocks bool) ([]string, error) {
+func ConvertPNGToIRCArt(pngFilePath string, useHalfblocks bool) ([]string, error) { //nolint:gocyclo
 	logger.Debug("Starting PNG to IRC art conversion (ComfyUI pre-processed)", "file", pngFilePath)
 
 	// Open and decode the PNG file
-	file, err := os.Open(pngFilePath)
+	file, err := os.Open(pngFilePath) // #nosec G304 - Internal file path from image generation
 	if err != nil {
 		return nil, fmt.Errorf("failed to open PNG file: %w", err)
 	}

@@ -168,7 +168,11 @@ func parseAdminCommands(irc state.State, q *queue.DualQueue) {
 				return
 			}
 
-			target := irc.FindArgument("4090", "all").(string)
+			targetVal := irc.FindArgument("4090", "all")
+			target, ok := targetVal.(string)
+			if !ok {
+				target = "all"
+			}
 			switch target {
 			case "4090":
 				irc.Send("🔄 Clearing 4090 queue...")

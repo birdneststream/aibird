@@ -41,7 +41,7 @@ func (r *Request) GetPayload() interface{} {
 	return r.Payload
 }
 
-func (r *Request) AddHeader(key string, value string) {
+func (r *Request) AddHeader(key, value string) {
 	r.Headers = append(r.Headers, Headers{Key: key, Value: value})
 }
 
@@ -89,7 +89,7 @@ func getFileContentType(file *os.File) (string, error) {
 	return contentType, nil
 }
 
-func (r *Request) Call(response interface{}) error {
+func (r *Request) Call(response interface{}) error { //nolint:gocyclo
 	var jsonData []byte
 	var err error
 	var reqBody *bytes.Buffer
@@ -111,7 +111,7 @@ func (r *Request) Call(response interface{}) error {
 
 		// Create form file with content type
 		h := make(textproto.MIMEHeader)
-		h.Set("Content-Disposition", fmt.Sprintf(`form-data; name="file"; filename="%s"`, filepath.Base(r.FileName)))
+		h.Set("Content-Disposition", fmt.Sprintf(`form-data; name="file"; filename=%q`, filepath.Base(r.FileName)))
 		h.Set("Content-Type", contentType)
 
 		part1, errFile1 := writer.CreatePart(h)
@@ -225,7 +225,7 @@ func IsImage(url string) bool {
 		return false
 	}
 
-	resp, err := http.Head(url)
+	resp, err := http.Head(url) // #nosec G107 - URL scheme validated above
 	if err != nil {
 		logger.Error("Error checking image URL", "url", url, "error", err)
 		return false

@@ -25,13 +25,13 @@ import (
 
 // copyFile creates a copy of the source file at the destination path
 func copyFile(src, dst string) error {
-	sourceFile, err := os.Open(src)
+	sourceFile, err := os.Open(src) // #nosec G304 - Internal file paths from image generation
 	if err != nil {
 		return err
 	}
 	defer sourceFile.Close()
 
-	destFile, err := os.Create(dst)
+	destFile, err := os.Create(dst) // #nosec G304 - Internal file paths from image generation
 	if err != nil {
 		return err
 	}

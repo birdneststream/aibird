@@ -47,7 +47,7 @@ func (n *Network) GetRandomServer() *servers.Server {
 	return &n.Servers[randomIndex.Int64()]
 }
 
-func (n *Network) ProvideStateInit(channelName string, ident string, host string) (*channels.Channel, *users.User) {
+func (n *Network) ProvideStateInit(channelName, ident, host string) (*channels.Channel, *users.User) {
 	return n.GetNetworkChannel(channelName), n.GetUserWithIdentAndHost(ident, host)
 }
 
@@ -60,7 +60,7 @@ func (n *Network) GetNetworkChannel(channelName string) *channels.Channel {
 	return nil
 }
 
-func (n *Network) GetUserWithIdentAndHost(ident string, host string) *users.User {
+func (n *Network) GetUserWithIdentAndHost(ident, host string) *users.User {
 	var foundUsers []*users.User
 	for i := range n.Users {
 		if n.Users[i].Ident == ident && n.Users[i].Host == host {
@@ -128,7 +128,7 @@ func (n *Network) IsNickIgnored(nick string) bool {
 	return false
 }
 
-func (n *Network) IsIdentHostAdmin(ident string, host string) bool {
+func (n *Network) IsIdentHostAdmin(ident, host string) bool {
 	for _, admin := range n.AdminHosts {
 		if admin.Host == host && admin.Ident == ident {
 			return true
@@ -137,7 +137,7 @@ func (n *Network) IsIdentHostAdmin(ident string, host string) bool {
 	return false
 }
 
-func (n *Network) IsIdentHostOwner(ident string, host string) bool {
+func (n *Network) IsIdentHostOwner(ident, host string) bool {
 	for _, admin := range n.AdminHosts {
 		if admin.Host == host && admin.Ident == ident && admin.Owner {
 			return true
@@ -153,12 +153,10 @@ func (n *Network) Save() {
 		if !n.SaveTimer.Stop() {
 			<-n.SaveTimer.C
 		}
-	} else {
-		if !n.SaveTimer.Stop() {
-			select {
-			case <-n.SaveTimer.C:
-			default:
-			}
+	} else if !n.SaveTimer.Stop() {
+		select {
+		case <-n.SaveTimer.C:
+		default:
 		}
 	}
 	n.SaveTimer.Reset(3 * time.Second)

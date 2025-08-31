@@ -88,7 +88,7 @@ func FindClosestIRCColor(r, g, b uint8) IRCColor {
 func GetIRCColorFromRGB(c color.Color) IRCColor {
 	r, g, b, _ := c.RGBA()
 	// Convert from 16-bit to 8-bit
-	r8, g8, b8 := uint8(r>>8), uint8(g>>8), uint8(b>>8)
+	r8, g8, b8 := uint8(r>>8), uint8(g>>8), uint8(b>>8) // #nosec G115 - Safe conversion, values are already shifted
 
 	// Direct lookup since ComfyUI outputs exact IRC colors
 	rgbKey := uint32(r8)<<16 | uint32(g8)<<8 | uint32(b8)

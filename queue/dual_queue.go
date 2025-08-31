@@ -20,7 +20,7 @@ func NewDualQueue() *DualQueue {
 	}
 }
 
-func (dq *DualQueue) Enqueue(item QueueItem) (string, error) {
+func (dq *DualQueue) Enqueue(item QueueItem) (string, error) { //nolint:gocyclo
 	dq.Mutex.Lock()
 	defer dq.Mutex.Unlock()
 

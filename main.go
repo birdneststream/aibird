@@ -113,7 +113,7 @@ func ircClient(ctx context.Context, network *networks.Network, config *settings.
 		// WARNING: InsecureSkipVerify bypasses certificate validation
 		// This should only be used for testing or when connecting to servers with self-signed certificates
 		ircConfig.TLSConfig = &tls.Config{
-			InsecureSkipVerify: true,
+			InsecureSkipVerify: true, // #nosec G402 - Intentional for IRC servers with self-signed certificates
 		}
 	}
 
@@ -369,7 +369,7 @@ func dispatchCommand(irc state.State, q *queue.DualQueue) {
 		}
 	}
 
-	if irc.FindArgument("help", false).(bool) {
+	if helpArg, ok := irc.FindArgument("help", false).(bool); ok && helpArg {
 		helpMsg := help.FindHelp(irc)
 		irc.Send(girc.Fmt(helpMsg))
 		return
