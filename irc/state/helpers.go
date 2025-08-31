@@ -165,63 +165,42 @@ func (s *State) MessageFloodCheck() bool {
 	}
 
 	ban := s.Network.Name + s.Channel.Name + s.User.Host + s.User.Ident + "flood_ban"
-
-	if birdbase.Has(ban) {
-		return true
-	}
-
 	key := s.Network.Name + s.Channel.Name + s.User.Host + s.User.Ident + "flood_check"
 
-	if !birdbase.Has(key) {
-		if err := birdbase.PutStringExpireSeconds(key, "1", 3); err != nil {
-			logger.Error("Failed to set flood check key", "error", err)
-		}
-	} else {
-		count, err := birdbase.Get(key)
-		if err != nil {
-			logger.Error("Failed to get flood check count", "error", err)
-			return false
-		}
-		countInt, err := strconv.Atoi(string(count))
-		if err != nil {
-			logger.Error("Failed to parse flood count", "error", err)
-			return false
-		}
-		countInt++
-		if err := birdbase.PutStringExpireSeconds(key, strconv.Itoa(countInt), 3); err != nil {
-			logger.Error("Failed to update flood check count", "error", err)
-		}
-
-		if countInt > s.Config.AiBird.FloodThreshold {
-			// Set user as ignored instead of kick/ban system
-			s.User.Ignored = true
-			s.Network.Save()
-			
-			// Set temporary ignore duration using the existing flood ban key for consistency
-			if err := birdbase.PutStringExpireSeconds(ban, "1", s.Config.AiBird.FloodIgnoreMinutes*60); err != nil {
-				logger.Error("Failed to set flood ignore timer", "error", err)
-			}
-			
-			// Schedule automatic un-ignore after the flood ignore time
-			go func() {
-				time.Sleep(time.Duration(s.Config.AiBird.FloodIgnoreMinutes) * time.Minute)
-				s.User.Ignored = false
-				s.Network.Save()
-				logger.Info("User automatically un-ignored after flood timeout", "user", s.User.NickName, "network", s.Network.NetworkName)
-			}()
-			
-			logger.Info("User ignored due to flood", "user", s.User.NickName, "network", s.Network.NetworkName, "duration", fmt.Sprintf("%dm", s.Config.AiBird.FloodIgnoreMinutes))
-		}
-
+	// Check if user is currently banned using in-memory flood manager
+	if birdbase.FloodManager.IsFloodBanned(ban) {
 		return true
 	}
 
-	return false
+	// Increment flood counter using in-memory flood manager
+	countInt := birdbase.FloodManager.IncrementFloodCounter(key, 3*time.Second)
+
+	if countInt > s.Config.AiBird.FloodThreshold {
+		// Set user as ignored instead of kick/ban system
+		s.User.Ignored = true
+		s.Network.Save()
+		
+		// Set temporary ignore duration using in-memory flood manager
+		birdbase.FloodManager.SetFloodBan(ban, time.Duration(s.Config.AiBird.FloodIgnoreMinutes)*time.Minute)
+		
+		// Schedule automatic un-ignore after the flood ignore time
+		go func() {
+			time.Sleep(time.Duration(s.Config.AiBird.FloodIgnoreMinutes) * time.Minute)
+			s.User.Ignored = false
+			s.Network.Save()
+			logger.Info("User automatically un-ignored after flood timeout", "user", s.User.NickName, "network", s.Network.NetworkName)
+		}()
+		
+		logger.Info("User ignored due to flood", "user", s.User.NickName, "network", s.Network.NetworkName, "duration", fmt.Sprintf("%dm", s.Config.AiBird.FloodIgnoreMinutes))
+		return true
+	}
+
+	return countInt > 1 // Return true if we have multiple messages
 }
 
 func (s *State) JoinFloodCheck() {
 	key := s.Network.Name + s.Channel.Name + "flood_check"
-	waitTime := 3
+	waitTime := 3 * time.Second
 
 	// If we have a lot of people rejoin on a netsplit we don't want to trigger this
 	// we can see if the bot already reconises them
@@ -229,46 +208,26 @@ func (s *State) JoinFloodCheck() {
 		return
 	}
 
-	if !birdbase.Has(key) {
-		if err := birdbase.PutStringExpireSeconds(key, "1", waitTime); err != nil {
-			logger.Error("Failed to set join flood check key", "error", err)
-		}
-	} else {
-		count, err := birdbase.Get(key)
-		if err != nil {
-			logger.Error("Failed to get join flood count", "error", err)
-			return
-		}
-		countInt, err := strconv.Atoi(string(count))
-		if err != nil {
-			logger.Error("Failed to parse join flood count", "error", err)
-			return
-		}
-		countInt++
-		if err := birdbase.PutStringExpireSeconds(key, strconv.Itoa(countInt), waitTime); err != nil {
-			logger.Error("Failed to update join flood count", "error", err)
-		}
+	// Increment join flood counter using in-memory flood manager
+	countInt := birdbase.FloodManager.IncrementFloodCounter(key, waitTime)
 
-		if countInt > 4 {
-			go s.RemoveFloodCheck()
-			// +i the channel
-			s.Client.Cmd.Mode(s.Channel.Name, "+i")
-			s.Client.Cmd.Mode(s.Channel.Name, "+m")
-		}
-
+	if countInt > 4 {
+		go s.RemoveFloodCheck()
+		// +i the channel
+		s.Client.Cmd.Mode(s.Channel.Name, "+i")
+		s.Client.Cmd.Mode(s.Channel.Name, "+m")
 	}
 }
 
 func (s *State) RemoveFloodCheck() {
 	time.Sleep(2 * time.Minute)
 
-	key := s.Network.Name + s.Channel.Name + "flood_check"
-	if err := birdbase.Delete(key); err != nil {
-		logger.Error("Failed to delete flood check key", "error", err)
-	}
-
+	// Remove invite-only and moderated modes
 	s.Client.Cmd.Mode(s.Channel.Name, "-i")
 	s.Client.Cmd.Mode(s.Channel.Name, "-m")
+	
+	// Note: We don't need to explicitly remove the flood check key
+	// as it will expire automatically from in-memory storage
 }
 
 func (s *State) GetActionTrigger() string {

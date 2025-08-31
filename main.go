@@ -16,7 +16,6 @@ import (
 	"log"
 	"os"
 	"os/signal"
-	"strconv"
 	"strings"
 	"sync"
 	"syscall"
@@ -329,39 +328,20 @@ func checkFlood(irc state.State) {
 	key := fmt.Sprintf("flood:%s:%s", irc.Network.Name, irc.User.NickName)
 	ban := fmt.Sprintf("flood-ban:%s:%s", irc.Network.Name, irc.User.NickName)
 
-	if birdbase.Has(ban) {
+	// Check if user is currently banned using in-memory flood manager
+	if birdbase.FloodManager.IsFloodBanned(ban) {
 		return
 	}
 
-	floodWindow := 1
+	floodWindow := time.Second * 1
 
-	if !birdbase.Has(key) {
-		if err := birdbase.PutStringExpireSeconds(key, "1", floodWindow); err != nil {
-			logger.Warn("Failed to set flood key in birdbase", "key", key, "error", err)
-		}
-	} else {
-		countBytes, err := birdbase.Get(key)
-		if err != nil {
-			logger.Warn("Failed to get flood count from database, defaulting to 1", "key", key, "error", err)
-			countBytes = []byte("1")
-		}
-		count := string(countBytes)
-		countInt, err := strconv.Atoi(count)
-		if err != nil {
-			logger.Warn("Failed to parse flood count, defaulting to 1", "key", key, "count", count, "error", err)
-			countInt = 1
-		}
-		countInt++
-		if err := birdbase.PutStringExpireSeconds(key, strconv.Itoa(countInt), floodWindow); err != nil {
-			logger.Warn("Failed to update flood key in birdbase", "key", key, "error", err)
-		}
+	// Increment flood counter using in-memory flood manager
+	countInt := birdbase.FloodManager.IncrementFloodCounter(key, floodWindow)
 
-		if countInt > config.FloodThreshold {
-			if err := birdbase.PutStringExpireSeconds(ban, "1", config.FloodIgnoreMinutes*60); err != nil {
-				logger.Warn("Failed to set flood-ban key in birdbase", "key", ban, "error", err)
-			}
-			irc.Client.Cmd.Kick(irc.Channel.Name, irc.Event.Source.Name, "Birds fly above floods!")
-		}
+	if countInt > config.FloodThreshold {
+		// Set flood ban using in-memory flood manager
+		birdbase.FloodManager.SetFloodBan(ban, time.Duration(config.FloodIgnoreMinutes)*time.Minute)
+		irc.Client.Cmd.Kick(irc.Channel.Name, irc.Event.Source.Name, "Birds fly above floods!")
 	}
 }
 

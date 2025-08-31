@@ -8,7 +8,7 @@ import (
 	"aibird/irc/users"
 	"aibird/logger"
 	"crypto/rand"
-	"encoding/json"
+	"database/sql"
 	"fmt"
 	"math/big"
 	"strconv"
@@ -165,12 +165,8 @@ func (n *Network) Save() {
 	go func() {
 		<-n.SaveTimer.C
 		userKey := n.NetworkName + "_users"
-		usersJson, err := json.Marshal(n.Users)
-		if err != nil {
-			logger.Error("Failed to marshal network users to JSON", "network", n.NetworkName, "error", err)
-			return
-		}
-		if err := birdbase.PutBytes(userKey, usersJson); err != nil {
+		// Use specialized persistent data storage for network users
+		if err := birdbase.PutPersistentData(userKey, "network_users", n.Users); err != nil {
 			logger.Error("Error saving network users to database", "network", n.NetworkName, "error", err)
 		}
 	}()
@@ -179,14 +175,14 @@ func (n *Network) Save() {
 func (n *Network) Load() {
 	userKey := n.NetworkName + "_users"
 
-	if birdbase.Has(userKey) {
-		usersJson, err := birdbase.Get(userKey)
-		if err != nil {
-			logger.Error("Error loading network from birdbase", "key", userKey, "error", err)
+	// Use specialized persistent data retrieval for network users
+	if err := birdbase.GetPersistentData(userKey, &n.Users); err != nil {
+		if err != sql.ErrNoRows {
+			logger.Error("Error loading network users from database", "network", n.NetworkName, "error", err)
 		}
-		err = json.Unmarshal(usersJson, &n.Users)
-		if err != nil {
-			logger.Error("Error unmarshalling network users", "key", userKey, "error", err)
+		// If no users exist or error occurred, start with empty Users slice
+		if n.Users == nil {
+			n.Users = make([]users.User, 0)
 		}
 	}
 }
