@@ -106,6 +106,17 @@ func StandardHelp() []Help {
 			Queueable: false,
 			Example:   "record",
 		},
+		{
+			Name:      "leaderboard",
+			Type:      "standard",
+			Help:      "Display command usage leaderboard for the current network.",
+			Arguments: []Arguments{
+				{Argument: "global", Help: "Show global leaderboard across all networks (owner only)", Values: ""},
+				{Argument: "<command>", Help: "Show leaderboard for specific command (owner only)", Values: "e.g., ai, hello"},
+			},
+			Queueable: false,
+			Example:   "leaderboard",
+		},
 	}
 }
 

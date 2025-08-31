@@ -125,6 +125,8 @@ func ParseStandardWithQueue(irc state.State, q *queue.DualQueue) {
 		ParsePlay(irc)
 	case "record":
 		ParseRecordCommand(irc)
+	case "leaderboard":
+		ParseLeaderboard(irc)
 	}
 }
 
