@@ -66,7 +66,7 @@ func (n *Network) GetNetworkChannel(channelName string) *channels.Channel {
 
 func (n *Network) GetUserWithIdentAndHost(ident, host string) *users.User {
 	logger.Debug("GetUserWithIdentAndHost called", "network", n.NetworkName, "ident", ident, "host", host, "total_users", len(n.Users))
-	
+
 	var foundUsers []*users.User
 	for i := range n.Users {
 		if n.Users[i].Ident == ident && n.Users[i].Host == host {
@@ -221,8 +221,8 @@ func (n *Network) SaveNormalized() error {
 		return err
 	}
 
-	logger.Debug("Successfully saved network users to normalized database", 
-		"network", n.NetworkName, 
+	logger.Debug("Successfully saved network users to normalized database",
+		"network", n.NetworkName,
 		"users_saved", len(usersData))
 
 	return nil
@@ -245,12 +245,12 @@ func (n *Network) LoadNormalized() error {
 	// STEP 1: Configuration data stays from config.toml (already loaded)
 	// The Network struct already has the current config.toml values for:
 	// - n.Servers (from config)
-	// - n.Channels (from config) 
+	// - n.Channels (from config)
 	// - n.AdminHosts (from config)
 	// - n.IgnoredNicks (from config)
 	// - n.DenyCommands (from config)
 	// - All other network settings (Nick, User, Name, etc.)
-	
+
 	logger.Debug("Loading normalized network data with config merge", "network", n.NetworkName)
 
 	// STEP 2: Ensure network configuration is saved to database (configuration merge strategy)
@@ -270,7 +270,7 @@ func (n *Network) LoadNormalized() error {
 			DenyCommands:  channel.DenyCommands,
 		}
 	}
-	
+
 	// Channel syncing is now handled in SaveNetwork - no need for manual cleanup here
 
 	// Save complete network configuration to database (servers, admin hosts, channels, etc.)
@@ -292,7 +292,7 @@ func (n *Network) LoadNormalized() error {
 		DenyCommands:  n.DenyCommands,
 		Channels:      channelsData,
 	}
-	
+
 	// Convert admin hosts
 	for _, admin := range n.AdminHosts {
 		networkData.AdminHosts = append(networkData.AdminHosts, birdbase.AdminHost{
@@ -301,7 +301,7 @@ func (n *Network) LoadNormalized() error {
 			Owner: admin.Owner,
 		})
 	}
-	
+
 	// Convert servers
 	for _, server := range n.Servers {
 		networkData.Servers = append(networkData.Servers, birdbase.ServerData{
@@ -311,7 +311,7 @@ func (n *Network) LoadNormalized() error {
 			SkipSSLVerify: server.SkipSslVerify,
 		})
 	}
-	
+
 	if err := birdbase.SaveNetwork(n.NetworkName, networkData); err != nil {
 		logger.Warn("Failed to save network configuration to database", "network", n.NetworkName, "error", err)
 	}
@@ -335,8 +335,8 @@ func (n *Network) LoadNormalized() error {
 		n.Users = append(n.Users, *user)
 	}
 
-	logger.Debug("Successfully loaded network with config merge", 
-		"network", n.NetworkName, 
+	logger.Debug("Successfully loaded network with config merge",
+		"network", n.NetworkName,
 		"users_loaded", len(n.Users),
 		"servers_from_config", len(n.Servers),
 		"channels_from_config", len(n.Channels))

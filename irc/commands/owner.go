@@ -46,7 +46,7 @@ func handleDbStats(irc state.State) {
 
 	// Format size in human readable format
 	fileSizeStr := formatBytes(fileSize)
-	
+
 	// Get internal SQLite size calculation
 	sizeVal, ok := stats["size"].(int64)
 	if !ok {
