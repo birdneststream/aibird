@@ -360,6 +360,45 @@ func (s *SQLiteDB) GetNetworkLeaderboard(network string, limit int) ([]Leaderboa
 	return entries, nil
 }
 
+func GetNetworkUserTotals(network string, limit int) ([]UserTotalEntry, error) {
+	return Data.GetNetworkUserTotals(network, limit)
+}
+
+func (s *SQLiteDB) GetNetworkUserTotals(network string, limit int) ([]UserTotalEntry, error) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
+	rows, err := s.db.Query(`
+        SELECT nickname, SUM(count) as total_count, MAX(updated_at) as latest_update
+        FROM command_leaderboard 
+        WHERE network = ?
+        GROUP BY nickname
+        ORDER BY total_count DESC, latest_update DESC
+        LIMIT ?
+    `, network, limit)
+
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var entries []UserTotalEntry
+	for rows.Next() {
+		var entry UserTotalEntry
+		err := rows.Scan(&entry.Nickname, &entry.TotalCount, &entry.UpdatedAt)
+		if err != nil {
+			continue
+		}
+		entries = append(entries, entry)
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+
+	return entries, nil
+}
+
 func GetGlobalLeaderboard(limit int) ([]GlobalLeaderboardEntry, error) {
 	return Data.GetGlobalLeaderboard(limit)
 }
@@ -449,6 +488,12 @@ type GlobalLeaderboardEntry struct {
 	Command   string    `json:"command"`
 	Count     int       `json:"count"`
 	UpdatedAt time.Time `json:"updated_at"`
+}
+
+type UserTotalEntry struct {
+	Nickname   string    `json:"nickname"`
+	TotalCount int       `json:"total_count"`
+	UpdatedAt  time.Time `json:"updated_at"`
 }
 
 // REMOVED: Legacy JSON blob storage methods
