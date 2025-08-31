@@ -347,29 +347,15 @@ func nagUserToGiveMoney(s State) {
 		return
 	}
 
-	key := s.User.Ident + s.User.Host + "nag"
+	// Use specialized user usage tracking with automatic nag detection
+	totalUses, shouldNag, err := birdbase.IncrementUserUsage(s.User.Ident, s.User.Host)
+	if err != nil {
+		logger.Error("Failed to increment user usage", "ident", s.User.Ident, "host", s.User.Host, "error", err)
+		return
+	}
 
-	if birdbase.Has(key) {
-		// get value from key as int
-		counter, _ := birdbase.Get(key)
-		noOfUses, _ := strconv.Atoi(string(counter))
-
-		noOfUses = noOfUses + 1
-
-		if noOfUses > 50 {
-			s.Send("Hey there chat pal " + s.User.NickName + " thanks for using aibird! Please support if you can https://www.patreon.com/birdnestlive or !support for more.")
-			if err := birdbase.Delete(key); err != nil {
-				logger.Error("Failed to delete usage counter after support message", "key", key, "error", err)
-			}
-			return
-		}
-
-		if err := birdbase.PutIntExpireHours(key, noOfUses, 168); err != nil {
-			logger.Error("Failed to update usage counter", "key", key, "usage", noOfUses, "error", err)
-		}
-	} else {
-		if err := birdbase.PutIntExpireHours(key, 0, 168); err != nil {
-			logger.Error("Failed to initialize usage counter", "key", key, "error", err)
-		}
+	// The new system shows donation prompts every 30 uses instead of at 50
+	if shouldNag {
+		s.Send("Hey there chat pal " + s.User.NickName + " thanks for using aibird! (" + strconv.Itoa(totalUses) + " uses) Please support if you can https://www.patreon.com/birdnestlive or !support for more.")
 	}
 }

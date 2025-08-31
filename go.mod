@@ -13,6 +13,7 @@ require (
 	github.com/google/uuid v1.6.0
 	github.com/hako/durafmt v0.0.0-20210608085754-5c1018a4e16b
 	github.com/lrstanley/girc v1.1.0
+	github.com/mattn/go-sqlite3 v1.14.32
 	github.com/richinsley/comfy2go v0.6.6
 	github.com/schollz/progressbar/v3 v3.18.0
 	golang.org/x/crypto v0.41.0

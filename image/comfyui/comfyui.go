@@ -15,6 +15,7 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"time"
 
 	"aibird/shared/meta"
 
@@ -401,13 +402,11 @@ func Process(irc state.State, aiEnhancedPrompt string, gpu meta.GPUType) (string
 							f.Write(*img_data)
 							f.Close()
 
-							// Example of a post-generation action, can be made generic later
+							// Example of a post-generation rate limit, can be made generic later
 							if strings.Contains(model, "wan") && irc.User.GetAccessLevel() <= 2 {
 								cacheKey := fmt.Sprintf("img2wan_%s", irc.User.NickName)
-								err := birdbase.PutStringExpireSeconds(cacheKey, "1", 60*60*3)
-								if err != nil {
-									logger.Error("Failed to set cache key", "error", err)
-								}
+								// Set rate limit using in-memory rate limiter (3 hours)
+								birdbase.RateLimiter.SetRateLimit(cacheKey, 3*time.Hour)
 							}
 
 							return output.Filename, nil

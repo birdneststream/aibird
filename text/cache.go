@@ -3,10 +3,7 @@ package text
 import (
 	"aibird/birdbase"
 	"aibird/logger"
-	"encoding/json"
-	"errors"
-
-	"git.mills.io/prologic/bitcask"
+	"database/sql"
 )
 
 func AppendChatCache(key string, whoIsTalking string, message string, contextLimit int) {
@@ -14,9 +11,7 @@ func AppendChatCache(key string, whoIsTalking string, message string, contextLim
 	var cache []Message
 
 	// If a cache already exists, get it
-	if birdbase.Has(key) {
-		cache = GetChatCache(key)
-	}
+	cache = GetChatCache(key)
 
 	// Append the new message
 	newMessage := Message{
@@ -30,34 +25,33 @@ func AppendChatCache(key string, whoIsTalking string, message string, contextLim
 		cache = cache[1:] // Remove the oldest message
 	}
 
-	// Write the updated cache back to the database
-	cacheBytes, err := json.Marshal(cache)
-	if err != nil {
-		logger.Error("Failed to marshal chat cache for appending", "key", key, "error", err)
-		return
+	// Convert to birdbase.Message for storage
+	birdbaseCache := make([]birdbase.Message, len(cache))
+	for i, msg := range cache {
+		birdbaseCache[i] = birdbase.Message{Role: msg.Role, Content: msg.Content}
 	}
 
-	err = birdbase.PutBytesExpireHours(key, cacheBytes, 24)
+	// Write the updated cache back to the database using specialized method
+	err := birdbase.PutChatHistory(key, birdbaseCache)
 	if err != nil {
 		logger.Error("Failed to put appended chat cache", "key", key, "error", err)
 	}
 }
 
 func GetChatCache(key string) []Message {
-	data, err := birdbase.Get(key)
+	birdbaseMessages, err := birdbase.GetChatHistory(key)
 	if err != nil {
 		// Use errors.Is for robust error checking, specifically for the key not found case.
-		if !errors.Is(err, bitcask.ErrKeyNotFound) {
+		if err != sql.ErrNoRows {
 			logger.Error("Failed to get chat cache", "key", key, "error", err)
 		}
 		return nil
 	}
 
-	var messages []Message
-	err = json.Unmarshal(data, &messages)
-	if err != nil {
-		logger.Error("Failed to unmarshal chat cache", "key", key, "error", err)
-		return nil
+	// Convert from birdbase.Message to text.Message
+	messages := make([]Message, len(birdbaseMessages))
+	for i, msg := range birdbaseMessages {
+		messages[i] = Message{Role: msg.Role, Content: msg.Content}
 	}
 
 	return messages
@@ -74,11 +68,7 @@ func DeleteChatCache(key string) bool {
 }
 
 func TruncateLastMessage(key string) {
-	// If a cache already exists, get it
-	if !birdbase.Has(key) {
-		return
-	}
-
+	// Get the existing cache
 	cache := GetChatCache(key)
 	if len(cache) == 0 {
 		return
@@ -87,14 +77,14 @@ func TruncateLastMessage(key string) {
 	// Remove the last message
 	cache = cache[:len(cache)-1]
 
-	// Write the updated cache back to the database
-	cacheBytes, err := json.Marshal(cache)
-	if err != nil {
-		logger.Error("Failed to marshal chat cache for truncating", "key", key, "error", err)
-		return
+	// Convert to birdbase.Message for storage
+	birdbaseCache := make([]birdbase.Message, len(cache))
+	for i, msg := range cache {
+		birdbaseCache[i] = birdbase.Message{Role: msg.Role, Content: msg.Content}
 	}
 
-	err = birdbase.PutBytesExpireHours(key, cacheBytes, 24)
+	// Write the updated cache back to the database using specialized method
+	err := birdbase.PutChatHistory(key, birdbaseCache)
 	if err != nil {
 		logger.Error("Failed to put truncated chat cache", "key", key, "error", err)
 	}
