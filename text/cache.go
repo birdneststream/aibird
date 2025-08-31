@@ -1,12 +1,13 @@
 package text
 
 import (
+	"database/sql"
+
 	"aibird/birdbase"
 	"aibird/logger"
-	"database/sql"
 )
 
-func AppendChatCache(key string, whoIsTalking string, message string, contextLimit int) {
+func AppendChatCache(key, whoIsTalking, message string, contextLimit int) {
 	// Start with an empty cache
 	var cache []Message
 

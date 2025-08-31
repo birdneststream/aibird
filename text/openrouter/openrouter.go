@@ -2,6 +2,9 @@ package openrouter
 
 //
 import (
+	"fmt"
+	"strings"
+
 	"aibird/birdbase"
 	"aibird/helpers"
 	"aibird/http/request"
@@ -9,8 +12,6 @@ import (
 	"aibird/logger"
 	"aibird/settings"
 	"aibird/text"
-	"fmt"
-	"strings"
 )
 
 // OpenRouterRequest coordinates the entire process of handling an OpenRouter request.

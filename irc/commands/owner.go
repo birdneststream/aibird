@@ -1,12 +1,13 @@
 package commands
 
 import (
-	"aibird/birdbase"
-	"aibird/helpers"
-	"aibird/irc/state"
 	"fmt"
 	"os"
 	"path/filepath"
+
+	"aibird/birdbase"
+	"aibird/helpers"
+	"aibird/irc/state"
 )
 
 func ParseOwner(irc state.State) {

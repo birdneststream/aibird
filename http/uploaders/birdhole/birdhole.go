@@ -1,12 +1,13 @@
 package birdhole
 
 import (
-	"aibird/http/request"
-	"aibird/image"
-	"aibird/settings"
 	"encoding/json"
 	"os"
 	"strconv"
+
+	"aibird/http/request"
+	"aibird/image"
+	"aibird/settings"
 )
 
 func BirdHole(fileName string, message string, fields []request.Fields, config settings.BirdholeConfig) (string, error) {

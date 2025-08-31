@@ -1,10 +1,11 @@
 package birdbase
 
 import (
-	"aibird/logger"
 	"context"
 	"database/sql"
 	"time"
+
+	"aibird/logger"
 )
 
 // maintenanceLoop runs periodic cleanup

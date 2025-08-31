@@ -10,7 +10,7 @@ import (
 
 func AppendFullStop(message string) string {
 	if !strings.HasSuffix(message, ".") && !strings.HasSuffix(message, "!") && !strings.HasSuffix(message, "?") {
-		message = message + "."
+		message += "."
 	}
 
 	return message

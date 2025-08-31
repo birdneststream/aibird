@@ -1,18 +1,19 @@
 package networks
 
 import (
-	"aibird/birdbase"
-	"aibird/helpers"
-	"aibird/irc/channels"
-	"aibird/irc/servers"
-	"aibird/irc/users"
-	"aibird/logger"
 	"crypto/rand"
 	"database/sql"
 	"fmt"
 	"math/big"
 	"strconv"
 	"time"
+
+	"aibird/birdbase"
+	"aibird/helpers"
+	"aibird/irc/channels"
+	"aibird/irc/servers"
+	"aibird/irc/users"
+	"aibird/logger"
 )
 
 func (n *Network) String() string {

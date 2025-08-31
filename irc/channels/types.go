@@ -1,8 +1,9 @@
 package channels
 
 import (
-	"aibird/irc/users"
 	"time"
+
+	"aibird/irc/users"
 )
 
 type (

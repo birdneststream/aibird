@@ -1,12 +1,13 @@
 package ircart
 
 import (
-	"aibird/image/exifparser"
-	"aibird/logger"
 	"fmt"
 	"image/png"
 	"os"
 	"strings"
+
+	"aibird/image/exifparser"
+	"aibird/logger"
 )
 
 // ExtractOrConvertIRCArt attempts to extract IRC art from PNG EXIF data first,

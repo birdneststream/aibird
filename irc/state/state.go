@@ -1,6 +1,12 @@
 package state
 
 import (
+	"encoding/hex"
+	"errors"
+	"fmt"
+	"strconv"
+	"strings"
+
 	"aibird/birdbase"
 	"aibird/helpers"
 	"aibird/irc/channels"
@@ -8,11 +14,6 @@ import (
 	"aibird/irc/users"
 	"aibird/logger"
 	"aibird/settings"
-	"encoding/hex"
-	"errors"
-	"fmt"
-	"strconv"
-	"strings"
 
 	"github.com/lrstanley/girc"
 	"golang.org/x/crypto/sha3"

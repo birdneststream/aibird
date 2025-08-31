@@ -1,13 +1,14 @@
 package birdbase
 
 import (
-	"aibird/logger"
 	"context"
 	"database/sql"
 	"encoding/json"
 	"strconv"
 	"sync"
 	"time"
+
+	"aibird/logger"
 
 	_ "github.com/mattn/go-sqlite3"
 )
@@ -18,9 +19,8 @@ var (
 )
 
 type SQLiteDB struct {
-	db            *sql.DB
-	mu            sync.RWMutex
-	cleanupCancel context.CancelFunc
+	db *sql.DB
+	mu sync.RWMutex
 }
 
 // Message represents a chat message (for compatibility)
@@ -166,7 +166,7 @@ func (s *SQLiteDB) Delete(key string) error {
 }
 
 // Compatibility functions for existing code
-func PutString(key string, value string) error {
+func PutString(key, value string) error {
 	return Put(key, []byte(value))
 }
 
@@ -182,11 +182,11 @@ func PutBytesExpireHours(key string, value []byte, hours int) error {
 	return PutWithTTL(key, value, time.Duration(hours)*time.Hour)
 }
 
-func PutStringExpireSeconds(key string, value string, seconds int) error {
+func PutStringExpireSeconds(key, value string, seconds int) error {
 	return PutWithTTL(key, []byte(value), time.Duration(seconds)*time.Second)
 }
 
-func PutIntExpireHours(key string, value int, hours int) error {
+func PutIntExpireHours(key string, value, hours int) error {
 	return PutWithTTL(key, []byte(strconv.Itoa(value)), time.Duration(hours)*time.Hour)
 }
 
@@ -351,6 +351,10 @@ func (s *SQLiteDB) GetNetworkLeaderboard(network string, limit int) ([]Leaderboa
 		entries = append(entries, entry)
 	}
 
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+
 	return entries, nil
 }
 
@@ -382,6 +386,10 @@ func (s *SQLiteDB) GetGlobalLeaderboard(limit int) ([]GlobalLeaderboardEntry, er
 			continue
 		}
 		entries = append(entries, entry)
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, err
 	}
 
 	return entries, nil
@@ -416,6 +424,10 @@ func (s *SQLiteDB) GetCommandLeaderboard(command string, limit int) ([]GlobalLea
 			continue
 		}
 		entries = append(entries, entry)
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, err
 	}
 
 	return entries, nil

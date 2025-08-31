@@ -1,15 +1,16 @@
 package ollama
 
 import (
+	"errors"
+	"regexp"
+	"strings"
+
 	"aibird/birdbase"
 	"aibird/helpers"
 	"aibird/http/request"
 	"aibird/irc/state"
 	"aibird/settings"
 	"aibird/text"
-	"errors"
-	"regexp"
-	"strings"
 )
 
 func ChatRequest(irc state.State) (string, error) {
@@ -156,8 +157,8 @@ func SdPrompt(message string, config settings.OllamaConfig) (string, error) {
 	}
 
 	// replace , with ,  in prompt
-	prompt = strings.Replace(prompt, ",", ", ", -1)
-	prompt = strings.Replace(prompt, "_", " ", -1)
+	prompt = strings.ReplaceAll(prompt, ",", ", ")
+	prompt = strings.ReplaceAll(prompt, "_", " ")
 
 	return prompt, nil
 }
@@ -172,7 +173,7 @@ func GenerateLyrics(message string, config settings.OllamaConfig) (string, error
 	return SingleRequest(userPrompt, systemPrompt, config)
 }
 
-func SingleRequest(message string, system string, config settings.OllamaConfig) (string, error) {
+func SingleRequest(message, system string, config settings.OllamaConfig) (string, error) {
 	requestBody := &OllamaRequestBody{
 		Model:     "dolphin-llama3:8b",
 		Stream:    false,

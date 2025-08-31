@@ -1,10 +1,11 @@
 package networks
 
 import (
+	"time"
+
 	"aibird/irc/channels"
 	"aibird/irc/servers"
 	"aibird/irc/users"
-	"time"
 )
 
 type (

@@ -77,8 +77,8 @@ func (s *SQLiteDB) initSchema() error {
 	}
 	defer tx.Rollback()
 
-	if _, err := tx.Exec(schema); err != nil {
-		return fmt.Errorf("failed to create schema: %w", err)
+	if _, execErr := tx.Exec(schema); execErr != nil {
+		return fmt.Errorf("failed to create schema: %w", execErr)
 	}
 
 	var currentVersion int

@@ -1,9 +1,6 @@
 package commands
 
 import (
-	"aibird/irc/state"
-	"aibird/settings"
-	"aibird/text/gemini"
 	"crypto/rand"
 	"encoding/json"
 	"fmt"
@@ -13,6 +10,10 @@ import (
 	"net/url"
 	"strings"
 	"time"
+
+	"aibird/irc/state"
+	"aibird/settings"
+	"aibird/text/gemini"
 )
 
 var (

@@ -1,6 +1,12 @@
 package commands
 
 import (
+	"fmt"
+	"io"
+	"os"
+	"strconv"
+	"strings"
+
 	"aibird/asciistore"
 	"aibird/http/request"
 	"aibird/http/uploaders/birdhole"
@@ -11,11 +17,6 @@ import (
 	"aibird/irc/state"
 	"aibird/logger"
 	"aibird/text/ollama"
-	"fmt"
-	"io"
-	"os"
-	"strconv"
-	"strings"
 
 	meta "aibird/shared/meta"
 

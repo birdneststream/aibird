@@ -1,11 +1,6 @@
 package comfyui
 
 import (
-	"aibird/birdbase"
-	"aibird/irc/state"
-	"aibird/logger"
-	"aibird/settings"
-	"aibird/text/gemini"
 	"crypto/rand"
 	"errors"
 	"fmt"
@@ -17,11 +12,19 @@ import (
 	"strings"
 	"time"
 
+	"aibird/birdbase"
+	"aibird/irc/state"
+	"aibird/logger"
+	"aibird/settings"
+	"aibird/text/gemini"
+
 	"aibird/shared/meta"
 
 	"github.com/richinsley/comfy2go/client"
 	"github.com/schollz/progressbar/v3"
 )
+
+const boolType = "bool"
 
 // Define a local struct for status.AibirdMeta
 // Only the fields needed for access/routing
@@ -44,7 +47,7 @@ func getPortByName(config settings.ComfyUiConfig, name string) (int, bool) {
 
 func freeVram(clientAddr string, clientPort int) error {
 	url := fmt.Sprintf("http://%s:%d/free", clientAddr, clientPort)
-	req, err := http.NewRequest("POST", url, nil)
+	req, err := http.NewRequest("POST", url, http.NoBody)
 	if err != nil {
 		return fmt.Errorf("could not create free request: %w", err)
 	}
@@ -134,7 +137,7 @@ func Process(irc state.State, aiEnhancedPrompt string, gpu meta.GPUType) (string
 			var userInputProvided bool
 
 			// Handle different parameter types for input retrieval
-			if paramDef.Type == "bool" {
+			if paramDef.Type == boolType {
 				rawUserInput = irc.GetBoolArg(paramName)
 				userInputProvided = rawUserInput.(bool) // For booleans, if the flag is present it's true
 			} else {
@@ -169,7 +172,7 @@ func Process(irc state.State, aiEnhancedPrompt string, gpu meta.GPUType) (string
 
 			if !userInputProvided {
 				// Set default values based on parameter type
-				if paramDef.Type == "bool" {
+				if paramDef.Type == boolType {
 					// Special handling for fullblocks parameter - invert the logic
 					if paramName == "fullblocks" {
 						finalValue = true // Default to halfblock mode (true for ComfyUI half_block_mode)

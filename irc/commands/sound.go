@@ -1,6 +1,13 @@
 package commands
 
 import (
+	"fmt"
+	"os"
+	"os/exec"
+	"path/filepath"
+	"strconv"
+	"strings"
+
 	"aibird/http/request"
 	"aibird/http/uploaders/birdhole"
 	"aibird/image/comfyui"
@@ -9,12 +16,6 @@ import (
 	"aibird/logger"
 	"aibird/status"
 	"aibird/text"
-	"fmt"
-	"os"
-	"os/exec"
-	"path/filepath"
-	"strconv"
-	"strings"
 
 	meta "aibird/shared/meta"
 

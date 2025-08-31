@@ -70,13 +70,13 @@ func AppendSlashUrl(url string) string {
 	if url == "" {
 		return "/"
 	}
-	if len(url) > 0 && url[len(url)-1:] != "/" {
+	if url != "" && url[len(url)-1:] != "/" {
 		return url + "/"
 	}
 	return url
 }
 
-func MakeUrlWithPort(url string, port string) string {
+func MakeUrlWithPort(url, port string) string {
 	return AppendSlashUrl(url + ":" + port)
 }
 

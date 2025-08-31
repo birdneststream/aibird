@@ -1,9 +1,10 @@
 package commands
 
 import (
+	"strings"
+
 	"aibird/irc/commands/help"
 	"aibird/settings"
-	"strings"
 )
 
 // GetAllCommands returns a slice of all available command names across all command types

@@ -1,17 +1,18 @@
 package state
 
 import (
-	"aibird/birdbase"
-	"aibird/helpers"
-	"aibird/http/uploaders/birdhole"
-	"aibird/irc/users"
-	"aibird/logger"
 	"fmt"
 	"os"
 	"reflect"
 	"strconv"
 	"strings"
 	"time"
+
+	"aibird/birdbase"
+	"aibird/helpers"
+	"aibird/http/uploaders/birdhole"
+	"aibird/irc/users"
+	"aibird/logger"
 
 	"github.com/google/uuid"
 )

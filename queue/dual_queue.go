@@ -1,15 +1,16 @@
 package queue
 
 import (
-	"aibird/image/comfyui"
-	"aibird/logger"
-	"aibird/shared/meta"
-	"aibird/status"
 	"context"
 	"errors"
 	"os"
 	"sync"
 	"time"
+
+	"aibird/image/comfyui"
+	"aibird/logger"
+	"aibird/shared/meta"
+	"aibird/status"
 )
 
 func NewDualQueue() *DualQueue {
@@ -178,7 +179,7 @@ func (dq *DualQueue) processQueueItem(queue *Queue) {
 		case <-ctx.Done():
 			// Timeout occurred
 			logger.Error("Queue item timed out", "gpu", item.GPU, "action", item.State.Action())
-			item.State.SendError("An unknown error occurred, your request has been cancelled. Please try again later.")
+			item.State.SendError("An unknown error occurred, your request has been canceled. Please try again later.")
 		}
 
 		queue.setProcessing(false)

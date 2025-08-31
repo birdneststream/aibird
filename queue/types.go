@@ -1,9 +1,10 @@
 package queue
 
 import (
+	"sync"
+
 	"aibird/irc/state"
 	"aibird/shared/meta"
-	"sync"
 )
 
 type Item struct {
