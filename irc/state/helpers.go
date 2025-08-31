@@ -179,10 +179,10 @@ func (s *State) MessageFloodCheck() bool {
 		// Set user as ignored instead of kick/ban system
 		s.User.Ignored = true
 		s.Network.Save()
-		
+
 		// Set temporary ignore duration using in-memory flood manager
 		birdbase.FloodManager.SetFloodBan(ban, time.Duration(s.Config.AiBird.FloodIgnoreMinutes)*time.Minute)
-		
+
 		// Schedule automatic un-ignore after the flood ignore time
 		go func() {
 			time.Sleep(time.Duration(s.Config.AiBird.FloodIgnoreMinutes) * time.Minute)
@@ -190,7 +190,7 @@ func (s *State) MessageFloodCheck() bool {
 			s.Network.Save()
 			logger.Info("User automatically un-ignored after flood timeout", "user", s.User.NickName, "network", s.Network.NetworkName)
 		}()
-		
+
 		logger.Info("User ignored due to flood", "user", s.User.NickName, "network", s.Network.NetworkName, "duration", fmt.Sprintf("%dm", s.Config.AiBird.FloodIgnoreMinutes))
 		return true
 	}
@@ -225,7 +225,7 @@ func (s *State) RemoveFloodCheck() {
 	// Remove invite-only and moderated modes
 	s.Client.Cmd.Mode(s.Channel.Name, "-i")
 	s.Client.Cmd.Mode(s.Channel.Name, "-m")
-	
+
 	// Note: We don't need to explicitly remove the flood check key
 	// as it will expire automatically from in-memory storage
 }
