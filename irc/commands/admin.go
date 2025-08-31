@@ -106,8 +106,9 @@ func parseAdminCommands(irc state.State, q *queue.DualQueue) {
 			irc.UpdateNetworkBasedOnArgs()
 			return
 		case "sync":
-			irc.Send("Syncing network...")
+			irc.Send("Syncing channel " + irc.Channel.Name + "...")
 			irc.Client.Cmd.SendRaw("WHO " + irc.Channel.Name)
+			// Mode restoration will happen automatically when RPL_ENDOFWHO is received
 			return
 		case "op":
 			irc.Client.Cmd.Mode(irc.Channel.Name, "+o", irc.Command.Message)
@@ -151,7 +152,7 @@ func parseAdminCommands(irc state.State, q *queue.DualQueue) {
 			return
 		case "unignore":
 			irc.Send("Unignoring " + irc.Command.Message)
-			user, _ := irc.Channel.GetUserWithNick(irc.Message())
+			user, _ := irc.Channel.GetUserWithNick(irc.Command.Message)
 
 			if user != nil {
 				user.UnIgnore()

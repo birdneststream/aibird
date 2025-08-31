@@ -210,7 +210,7 @@ func OwnerHelp() []Help {
 		{
 			Name:      "dbstats",
 			Type:      "owner",
-			Help:      "Display Bitcask database statistics including keys, datafiles, and disk usage.",
+			Help:      "Display SQLite database statistics including keys and disk usage.",
 			Arguments: []Arguments{},
 			Queueable: false,
 		},
@@ -264,8 +264,8 @@ func AdminHelp() []Help {
 		},
 		{
 			Name:      "sync",
-			Type:      "admin",
-			Help:      "Synchronize the current state with the network.",
+			Type:      "owner",
+			Help:      "Synchronize channel state and restore missing user modes.",
 			Arguments: []Arguments{},
 			Queueable: false,
 		},
