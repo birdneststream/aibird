@@ -173,21 +173,21 @@ func IsGenerativeCommand(action string, config settings.AiBird) bool {
 	if IsTextCommand(action) {
 		return true
 	}
-	
+
 	// Image generation commands (ComfyUI workflows)
 	if IsImageCommand(action, config) {
 		return true
 	}
-	
-	// Sound generation commands (ComfyUI audio workflows)  
+
+	// Sound generation commands (ComfyUI audio workflows)
 	if IsSoundCommand(action, config) {
 		return true
 	}
-	
+
 	// Video generation commands (ComfyUI video workflows)
 	if IsVideoCommand(action, config) {
 		return true
 	}
-	
+
 	return false
 }

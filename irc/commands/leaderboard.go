@@ -19,7 +19,7 @@ func ParseLeaderboard(irc state.State) {
 func handleLeaderboard(irc state.State) {
 	// Get the argument to determine which leaderboard to show
 	arg := strings.TrimSpace(irc.Command.Message)
-	
+
 	switch arg {
 	case "global":
 		if !irc.User.IsOwnerUser() {
@@ -56,23 +56,23 @@ func handleNetworkLeaderboard(irc state.State) {
 	// Create table header
 	response := fmt.Sprintf("📊 Top %d users on %s:", len(entries), irc.Network.NetworkName)
 	irc.Send(response)
-	
+
 	// Table header
 	irc.Send("┌────┬─────────────────┬─────────────────┬───────┐")
 	irc.Send("│ #  │ Nickname        │ Command         │ Count │")
 	irc.Send("├────┼─────────────────┼─────────────────┼───────┤")
-	
+
 	// Table rows
 	for i, entry := range entries {
 		rank := fmt.Sprintf("%2d", i+1)
 		nickname := fmt.Sprintf("%-15s", truncateString(entry.Nickname, 15))
 		command := fmt.Sprintf("%-15s", truncateString(entry.Command, 15))
 		count := fmt.Sprintf("%5d", entry.Count)
-		
+
 		row := fmt.Sprintf("│ %s │ %s │ %s │ %s │", rank, nickname, command, count)
 		irc.Send(row)
 	}
-	
+
 	// Table footer
 	irc.Send("└────┴─────────────────┴─────────────────┴───────┘")
 }
@@ -93,12 +93,12 @@ func handleGlobalLeaderboard(irc state.State) {
 	// Create table header
 	response := fmt.Sprintf("🌍 Global Top %d users:", len(entries))
 	irc.Send(response)
-	
+
 	// Table header
 	irc.Send("┌────┬─────────────────┬─────────────────┬─────────────────┬───────┐")
 	irc.Send("│ #  │ Network         │ Nickname        │ Command         │ Count │")
 	irc.Send("├────┼─────────────────┼─────────────────┼─────────────────┼───────┤")
-	
+
 	// Table rows
 	for i, entry := range entries {
 		rank := fmt.Sprintf("%2d", i+1)
@@ -106,11 +106,11 @@ func handleGlobalLeaderboard(irc state.State) {
 		nickname := fmt.Sprintf("%-15s", truncateString(entry.Nickname, 15))
 		command := fmt.Sprintf("%-15s", truncateString(entry.Command, 15))
 		count := fmt.Sprintf("%5d", entry.Count)
-		
+
 		row := fmt.Sprintf("│ %s │ %s │ %s │ %s │ %s │", rank, network, nickname, command, count)
 		irc.Send(row)
 	}
-	
+
 	// Table footer
 	irc.Send("└────┴─────────────────┴─────────────────┴─────────────────┴───────┘")
 }
@@ -131,23 +131,23 @@ func handleCommandLeaderboard(irc state.State, command string) {
 	// Create table header
 	response := fmt.Sprintf("🎯 Top %d users for command '%s':", len(entries), command)
 	irc.Send(response)
-	
+
 	// Table header
 	irc.Send("┌────┬─────────────────┬─────────────────┬───────┐")
 	irc.Send("│ #  │ Network         │ Nickname        │ Count │")
 	irc.Send("├────┼─────────────────┼─────────────────┼───────┤")
-	
+
 	// Table rows
 	for i, entry := range entries {
 		rank := fmt.Sprintf("%2d", i+1)
 		network := fmt.Sprintf("%-15s", truncateString(entry.Network, 15))
 		nickname := fmt.Sprintf("%-15s", truncateString(entry.Nickname, 15))
 		count := fmt.Sprintf("%5d", entry.Count)
-		
+
 		row := fmt.Sprintf("│ %s │ %s │ %s │ %s │", rank, network, nickname, count)
 		irc.Send(row)
 	}
-	
+
 	// Table footer
 	irc.Send("└────┴─────────────────┴─────────────────┴───────┘")
 }

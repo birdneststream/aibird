@@ -96,25 +96,25 @@ func main() {
 // cleanupOrphanedNetworks removes networks that exist in database but not in config
 func cleanupOrphanedNetworks(config *settings.Config) {
 	logger.Debug("Checking for orphaned networks to cleanup")
-	
+
 	// Get all networks from database
 	dbNetworks, err := birdbase.GetAllNetworkNames()
 	if err != nil {
 		logger.Warn("Failed to get database networks for cleanup", "error", err)
 		return
 	}
-	
+
 	// Build map of networks from config
 	configNetworks := make(map[string]bool)
 	for _, network := range config.Networks {
 		configNetworks[network.NetworkName] = true
 	}
-	
+
 	// Delete networks that exist in DB but not in config
 	for _, dbNetwork := range dbNetworks {
 		if !configNetworks[dbNetwork] {
 			logger.Warn("Network exists in database but not in config - cleaning up", "network", dbNetwork)
-			
+
 			if err := birdbase.DeleteNetwork(dbNetwork); err != nil {
 				logger.Error("Failed to delete orphaned network", "error", err, "network", dbNetwork)
 			} else {
@@ -224,18 +224,18 @@ func handleWelcome(c *girc.Client, e girc.Event, network *networks.Network) {
 
 func handleNick(c *girc.Client, e girc.Event, network *networks.Network) {
 	logger.Debug("Nick change event", "network", network.NetworkName, "old_nick", e.Source.Name, "new_nick", e.Last())
-	
+
 	if e.Source.Name == network.Nick {
 		logger.Debug("Bot nick changed", "network", network.NetworkName, "old_nick", network.Nick, "new_nick", e.Last())
 		network.Nick = e.Last()
 		return
 	}
-	
+
 	if findUser := network.GetUserWithNick(e.Source.Name); findUser != nil {
 		logger.Debug("Found user for nick change", "network", network.NetworkName, "old_nick", e.Source.Name, "new_nick", e.Last(), "ident", findUser.Ident, "host", findUser.Host)
 		findUser.UpdateNick(e.Last())
 		logger.Debug("User nick updated", "network", network.NetworkName, "new_nick", findUser.NickName, "ident", findUser.Ident, "host", findUser.Host)
-		
+
 		// Save just this user instead of the entire network (performance optimization)
 		if userData, err := findUser.ToUserData(0); err != nil {
 			logger.Error("Failed to convert user to UserData for nick change", "error", err, "network", network.NetworkName, "nick", findUser.NickName)
@@ -260,14 +260,14 @@ func handleEndOfWho(c *girc.Client, e girc.Event, network *networks.Network, con
 	// RPL_ENDOFWHO indicates WHO command is complete for this channel
 	// This is when we should restore missing user modes if this was a sync command
 	logger.Debug("END_OF_WHO received", "network", network.NetworkName, "params", e.Params)
-	
+
 	if len(e.Params) < 2 {
 		return
 	}
-	
+
 	channelName := e.Params[1] // Channel name from END_OF_WHO
 	irc := state.Init(c, e, network, config)
-	
+
 	// Override channel since e.Params doesn't contain it in the right place for state.Init
 	if channel := network.GetNetworkChannel(channelName); channel != nil {
 		irc.Channel = channel
@@ -277,16 +277,16 @@ func handleEndOfWho(c *girc.Client, e girc.Event, network *networks.Network, con
 
 func handleJoin(c *girc.Client, e girc.Event, network *networks.Network, config *settings.Config) {
 	logger.Debug("JOIN event", "network", network.NetworkName, "nick", e.Source.Name, "channel", e.Params[0], "ident", e.Source.Ident, "host", e.Source.Host)
-	
+
 	if e.Source.Name == network.Nick {
 		logger.Debug("Bot joined channel - skipping user tracking", "network", network.NetworkName, "channel", e.Params[0])
 		return
 	}
-	
+
 	// Update user's ident/host if we already know them, and save the update
 	if existingUser := network.GetUserWithNick(e.Source.Name); existingUser != nil {
 		existingUser.UpdateIdentHost(e.Source.Ident, e.Source.Host)
-		
+
 		// Save just this user update (performance optimization)
 		if userData, err := existingUser.ToUserData(0); err != nil {
 			logger.Warn("Failed to convert user to UserData after ident/host update", "error", err, "network", network.NetworkName, "nick", existingUser.NickName)
@@ -294,12 +294,12 @@ func handleJoin(c *girc.Client, e girc.Event, network *networks.Network, config 
 			logger.Warn("Failed to save user after ident/host update", "error", err, "network", network.NetworkName, "nick", existingUser.NickName)
 		}
 	}
-	
+
 	// Track user joining this channel
 	if err := birdbase.AddUserToChannel(network.NetworkName, e.Source.Ident, e.Source.Host, e.Params[0]); err != nil {
 		logger.Warn("Failed to track user joining channel", "error", err, "network", network.NetworkName, "nick", e.Source.Name, "channel", e.Params[0])
 	}
-	
+
 	// Skip DelayedWhoTimer for performance during netsplits - user_channels are already tracked above
 	// irc := state.Init(c, e, network, config)
 	// if irc.Channel != nil {
@@ -309,12 +309,12 @@ func handleJoin(c *girc.Client, e girc.Event, network *networks.Network, config 
 
 func handlePart(c *girc.Client, e girc.Event, network *networks.Network) {
 	logger.Debug("PART event", "network", network.NetworkName, "nick", e.Source.Name, "channel", e.Params[0], "ident", e.Source.Ident, "host", e.Source.Host)
-	
+
 	if e.Source.Name == network.Nick {
 		logger.Debug("Bot left channel - skipping user tracking", "network", network.NetworkName, "channel", e.Params[0])
 		return
 	}
-	
+
 	// Remove user from this channel
 	if err := birdbase.RemoveUserFromChannel(network.NetworkName, e.Source.Ident, e.Source.Host, e.Params[0]); err != nil {
 		logger.Warn("Failed to track user leaving channel", "error", err, "network", network.NetworkName, "nick", e.Source.Name, "channel", e.Params[0])
@@ -323,12 +323,12 @@ func handlePart(c *girc.Client, e girc.Event, network *networks.Network) {
 
 func handleQuit(c *girc.Client, e girc.Event, network *networks.Network) {
 	logger.Debug("QUIT event", "network", network.NetworkName, "nick", e.Source.Name, "ident", e.Source.Ident, "host", e.Source.Host)
-	
+
 	if e.Source.Name == network.Nick {
 		logger.Debug("Bot quit - skipping user tracking", "network", network.NetworkName)
 		return
 	}
-	
+
 	// Remove user from all channels on this network
 	if err := birdbase.RemoveUserFromAllChannels(network.NetworkName, e.Source.Ident, e.Source.Host); err != nil {
 		logger.Warn("Failed to track user quitting", "error", err, "network", network.NetworkName, "nick", e.Source.Name)
@@ -377,9 +377,9 @@ func handleKick(c *girc.Client, e girc.Event, network *networks.Network, config 
 	// e.Params[0] = channel, e.Params[1] = kicked user, e.Params[2] = reason
 	kickedNick := e.Params[1]
 	channelName := e.Params[0]
-	
+
 	logger.Debug("KICK event", "channel", channelName, "kicked_nick", kickedNick, "kicker", e.Source.Name)
-	
+
 	if kickedNick == c.GetNick() {
 		// Bot was kicked - handle rejoin
 		logger.Info("Bot was kicked from channel", "channel", channelName, "kicker", e.Source.Name)
@@ -392,7 +392,7 @@ func handleKick(c *girc.Client, e girc.Event, network *networks.Network, config 
 	} else {
 		// Someone else was kicked - remove them from user_channels
 		logger.Debug("User kicked from channel", "channel", channelName, "kicked_nick", kickedNick, "kicker", e.Source.Name)
-		
+
 		// We need to find the kicked user's ident/host to track properly
 		// Since KICK event doesn't provide ident/host, we'll look up the user in our network state
 		if kickedUser := network.GetUserWithNick(kickedNick); kickedUser != nil {
@@ -448,14 +448,14 @@ func handlePrivMsg(c *girc.Client, e girc.Event, network *networks.Network, conf
 			"channel", irc.Channel.Name,
 			"network", irc.Network.Name,
 		)
-		
+
 		// Track command usage for leaderboards
 		if err := birdbase.IncrementCommandUsage(irc.Network.NetworkName, irc.User.NickName, irc.Action()); err != nil {
 			logger.Warn("Failed to track command usage", "error", err, "network", irc.Network.NetworkName, "user", irc.User.NickName, "command", irc.Action())
 		} else {
 			logger.Debug("Command usage tracked", "network", irc.Network.NetworkName, "user", irc.User.NickName, "command", irc.Action())
 		}
-		
+
 		// Only check for flooding on messages that are commands.
 		checkFlood(irc)
 

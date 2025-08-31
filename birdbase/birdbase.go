@@ -565,23 +565,23 @@ type AdminHost struct {
 }
 
 type ServerData struct {
-	Host           string
-	Port           int
-	SSL            bool
-	SkipSSLVerify  bool
+	Host          string
+	Port          int
+	SSL           bool
+	SkipSSLVerify bool
 }
 
 type ChannelData struct {
-	Name           string
-	PreserveModes  bool
-	Ai             bool
-	Sd             bool
-	ImageDescribe  bool
-	Sound          bool
-	Video          bool
-	ActionTrigger  string
-	TrimOutput     bool
-	DenyCommands   []string
+	Name          string
+	PreserveModes bool
+	Ai            bool
+	Sd            bool
+	ImageDescribe bool
+	Sound         bool
+	Video         bool
+	ActionTrigger string
+	TrimOutput    bool
+	DenyCommands  []string
 }
 
 type UserData struct {
@@ -613,7 +613,7 @@ type UserModeData struct {
 func (s *SQLiteDB) SaveNetwork(networkName string, network *NetworkData) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	
+
 	tx, err := s.db.Begin()
 	if err != nil {
 		return err
@@ -644,9 +644,9 @@ func (s *SQLiteDB) SaveNetwork(networkName string, network *NetworkData) error {
 			updated_at = datetime('now')
 		RETURNING id
 	`, networkName, network.Enabled, network.Nick, network.User, network.Name, network.PreserveModes,
-		network.PingDelay, network.Version, network.Throttle, network.Burst, network.ActionTrigger, 
+		network.PingDelay, network.Version, network.Throttle, network.Burst, network.ActionTrigger,
 		network.ModesAtOnce, network.NickServPass, network.Pass).Scan(&networkID)
-	
+
 	if err != nil {
 		return err
 	}
@@ -666,13 +666,13 @@ func (s *SQLiteDB) SaveNetwork(networkName string, network *NetworkData) error {
 				return err
 			}
 		}
-		
+
 		// Build list of servers that should exist
 		var serverHosts []string
 		for _, server := range network.Servers {
 			serverHosts = append(serverHosts, server.Host)
 		}
-		
+
 		// Delete servers not in current config
 		placeholders := make([]string, len(serverHosts))
 		args := make([]interface{}, len(serverHosts)+1)
@@ -681,12 +681,12 @@ func (s *SQLiteDB) SaveNetwork(networkName string, network *NetworkData) error {
 			placeholders[i] = "?"
 			args[i+1] = host
 		}
-		
+
 		deleteQuery := fmt.Sprintf(`
 			DELETE FROM servers 
 			WHERE network_id = ? AND host NOT IN (%s)
 		`, strings.Join(placeholders, ","))
-		
+
 		_, err = tx.Exec(deleteQuery, args...)
 		if err != nil {
 			return err
@@ -713,22 +713,22 @@ func (s *SQLiteDB) SaveNetwork(networkName string, network *NetworkData) error {
 				return err
 			}
 		}
-		
+
 		// Delete admin hosts not in current config (host+ident pairs)
 		var hostIdentPairs []string
 		var args []interface{}
 		args = append(args, networkID)
-		
+
 		for _, admin := range network.AdminHosts {
 			hostIdentPairs = append(hostIdentPairs, "(host = ? AND ident = ?)")
 			args = append(args, admin.Host, admin.Ident)
 		}
-		
+
 		deleteQuery := fmt.Sprintf(`
 			DELETE FROM admin_hosts 
 			WHERE network_id = ? AND NOT (%s)
 		`, strings.Join(hostIdentPairs, " OR "))
-		
+
 		_, err = tx.Exec(deleteQuery, args...)
 		if err != nil {
 			return err
@@ -764,14 +764,14 @@ func (s *SQLiteDB) SaveNetwork(networkName string, network *NetworkData) error {
 			if err != nil {
 				return err
 			}
-			
+
 			// Handle channel-level denied commands
 			channelID := int64(0)
 			err = tx.QueryRow("SELECT id FROM channels WHERE network_id = ? AND name = ?", networkID, channel.Name).Scan(&channelID)
 			if err != nil {
 				return err
 			}
-			
+
 			// Sync channel denied commands
 			if len(channel.DenyCommands) > 0 {
 				for _, cmd := range channel.DenyCommands {
@@ -784,7 +784,7 @@ func (s *SQLiteDB) SaveNetwork(networkName string, network *NetworkData) error {
 						return err
 					}
 				}
-				
+
 				// Delete channel denied commands not in current config
 				placeholders := make([]string, len(channel.DenyCommands))
 				args := make([]interface{}, len(channel.DenyCommands)+1)
@@ -793,12 +793,12 @@ func (s *SQLiteDB) SaveNetwork(networkName string, network *NetworkData) error {
 					placeholders[i] = "?"
 					args[i+1] = cmd
 				}
-				
+
 				deleteQuery := fmt.Sprintf(`
 					DELETE FROM denied_commands 
 					WHERE channel_id = ? AND command NOT IN (%s)
 				`, strings.Join(placeholders, ","))
-				
+
 				_, err = tx.Exec(deleteQuery, args...)
 				if err != nil {
 					return err
@@ -811,7 +811,7 @@ func (s *SQLiteDB) SaveNetwork(networkName string, network *NetworkData) error {
 				}
 			}
 		}
-		
+
 		// Delete channels not in current config
 		placeholders := make([]string, len(network.Channels))
 		args := make([]interface{}, len(network.Channels)+1)
@@ -820,12 +820,12 @@ func (s *SQLiteDB) SaveNetwork(networkName string, network *NetworkData) error {
 			placeholders[i] = "?"
 			args[i+1] = channel.Name
 		}
-		
+
 		deleteQuery := fmt.Sprintf(`
 			DELETE FROM channels 
 			WHERE network_id = ? AND name NOT IN (%s)
 		`, strings.Join(placeholders, ","))
-		
+
 		_, err = tx.Exec(deleteQuery, args...)
 		if err != nil {
 			return err
@@ -838,7 +838,7 @@ func (s *SQLiteDB) SaveNetwork(networkName string, network *NetworkData) error {
 		}
 	}
 
-	// Sync ignored nicks: upsert current config, delete orphaned ones  
+	// Sync ignored nicks: upsert current config, delete orphaned ones
 	if len(network.IgnoredNicks) > 0 {
 		// Upsert ignored nicks from config using INSERT ... ON CONFLICT to preserve IDs
 		for _, nick := range network.IgnoredNicks {
@@ -851,7 +851,7 @@ func (s *SQLiteDB) SaveNetwork(networkName string, network *NetworkData) error {
 				return err
 			}
 		}
-		
+
 		// Delete ignored nicks not in current config
 		placeholders := make([]string, len(network.IgnoredNicks))
 		args := make([]interface{}, len(network.IgnoredNicks)+1)
@@ -860,12 +860,12 @@ func (s *SQLiteDB) SaveNetwork(networkName string, network *NetworkData) error {
 			placeholders[i] = "?"
 			args[i+1] = nick
 		}
-		
+
 		deleteQuery := fmt.Sprintf(`
 			DELETE FROM ignored_nicks 
 			WHERE network_id = ? AND nickname NOT IN (%s)
 		`, strings.Join(placeholders, ","))
-		
+
 		_, err = tx.Exec(deleteQuery, args...)
 		if err != nil {
 			return err
@@ -891,7 +891,7 @@ func (s *SQLiteDB) SaveNetwork(networkName string, network *NetworkData) error {
 				return err
 			}
 		}
-		
+
 		// Delete denied commands not in current config
 		placeholders := make([]string, len(network.DenyCommands))
 		args := make([]interface{}, len(network.DenyCommands)+1)
@@ -900,12 +900,12 @@ func (s *SQLiteDB) SaveNetwork(networkName string, network *NetworkData) error {
 			placeholders[i] = "?"
 			args[i+1] = cmd
 		}
-		
+
 		deleteQuery := fmt.Sprintf(`
 			DELETE FROM denied_commands 
 			WHERE network_id = ? AND command NOT IN (%s)
 		`, strings.Join(placeholders, ","))
-		
+
 		_, err = tx.Exec(deleteQuery, args...)
 		if err != nil {
 			return err
@@ -930,7 +930,7 @@ func (s *SQLiteDB) LoadNetwork(networkName string) (*NetworkData, error) {
 	defer s.mu.RUnlock()
 
 	network := &NetworkData{}
-	
+
 	// Load network data
 	var networkID int64
 	err := s.db.QueryRow(`
@@ -941,7 +941,7 @@ func (s *SQLiteDB) LoadNetwork(networkName string) (*NetworkData, error) {
 	`, networkName).Scan(&networkID, &network.Enabled, &network.Nick, &network.User, &network.Name,
 		&network.PreserveModes, &network.PingDelay, &network.Version, &network.Throttle,
 		&network.Burst, &network.ActionTrigger, &network.ModesAtOnce, &network.NickServPass, &network.Pass)
-	
+
 	if err != nil {
 		return nil, err
 	}
@@ -964,6 +964,9 @@ func (s *SQLiteDB) LoadNetwork(networkName string) (*NetworkData, error) {
 		}
 		network.Servers = append(network.Servers, server)
 	}
+	if err = rows.Err(); err != nil {
+		return nil, err
+	}
 
 	// Load admin hosts
 	rows, err = s.db.Query(`
@@ -982,6 +985,9 @@ func (s *SQLiteDB) LoadNetwork(networkName string) (*NetworkData, error) {
 			return nil, err
 		}
 		network.AdminHosts = append(network.AdminHosts, admin)
+	}
+	if err = rows.Err(); err != nil {
+		return nil, err
 	}
 
 	// Load ignored nicks
@@ -1002,6 +1008,9 @@ func (s *SQLiteDB) LoadNetwork(networkName string) (*NetworkData, error) {
 		}
 		network.IgnoredNicks = append(network.IgnoredNicks, nick)
 	}
+	if err = rows.Err(); err != nil {
+		return nil, err
+	}
 
 	// Load denied commands
 	rows, err = s.db.Query(`
@@ -1020,6 +1029,9 @@ func (s *SQLiteDB) LoadNetwork(networkName string) (*NetworkData, error) {
 			return nil, err
 		}
 		network.DenyCommands = append(network.DenyCommands, cmd)
+	}
+	if err = rows.Err(); err != nil {
+		return nil, err
 	}
 
 	return network, nil
@@ -1062,6 +1074,9 @@ func (s *SQLiteDB) LoadNetworkChannels(networkName string) ([]ChannelData, error
 		}
 		channels = append(channels, ch)
 	}
+	if err = rows.Err(); err != nil {
+		return nil, err
+	}
 
 	return channels, nil
 }
@@ -1083,12 +1098,12 @@ func (s *SQLiteDB) DeleteChannel(networkName, channelName string) error {
 			WHERE n.network_name = ? AND c.name = ?
 		)
 	`, networkName, channelName)
-	
+
 	if err == nil {
 		rowsAffected, _ := result.RowsAffected()
 		logger.Debug("Deleted channel", "network", networkName, "channel", channelName, "rows_affected", rowsAffected)
 	}
-	
+
 	return err
 }
 
@@ -1102,12 +1117,12 @@ func (s *SQLiteDB) DeleteNetwork(networkName string) error {
 	defer s.mu.Unlock()
 
 	result, err := s.db.Exec(`DELETE FROM networks WHERE network_name = ?`, networkName)
-	
+
 	if err == nil {
 		rowsAffected, _ := result.RowsAffected()
 		logger.Debug("Deleted network", "network", networkName, "rows_affected", rowsAffected)
 	}
-	
+
 	return err
 }
 
@@ -1135,6 +1150,9 @@ func (s *SQLiteDB) GetAllNetworkNames() ([]string, error) {
 		}
 		networks = append(networks, networkName)
 	}
+	if err = rows.Err(); err != nil {
+		return nil, err
+	}
 
 	return networks, nil
 }
@@ -1159,7 +1177,7 @@ func (s *SQLiteDB) SaveNetworkUsersWithChannels(networkName string, users []User
 	}
 	defer tx.Rollback()
 
-	// Get or create network ID 
+	// Get or create network ID
 	var networkID int64
 	err = tx.QueryRow("SELECT id FROM networks WHERE network_name = ?", networkName).Scan(&networkID)
 	if err == sql.ErrNoRows {
@@ -1183,7 +1201,7 @@ func (s *SQLiteDB) SaveNetworkUsersWithChannels(networkName string, users []User
 }
 
 func (s *SQLiteDB) SaveNetworkUsers(networkName string, users []UserData) error {
-	// Legacy method - call the new method with empty channels  
+	// Legacy method - call the new method with empty channels
 	return s.SaveNetworkUsersWithChannels(networkName, users, []ChannelData{})
 }
 
@@ -1202,7 +1220,7 @@ func (s *SQLiteDB) SaveSingleUser(networkName, ident, host string, user *UserDat
 	}
 	defer tx.Rollback()
 
-	// Get network ID 
+	// Get network ID
 	var networkID int64
 	err = tx.QueryRow("SELECT id FROM networks WHERE network_name = ?", networkName).Scan(&networkID)
 	if err != nil {
@@ -1233,7 +1251,7 @@ func (s *SQLiteDB) SaveSingleUser(networkName, ident, host string, user *UserDat
 	`, networkID, user.NickName, user.Ident, user.Host, user.FirstSeen, user.LatestActivity,
 		user.LatestChat, user.IsAdmin, user.IsOwner, user.Ignored, user.AccessLevel,
 		user.AiService, user.AiModel, user.AiBasePrompt, user.AiPersonality).Scan(&userID)
-	
+
 	if err != nil {
 		return err
 	}
@@ -1244,7 +1262,7 @@ func (s *SQLiteDB) SaveSingleUser(networkName, ident, host string, user *UserDat
 		if jsonErr != nil {
 			return jsonErr
 		}
-		
+
 		// Get channel ID
 		var channelID int64
 		err = tx.QueryRow("SELECT id FROM channels WHERE network_id = ? AND name = ?", networkID, modeData.Channel).Scan(&channelID)
@@ -1269,7 +1287,7 @@ func (s *SQLiteDB) SaveSingleUser(networkName, ident, host string, user *UserDat
 		if jsonErr != nil {
 			return jsonErr
 		}
-		
+
 		// Get channel ID
 		var channelID int64
 		err = tx.QueryRow("SELECT id FROM channels WHERE network_id = ? AND name = ?", networkID, modeData.Channel).Scan(&channelID)
@@ -1320,14 +1338,14 @@ func (s *SQLiteDB) saveUsersToDatabase(tx *sql.Tx, networkID int64, users []User
 	for _, user := range userMap {
 		deduplicatedUsers = append(deduplicatedUsers, *user)
 	}
-	
+
 	logger.Debug("Deduplicated users", "network_id", networkID, "original_count", len(users), "deduplicated_count", len(deduplicatedUsers))
 
 	// Upsert users (update existing based on network_id+ident+host, insert new)
 	// This preserves foreign key relationships and prevents orphaned data
 	for i, user := range deduplicatedUsers {
 		logger.Debug("Upserting user", "network_id", networkID, "index", i, "nickname", user.NickName, "ident", user.Ident, "host", user.Host)
-		
+
 		// Use INSERT OR REPLACE based on unique constraint (network_id, ident, host)
 		var userID int64
 		err := tx.QueryRow(`
@@ -1352,7 +1370,7 @@ func (s *SQLiteDB) saveUsersToDatabase(tx *sql.Tx, networkID int64, users []User
 		`, networkID, user.NickName, user.Ident, user.Host, user.FirstSeen, user.LatestActivity,
 			user.LatestChat, user.IsAdmin, user.IsOwner, user.Ignored, user.AccessLevel,
 			user.AiService, user.AiModel, user.AiBasePrompt, user.AiPersonality).Scan(&userID)
-		
+
 		if err != nil {
 			return err
 		}
@@ -1363,7 +1381,7 @@ func (s *SQLiteDB) saveUsersToDatabase(tx *sql.Tx, networkID int64, users []User
 			if jsonErr != nil {
 				return jsonErr
 			}
-			
+
 			// Ensure channel exists (create minimal entry if needed)
 			_, err = tx.Exec(`
 				INSERT OR IGNORE INTO channels (network_id, name) VALUES (?, ?)
@@ -1371,7 +1389,7 @@ func (s *SQLiteDB) saveUsersToDatabase(tx *sql.Tx, networkID int64, users []User
 			if err != nil {
 				return err
 			}
-			
+
 			var channelID int64
 			err = tx.QueryRow(`
 				SELECT id FROM channels WHERE network_id = ? AND name = ?
@@ -1397,7 +1415,7 @@ func (s *SQLiteDB) saveUsersToDatabase(tx *sql.Tx, networkID int64, users []User
 			if jsonErr != nil {
 				return jsonErr
 			}
-			
+
 			var channelID int64
 			err = tx.QueryRow(`
 				SELECT id FROM channels WHERE network_id = ? AND name = ?
@@ -1546,7 +1564,7 @@ func (s *SQLiteDB) AddUserToChannel(networkName, ident, host, channelName string
 
 	// Get user and channel IDs
 	var userID, channelID int64
-	
+
 	err := s.db.QueryRow(`
 		SELECT u.id, c.id 
 		FROM irc_users u
@@ -1554,7 +1572,7 @@ func (s *SQLiteDB) AddUserToChannel(networkName, ident, host, channelName string
 		JOIN channels c ON c.network_id = n.id
 		WHERE n.network_name = ? AND u.ident = ? AND u.host = ? AND c.name = ?
 	`, networkName, ident, host, channelName).Scan(&userID, &channelID)
-	
+
 	if err != nil {
 		// User or channel doesn't exist yet - this is normal for new users
 		logger.Debug("Cannot add user to channel - user or channel not found", "network", networkName, "ident", ident, "host", host, "channel", channelName, "error", err)
@@ -1566,11 +1584,11 @@ func (s *SQLiteDB) AddUserToChannel(networkName, ident, host, channelName string
 		INSERT OR IGNORE INTO user_channels (user_id, channel_id, joined_at)
 		VALUES (?, ?, datetime('now'))
 	`, userID, channelID)
-	
+
 	if err == nil {
 		logger.Debug("Added user to channel", "network", networkName, "ident", ident, "host", host, "channel", channelName)
 	}
-	
+
 	return err
 }
 
@@ -1594,14 +1612,14 @@ func (s *SQLiteDB) RemoveUserFromChannel(networkName, ident, host, channelName s
 			WHERE n.network_name = ? AND c.name = ?
 		)
 	`, networkName, ident, host, networkName, channelName)
-	
+
 	if err == nil {
 		rowsAffected, _ := result.RowsAffected()
 		if rowsAffected > 0 {
 			logger.Debug("Removed user from channel", "network", networkName, "ident", ident, "host", host, "channel", channelName)
 		}
 	}
-	
+
 	return err
 }
 
@@ -1621,14 +1639,14 @@ func (s *SQLiteDB) RemoveUserFromAllChannels(networkName, ident, host string) er
 			WHERE n.network_name = ? AND u.ident = ? AND u.host = ?
 		)
 	`, networkName, ident, host)
-	
+
 	if err == nil {
 		rowsAffected, _ := result.RowsAffected()
 		if rowsAffected > 0 {
 			logger.Debug("Removed user from all channels", "network", networkName, "ident", ident, "host", host, "channels_left", rowsAffected)
 		}
 	}
-	
+
 	return err
 }
 
