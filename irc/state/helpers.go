@@ -255,6 +255,11 @@ func (s *State) SyncUsersFromWho() {
 
 		// Associate user to channel
 		s.Channel.SyncUser(findUser)
+		
+		// Track user-channel membership in database from WHO response
+		if err := birdbase.AddUserToChannel(s.Network.NetworkName, findUser.Ident, findUser.Host, s.Channel.Name); err != nil {
+			logger.Warn("Failed to track user-channel membership from WHO", "error", err, "network", s.Network.NetworkName, "nick", findUser.NickName, "channel", s.Channel.Name)
+		}
 
 		// Get their current modes
 		s.Channel.SyncCurrentModes(findUser, modes)
@@ -265,14 +270,19 @@ func (s *State) SyncUsersFromWho() {
 		} else {
 			// user already exists, check if modes are in sync
 			s.User = findUser
-			applyOps := s.GetModesFromChannel()
-			if len(applyOps) > 0 {
-				s.Client.Cmd.SendRaw("MODE " + s.Channel.Name + " +" + strings.Join(applyOps, "") + " " + findUser.NickName)
+			
+			// Only restore modes if preservation is enabled
+			if s.ShouldPreserveModes() {
+				applyOps := s.GetModesFromChannel()
+				if len(applyOps) > 0 {
+					s.Client.Cmd.SendRaw("MODE " + s.Channel.Name + " +" + strings.Join(applyOps, "") + " " + findUser.NickName)
+				}
 			}
 		}
+		return
 	}
 
-	// Create new user
+	// Create new user if not found
 	user := users.User{
 		NickName:    nick,
 		Ident:       ident,
@@ -293,6 +303,11 @@ func (s *State) SyncUsersFromWho() {
 	// append to s.Network.Users
 	s.Network.Users = append(s.Network.Users, user)
 	s.Channel.SyncUser(&user)
+	
+	// Track user-channel membership in database for new user from WHO response
+	if err := birdbase.AddUserToChannel(s.Network.NetworkName, user.Ident, user.Host, s.Channel.Name); err != nil {
+		logger.Warn("Failed to track new user-channel membership from WHO", "error", err, "network", s.Network.NetworkName, "nick", user.NickName, "channel", s.Channel.Name)
+	}
 
 	s.Network.Save()
 }
@@ -461,4 +476,47 @@ func (s *State) UpdateBasedOnArgs(obj interface{}, immutableKeys map[string]bool
 	}
 
 	s.Network.Save()
+}
+
+// RestoreUserModes checks all users in the channel and restores any missing modes
+func (s *State) RestoreUserModes() {
+	if s.Channel == nil {
+		logger.Warn("RestoreUserModes called with nil channel")
+		return
+	}
+	
+	// Check if mode preservation is enabled for this channel
+	if !s.ShouldPreserveModes() {
+		logger.Debug("Mode preservation disabled, skipping restoration", "network", s.Network.NetworkName, "channel", s.Channel.Name)
+		return
+	}
+	
+	logger.Debug("Starting mode restoration for channel", "network", s.Network.NetworkName, "channel", s.Channel.Name)
+	
+	// Get all users currently in this channel
+	for i := range s.Network.Users {
+		user := &s.Network.Users[i]
+		
+		// Check if this user has preserved modes for this channel
+		if !user.HasPreservedModes(s.Channel.Name) {
+			continue
+		}
+		
+		// Get modes this user should have
+		s.User = user
+		applyOps := s.GetModesFromChannel()
+		if len(applyOps) > 0 {
+			logger.Debug("Restoring modes for user", "network", s.Network.NetworkName, "channel", s.Channel.Name, "nick", user.NickName, "modes", applyOps)
+			
+			// Apply the missing modes
+			modeString := "+" + strings.Join(applyOps, "")
+			modeCommand := fmt.Sprintf("MODE %s %s %s", s.Channel.Name, modeString, user.NickName)
+			
+			if err := s.Client.Cmd.SendRaw(modeCommand); err != nil {
+				logger.Error("Failed to send mode command", "error", err, "command", modeCommand)
+			}
+		}
+	}
+	
+	logger.Debug("Completed mode restoration for channel", "network", s.Network.NetworkName, "channel", s.Channel.Name)
 }

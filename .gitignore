@@ -9,7 +9,7 @@ config.toml
 deploy.sh
 
 # Database files
-bird.db/
+bird.db*
 
 # ComfyUI workflow files
 comfyuijson/

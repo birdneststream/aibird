@@ -3,7 +3,6 @@ package commands
 import (
 	"fmt"
 	"os"
-	"path/filepath"
 
 	"aibird/birdbase"
 	"aibird/helpers"
@@ -28,41 +27,35 @@ func ParseOwner(irc state.State) {
 }
 
 func handleDbStats(irc state.State) {
-	// Get database stats from Bitcask
+	// Get database stats from SQLite
 	stats, err := birdbase.GetDatabaseStats()
 	if err != nil {
 		irc.ReplyTo(fmt.Sprintf("Error getting database stats: %v", err))
 		return
 	}
 
-	// Get file system size of database directory
+	// Get file system size of SQLite database file
 	dbPath := "bird.db"
-	var totalSize int64
-	err = filepath.Walk(dbPath, func(path string, info os.FileInfo, err error) error {
-		if err != nil {
-			return err
-		}
-		if !info.IsDir() {
-			totalSize += info.Size()
-		}
-		return nil
-	})
-
+	fileInfo, err := os.Stat(dbPath)
+	var fileSize int64
 	if err != nil {
-		irc.ReplyTo(fmt.Sprintf("Error calculating disk usage: %v", err))
+		irc.ReplyTo(fmt.Sprintf("Error getting database file size: %v", err))
 		return
 	}
+	fileSize = fileInfo.Size()
 
 	// Format size in human readable format
-	sizeStr := formatBytes(totalSize)
+	fileSizeStr := formatBytes(fileSize)
+	
+	// Get internal SQLite size calculation
 	sizeVal, ok := stats["size"].(int64)
 	if !ok {
 		sizeVal = 0
 	}
-	bitcaskSize := formatBytes(sizeVal)
+	sqliteSize := formatBytes(sizeVal)
 
-	response := fmt.Sprintf("Database Status: %d keys | %d datafiles | Bitcask size: %s | Disk usage: %s",
-		stats["keys"], stats["datafiles"], bitcaskSize, sizeStr)
+	response := fmt.Sprintf("Database Status: %d keys | SQLite internal: %s | File size: %s",
+		stats["keys"], sqliteSize, fileSizeStr)
 
 	irc.ReplyTo(response)
 }

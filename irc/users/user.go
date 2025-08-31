@@ -5,7 +5,10 @@ import (
 	"strconv"
 	"time"
 
+	"aibird/birdbase"
 	"aibird/helpers"
+	"aibird/irc/users/modes"
+	"aibird/logger"
 
 	"github.com/lrstanley/girc"
 )
@@ -28,14 +31,20 @@ func (u *User) String() string {
 func (u *User) Touch(latestChat string) {
 	u.LatestActivity = time.Now().Unix()
 	u.LatestChat = latestChat
+	logger.Debug("User touched", "nickname", u.NickName, "ident", u.Ident, "host", u.Host, "latest_chat", latestChat)
 }
 
 func (u *User) UpdateNick(nick string) {
 	if u.NickName == nick {
+		logger.Debug("UpdateNick called but nick unchanged", "current_nick", u.NickName, "new_nick", nick, "ident", u.Ident, "host", u.Host)
 		return
 	}
 
+	oldNick := u.NickName
 	u.NickName = nick
+	// Update activity timestamp when nick changes
+	u.LatestActivity = time.Now().Unix()
+	logger.Debug("Nick updated in User object", "old_nick", oldNick, "new_nick", u.NickName, "ident", u.Ident, "host", u.Host, "latest_activity", u.LatestActivity)
 }
 
 func (u *User) UpdateIdentHost(ident, host string) {
@@ -166,4 +175,94 @@ func (u *User) HasAnyMode() bool {
 		}
 	}
 	return false
+}
+
+// ===========================================
+// NORMALIZED DATABASE CONVERSION METHODS
+// ===========================================
+
+// ToUserData converts a User struct to birdbase.UserData for database storage
+func (u *User) ToUserData(networkID int) (*birdbase.UserData, error) {
+	userData := &birdbase.UserData{
+		NetworkID:      networkID,
+		NickName:       u.NickName,
+		Ident:          u.Ident,
+		Host:           u.Host,
+		FirstSeen:      u.FirstSeen,
+		LatestActivity: u.LatestActivity,
+		LatestChat:     u.LatestChat,
+		IsAdmin:        u.IsAdmin,
+		IsOwner:        u.IsOwner,
+		Ignored:        u.Ignored,
+		AccessLevel:    u.AccessLevel,
+		AiService:      u.AiService,
+		AiModel:        u.AiModel,
+		AiBasePrompt:   u.AiBasePrompt,
+		AiPersonality:  u.AiPersonality,
+	}
+
+	// Convert PreservedModes
+	for _, mode := range u.PreservedModes {
+		userData.PreservedModes = append(userData.PreservedModes, birdbase.UserModeData{
+			Channel: mode.Channel,
+			Modes:   mode.Modes,
+		})
+	}
+
+	// Convert CurrentModes
+	for _, mode := range u.CurrentModes {
+		userData.CurrentModes = append(userData.CurrentModes, birdbase.UserModeData{
+			Channel: mode.Channel,
+			Modes:   mode.Modes,
+		})
+	}
+
+	return userData, nil
+}
+
+// FromUserData converts birdbase.UserData back to a User struct
+func (u *User) FromUserData(userData *birdbase.UserData) error {
+	u.NickName = userData.NickName
+	u.Ident = userData.Ident
+	u.Host = userData.Host
+	u.FirstSeen = userData.FirstSeen
+	u.LatestActivity = userData.LatestActivity
+	u.LatestChat = userData.LatestChat
+	u.IsAdmin = userData.IsAdmin
+	u.IsOwner = userData.IsOwner
+	u.Ignored = userData.Ignored
+	u.AccessLevel = userData.AccessLevel
+	u.AiService = userData.AiService
+	u.AiModel = userData.AiModel
+	u.AiBasePrompt = userData.AiBasePrompt
+	u.AiPersonality = userData.AiPersonality
+
+	// Clear existing modes
+	u.PreservedModes = nil
+	u.CurrentModes = nil
+
+	// Convert PreservedModes
+	for _, modeData := range userData.PreservedModes {
+		u.PreservedModes = append(u.PreservedModes, modes.UserModes{
+			Channel: modeData.Channel,
+			Modes:   modeData.Modes,
+		})
+	}
+
+	// Convert CurrentModes
+	for _, modeData := range userData.CurrentModes {
+		u.CurrentModes = append(u.CurrentModes, modes.UserModes{
+			Channel: modeData.Channel,
+			Modes:   modeData.Modes,
+		})
+	}
+
+	return nil
+}
+
+// NewUserFromData creates a new User from birdbase.UserData
+func NewUserFromData(userData *birdbase.UserData) *User {
+	user := &User{}
+	user.FromUserData(userData)
+	return user
 }
