@@ -67,6 +67,14 @@ func (n *Network) GetNetworkChannel(channelName string) *channels.Channel {
 func (n *Network) GetUserWithIdentAndHost(ident, host string) *users.User {
 	logger.Debug("GetUserWithIdentAndHost called", "network", n.NetworkName, "ident", ident, "host", host, "total_users", len(n.Users))
 
+	// Add debug logging when we get blank ident/host (expected for server messages)
+	if ident == "" || host == "" {
+		logger.Debug("GetUserWithIdentAndHost called with blank ident/host (likely server message)",
+			"network", n.NetworkName,
+			"ident", ident,
+			"host", host)
+	}
+
 	var foundUsers []*users.User
 	for i := range n.Users {
 		if n.Users[i].Ident == ident && n.Users[i].Host == host {
@@ -332,6 +340,11 @@ func (n *Network) LoadNormalized() error {
 	n.Users = nil
 	for _, userData := range usersData {
 		user := users.NewUserFromData(&userData)
+
+		// Re-check ignore status based on current config (not database value)
+		// This ensures users are only ignored if they're in the current ignore list
+		user.Ignored = n.IsNickIgnored(user.NickName)
+
 		n.Users = append(n.Users, *user)
 	}
 

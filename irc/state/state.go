@@ -247,6 +247,7 @@ func (s *State) Send(message string) {
 func (s *State) Verify() error { //nolint:gocyclo
 	// User already verified to use the bot in PM
 	if s.Event.IsFromUser() {
+		logger.Debug("Verify PM check", "network", s.Network.NetworkName, "source_ident", s.Event.Source.Ident, "source_host", s.Event.Source.Host, "source_name", s.Event.Source.Name)
 		channelUser := s.Network.GetUserWithIdentAndHost(s.Event.Source.Ident, s.Event.Source.Host)
 
 		// Check if user has sufficient access level for PM usage
@@ -342,7 +343,31 @@ func Init(c *girc.Client, e girc.Event, network *networks.Network, config *setti
 		Config:  config,
 	}
 
-	s.Channel, s.User = network.ProvideStateInit(helpers.FindChannelNameInEventParams(e), e.Source.Ident, e.Source.Host)
+	channelName := helpers.FindChannelNameInEventParams(e)
+	sourceIdent := e.Source.Ident
+	sourceHost := e.Source.Host
+
+	// Log when we have blank source info, but skip server messages (they're expected to have blank ident/host)
+	if sourceIdent == "" || sourceHost == "" {
+		// Server messages like 315 (END_OF_WHO) don't have user source info - this is normal
+		if e.Source.Name != "" && (sourceIdent == "" && sourceHost == "") {
+			logger.Debug("Server message with blank user info (normal)",
+				"network", network.NetworkName,
+				"event_command", e.Command,
+				"server_name", e.Source.Name)
+		} else {
+			logger.Warn("IRC event with blank source info",
+				"network", network.NetworkName,
+				"event_command", e.Command,
+				"event_params", e.Params,
+				"source_name", e.Source.Name,
+				"source_ident", sourceIdent,
+				"source_host", sourceHost,
+				"channel_name", channelName)
+		}
+	}
+
+	s.Channel, s.User = network.ProvideStateInit(channelName, sourceIdent, sourceHost)
 
 	return s
 }
