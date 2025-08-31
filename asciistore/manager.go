@@ -38,17 +38,17 @@ func (s *ASCIIStore) RecordToService(user, network, channel, recordingUrl string
 
 	// Create raw HTTP request to avoid JSON encoding
 	url := strings.TrimRight(recordingUrl, "/") + "/" + filename
-	
+
 	// Create HTTP request with raw text body
 	httpReq, err := http.NewRequest("POST", url, bytes.NewReader([]byte(artText)))
 	if err != nil {
 		return "Failed to create request", err
 	}
-	
+
 	httpReq.Header.Set("Content-Type", "text/plain")
-	
+
 	logger.Debug("Recording ASCII art", "url", url, "filename", filename, "user", user)
-	
+
 	// Execute the request
 	client := &http.Client{}
 	httpResp, err := client.Do(httpReq)
@@ -65,7 +65,7 @@ func (s *ASCIIStore) RecordToService(user, network, channel, recordingUrl string
 		logger.Error("Failed to read response", "error", err)
 		return "Failed to read response", err
 	}
-	
+
 	responseText := string(responseBody)
 
 	// Clear the stored ASCII art after successful recording to prevent duplicates
@@ -83,9 +83,12 @@ func (s *ASCIIStore) GenerateFilename(art *ASCIIArt) string {
 		filename = "ascii-art"
 	}
 
-	// Add timestamp suffix to ensure uniqueness
-	timestamp := art.Timestamp.Format("20060102-150405")
-	return filename + "-" + timestamp
+	// Trim filename to 245 bytes (no timestamp)
+	if len(filename) > 245 {
+		filename = filename[:245]
+	}
+
+	return filename
 }
 
 func (s *ASCIIStore) FormatArtForRecording(art *ASCIIArt) string {
@@ -109,11 +112,6 @@ func (s *ASCIIStore) sanitizeForFilename(input string) string {
 	// Remove special characters except alphanumeric and dashes
 	reg := regexp.MustCompile(`[^a-z0-9\-]`)
 	filename = reg.ReplaceAllString(filename, "")
-
-	// Limit length to 32 characters (leaving room for timestamp suffix)
-	if len(filename) > 32 {
-		filename = filename[:32]
-	}
 
 	// Remove leading/trailing dashes
 	filename = strings.Trim(filename, "-")
