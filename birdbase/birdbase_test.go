@@ -1,9 +1,9 @@
 package birdbase
 
 import (
+	"bytes"
 	"testing"
 	"time"
-	"bytes"
 )
 
 func TestSQLiteOperations(t *testing.T) {
@@ -239,13 +239,13 @@ func TestInMemoryStructures(t *testing.T) {
 	// Test flood ban
 	banKey := "ban-test"
 	FloodManager.SetFloodBan(banKey, time.Second*2)
-	
+
 	if !FloodManager.IsFloodBanned(banKey) {
 		t.Error("Should be flood banned")
 	}
 
 	time.Sleep(3 * time.Second)
-	
+
 	if FloodManager.IsFloodBanned(banKey) {
 		t.Error("Should not be flood banned after expiration")
 	}
@@ -253,13 +253,13 @@ func TestInMemoryStructures(t *testing.T) {
 	// Test rate limiting
 	rateKey := "rate-test"
 	RateLimiter.SetRateLimit(rateKey, time.Second*2)
-	
+
 	if !RateLimiter.IsRateLimited(rateKey) {
 		t.Error("Should be rate limited")
 	}
 
 	time.Sleep(3 * time.Second)
-	
+
 	if RateLimiter.IsRateLimited(rateKey) {
 		t.Error("Should not be rate limited after expiration")
 	}
