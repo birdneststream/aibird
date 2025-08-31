@@ -1,12 +1,13 @@
 package channels
 
 import (
+	"fmt"
+	"strconv"
+
 	"aibird/helpers"
 	"aibird/irc/users"
 	"aibird/irc/users/modes"
 	"aibird/logger"
-	"fmt"
-	"strconv"
 
 	"github.com/lrstanley/girc"
 )

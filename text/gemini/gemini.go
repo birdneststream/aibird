@@ -1,12 +1,13 @@
 package gemini
 
 import (
-	"aibird/irc/state"
-	"aibird/settings"
-	"aibird/text"
 	"context"
 	"errors"
 	"strings"
+
+	"aibird/irc/state"
+	"aibird/settings"
+	"aibird/text"
 
 	"github.com/google/generative-ai-go/genai"
 	"google.golang.org/api/option"

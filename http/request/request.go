@@ -1,7 +1,6 @@
 package request
 
 import (
-	"aibird/logger"
 	"bytes"
 	"encoding/json"
 	"errors"
@@ -14,6 +13,8 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+
+	"aibird/logger"
 )
 
 func (r *Request) GetUrl() string {
@@ -103,9 +104,9 @@ func (r *Request) Call(response interface{}) error {
 		defer file.Close()
 
 		// Get content type for file
-		contentType, err := getFileContentType(file)
-		if err != nil {
-			return fmt.Errorf("failed to get content type: %w", err)
+		contentType, contentErr := getFileContentType(file)
+		if contentErr != nil {
+			return fmt.Errorf("failed to get content type: %w", contentErr)
 		}
 
 		// Create form file with content type
@@ -126,9 +127,9 @@ func (r *Request) Call(response interface{}) error {
 
 		// Add form fields
 		for _, field := range r.Fields {
-			err := writer.WriteField(field.Key, field.Value)
-			if err != nil {
-				return fmt.Errorf("failed to write field: %w", err)
+			fieldErr := writer.WriteField(field.Key, field.Value)
+			if fieldErr != nil {
+				return fmt.Errorf("failed to write field: %w", fieldErr)
 			}
 		}
 
@@ -172,9 +173,9 @@ func (r *Request) Call(response interface{}) error {
 
 	// Birdhole will return a string and not any JSON
 	if strPtr, ok := response.(*string); ok {
-		bodyBytes, err := io.ReadAll(resp.Body)
-		if err != nil {
-			return fmt.Errorf("failed to read response body: %w", err)
+		bodyBytes, bodyErr := io.ReadAll(resp.Body)
+		if bodyErr != nil {
+			return fmt.Errorf("failed to read response body: %w", bodyErr)
 		}
 		*strPtr = string(bodyBytes)
 	} else {
@@ -190,7 +191,7 @@ func (r *Request) Call(response interface{}) error {
 }
 
 func (r *Request) Download() error {
-	//Get the response bytes from the url
+	// Get the response bytes from the url
 	response, err := http.Get(r.Url)
 	if err != nil {
 		return err
@@ -201,14 +202,14 @@ func (r *Request) Download() error {
 		return errors.New("received non 200 response code")
 	}
 
-	//Create empty file
+	// Create empty file
 	file, err := os.Create(r.FileName)
 	if err != nil {
 		return err
 	}
 	defer file.Close()
 
-	//Write the bytes to the field
+	// Write the bytes to the field
 	_, err = io.Copy(file, response.Body)
 	if err != nil {
 		return err

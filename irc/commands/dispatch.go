@@ -1,13 +1,14 @@
 package commands
 
 import (
+	"strings"
+
 	"aibird/image/comfyui"
 	"aibird/irc/commands/help"
 	"aibird/irc/state"
 	"aibird/logger"
 	"aibird/settings"
 	"aibird/shared/meta"
-	"strings"
 )
 
 // IsQueueableFromHelp checks if a command is queueable using the help system

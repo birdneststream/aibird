@@ -1,6 +1,10 @@
 package commands
 
 import (
+	"fmt"
+	"regexp"
+	"strings"
+
 	"aibird/http/request"
 	"aibird/image/comfyui"
 	"aibird/irc/commands/help"
@@ -8,9 +12,6 @@ import (
 	"aibird/logger"
 	"aibird/queue"
 	"aibird/status"
-	"fmt"
-	"regexp"
-	"strings"
 
 	"github.com/lrstanley/girc"
 )

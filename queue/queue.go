@@ -1,12 +1,13 @@
 package queue
 
 import (
-	"aibird/logger"
 	"context"
 	"errors"
 	"fmt"
 	"sync"
 	"time"
+
+	"aibird/logger"
 )
 
 // Queue represents a queue data structure

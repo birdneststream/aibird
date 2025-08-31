@@ -1,7 +1,6 @@
 package asciistore
 
 import (
-	"aibird/logger"
 	"bytes"
 	"fmt"
 	"io"
@@ -9,6 +8,8 @@ import (
 	"regexp"
 	"strings"
 	"sync"
+
+	"aibird/logger"
 )
 
 var (

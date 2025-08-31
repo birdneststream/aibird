@@ -1,8 +1,6 @@
 package status
 
 import (
-	"aibird/settings"
-	"aibird/shared/meta"
 	"bytes"
 	"encoding/json"
 	"errors"
@@ -12,6 +10,9 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"aibird/settings"
+	"aibird/shared/meta"
 )
 
 type GPUInfo struct {
@@ -61,7 +62,7 @@ func NewClient(config settings.AiBird) *Client {
 
 func (c *Client) doRequest(endpoint string, target interface{}) error {
 	url := fmt.Sprintf("%s%s", c.BaseURL, endpoint)
-	req, err := http.NewRequest("GET", url, nil)
+	req, err := http.NewRequest("GET", url, http.NoBody)
 	if err != nil {
 		return fmt.Errorf("failed to create request: %v", err)
 	}

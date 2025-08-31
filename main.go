@@ -1,15 +1,6 @@
 package main
 
 import (
-	"aibird/birdbase"
-	"aibird/helpers"
-	"aibird/irc/commands"
-	"aibird/irc/commands/help"
-	"aibird/irc/networks"
-	"aibird/irc/state"
-	"aibird/logger"
-	"aibird/queue"
-	"aibird/settings"
 	"context"
 	"crypto/tls"
 	"fmt"
@@ -20,6 +11,16 @@ import (
 	"sync"
 	"syscall"
 	"time"
+
+	"aibird/birdbase"
+	"aibird/helpers"
+	"aibird/irc/commands"
+	"aibird/irc/commands/help"
+	"aibird/irc/networks"
+	"aibird/irc/state"
+	"aibird/logger"
+	"aibird/queue"
+	"aibird/settings"
 
 	"aibird/shared/meta"
 

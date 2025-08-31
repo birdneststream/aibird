@@ -1,13 +1,14 @@
 package commands
 
 import (
+	"strings"
+
 	"aibird/helpers"
 	"aibird/irc/channels"
 	"aibird/irc/state"
 	"aibird/irc/users"
 	"aibird/logger"
 	"aibird/queue"
-	"strings"
 
 	meta "aibird/shared/meta"
 

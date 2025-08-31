@@ -1,10 +1,11 @@
 package users
 
 import (
-	"aibird/helpers"
 	"fmt"
 	"strconv"
 	"time"
+
+	"aibird/helpers"
 
 	"github.com/lrstanley/girc"
 )

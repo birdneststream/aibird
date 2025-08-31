@@ -1,10 +1,11 @@
 package commands
 
 import (
-	"aibird/irc/state"
-	"aibird/queue"
 	"fmt"
 	"strings"
+
+	"aibird/irc/state"
+	"aibird/queue"
 )
 
 func ShowQueueStatus(s state.State, q *queue.DualQueue) string {

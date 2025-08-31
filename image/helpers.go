@@ -1,7 +1,6 @@
 package image
 
 import (
-	"aibird/logger"
 	"bytes"
 	"fmt"
 	"image/jpeg"
@@ -10,7 +9,11 @@ import (
 	"os"
 	"regexp"
 	"strings"
+
+	"aibird/logger"
 )
+
+const failedConvertPNGToJPG = "Failed to convert PNG to JPG"
 
 func ToJpeg(imageBytes []byte) ([]byte, error) {
 	// DetectContentType detects the content type
@@ -43,14 +46,14 @@ func ConvertPngToJpg(fileName string) string {
 		// Validate file path to prevent path traversal
 		if strings.Contains(fileName, "..") || strings.Contains(fileName, "/") {
 			logger.Error("Invalid file path", "file", fileName)
-			return "Failed to convert PNG to JPG"
+			return failedConvertPNGToJPG
 		}
 
 		imageBytes, err := os.ReadFile(fileName)
 
 		if err != nil {
 			logger.Error("Failed to read image file", "file", fileName, "error", err)
-			return "Failed to convert PNG to JPG"
+			return failedConvertPNGToJPG
 		}
 
 		// Convert the PNG image to JPEG
@@ -58,7 +61,7 @@ func ConvertPngToJpg(fileName string) string {
 
 		if err != nil {
 			logger.Error("Failed to convert image", "file", fileName, "error", err)
-			return "Failed to convert PNG to JPG"
+			return failedConvertPNGToJPG
 		}
 
 		fileName = strings.TrimSuffix(fileName, ".png") + ".jpg"
@@ -66,7 +69,7 @@ func ConvertPngToJpg(fileName string) string {
 
 		if err != nil {
 			logger.Error("Failed to write JPEG file", "file", fileName, "error", err)
-			return "Failed to convert PNG to JPG"
+			return failedConvertPNGToJPG
 		}
 
 		_ = os.Remove(strings.TrimSuffix(fileName, ".jpg") + ".png")

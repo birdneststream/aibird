@@ -1,8 +1,6 @@
 package comfyui
 
 import (
-	"aibird/logger"
-	"aibird/settings"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -10,6 +8,9 @@ import (
 	"path/filepath"
 	"regexp"
 	"strings"
+
+	"aibird/logger"
+	"aibird/settings"
 
 	"github.com/BurntSushi/toml"
 )

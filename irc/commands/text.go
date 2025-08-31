@@ -1,18 +1,21 @@
 package commands
 
 import (
+	"fmt"
+	"regexp"
+	"strings"
+
 	"aibird/irc/state"
 	"aibird/logger"
 	"aibird/status"
 	"aibird/text/gemini"
 	"aibird/text/ollama"
 	"aibird/text/openrouter"
-	"fmt"
-	"regexp"
-	"strings"
 
 	"github.com/lrstanley/girc"
 )
+
+const openrouterService = "openrouter"
 
 func ParseAiText(irc state.State) bool {
 	if irc.IsAction("ai") {
@@ -73,7 +76,7 @@ func ParseAiText(irc state.State) bool {
 
 		setAiService, _ := irc.GetStringArg("setAiService", "")
 		if setAiService != "" {
-			if setAiService != "ollama" && setAiService != "openrouter" {
+			if setAiService != "ollama" && setAiService != openrouterService {
 				irc.SendError("🧠 AI service not found. Please choose between ollama or openrouter")
 				return true
 			}
