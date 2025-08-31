@@ -193,10 +193,24 @@ func (s *State) MessageFloodCheck() bool {
 		}
 
 		if countInt > s.Config.AiBird.FloodThreshold {
+			// Set user as ignored instead of kick/ban system
+			s.User.Ignored = true
+			s.Network.Save()
+			
+			// Set temporary ignore duration using the existing flood ban key for consistency
 			if err := birdbase.PutStringExpireSeconds(ban, "1", s.Config.AiBird.FloodIgnoreMinutes*60); err != nil {
-				logger.Error("Failed to set flood ban", "error", err)
+				logger.Error("Failed to set flood ignore timer", "error", err)
 			}
-			s.Client.Cmd.Kick(s.Channel.Name, s.Event.Source.Name, "Birds fly above floods!")
+			
+			// Schedule automatic un-ignore after the flood ignore time
+			go func() {
+				time.Sleep(time.Duration(s.Config.AiBird.FloodIgnoreMinutes) * time.Minute)
+				s.User.Ignored = false
+				s.Network.Save()
+				logger.Info("User automatically un-ignored after flood timeout", "user", s.User.NickName, "network", s.Network.NetworkName)
+			}()
+			
+			logger.Info("User ignored due to flood", "user", s.User.NickName, "network", s.Network.NetworkName, "duration", fmt.Sprintf("%dm", s.Config.AiBird.FloodIgnoreMinutes))
 		}
 
 		return true

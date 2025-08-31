@@ -244,6 +244,11 @@ func (s *State) Verify() error {
 	if s.Event.IsFromUser() {
 		channelUser := s.Network.GetUserWithIdentAndHost(s.Event.Source.Ident, s.Event.Source.Host)
 
+		// Check if user has sufficient access level for PM usage
+		if channelUser != nil && channelUser.GetAccessLevel() < 2 {
+			return errors.New("Hey pal! You got to be at least a supporter to use PMs. Please support if you can https://www.patreon.com/birdnestlive or !support for more.")
+		}
+
 		newChannel := &channels.Channel{
 			Name:  s.Event.Source.Name,
 			Users: []*users.User{channelUser},
