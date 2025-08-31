@@ -72,7 +72,7 @@ func freeVram(clientAddr string, clientPort int) error {
 	return nil
 }
 
-func Process(irc state.State, aiEnhancedPrompt string, gpu meta.GPUType) (string, error) {
+func Process(irc state.State, aiEnhancedPrompt string, gpu meta.GPUType) (string, error) { //nolint:gocyclo
 	logger.Debug("Starting comfyui.Process", "gpu", gpu, "action", irc.Action())
 	comfyUiConfig := irc.Config.ComfyUi
 	model := irc.Action()
@@ -139,33 +139,38 @@ func Process(irc state.State, aiEnhancedPrompt string, gpu meta.GPUType) (string
 			// Handle different parameter types for input retrieval
 			if paramDef.Type == boolType {
 				rawUserInput = irc.GetBoolArg(paramName)
-				userInputProvided = rawUserInput.(bool) // For booleans, if the flag is present it's true
+				if boolVal, ok := rawUserInput.(bool); ok {
+					userInputProvided = boolVal
+				}
 			} else {
-				rawUserInput = irc.FindArgument(paramName, "").(string)
-				userInputProvided = rawUserInput.(string) != ""
+				if strVal, ok := irc.FindArgument(paramName, "").(string); ok {
+					rawUserInput = strVal
+					userInputProvided = strVal != ""
+				}
 			}
 
 			// Special pre-flight check for image URLs to give users faster feedback
 			if paramName == "img" && userInputProvided {
-				imgURL := rawUserInput.(string)
-				// Validate URL to prevent SSRF attacks
-				if !strings.HasPrefix(imgURL, "http://") && !strings.HasPrefix(imgURL, "https://") {
-					errMsg := fmt.Sprintf("⚠️ Invalid URL scheme for --img: %s", imgURL)
-					return "", errors.New(errMsg)
-				}
+				if imgURL, ok := rawUserInput.(string); ok {
+					// Validate URL to prevent SSRF attacks
+					if !strings.HasPrefix(imgURL, "http://") && !strings.HasPrefix(imgURL, "https://") {
+						errMsg := fmt.Sprintf("⚠️ Invalid URL scheme for --img: %s", imgURL)
+						return "", errors.New(errMsg)
+					}
 
-				logger.Debug("Performing pre-flight check for image URL", "url", imgURL)
-				resp, err := http.Head(imgURL)
-				if err != nil {
-					errMsg := fmt.Sprintf("⚠️ Failed to reach the image URL for --img: %v", err)
-					return "", errors.New(errMsg)
+					logger.Debug("Performing pre-flight check for image URL", "url", imgURL)
+					resp, err := http.Head(imgURL) // #nosec G107 - URL scheme validated above
+					if err != nil {
+						errMsg := fmt.Sprintf("⚠️ Failed to reach the image URL for --img: %v", err)
+						return "", errors.New(errMsg)
+					}
+					resp.Body.Close()
+					if resp.StatusCode != http.StatusOK {
+						errMsg := fmt.Sprintf("⚠️ The image URL for --img appears to be invalid (server response: %s). Please check the link.", resp.Status)
+						return "", errors.New(errMsg)
+					}
+					logger.Debug("Image URL check passed", "status", resp.Status)
 				}
-				resp.Body.Close()
-				if resp.StatusCode != http.StatusOK {
-					errMsg := fmt.Sprintf("⚠️ The image URL for --img appears to be invalid (server response: %s). Please check the link.", resp.Status)
-					return "", errors.New(errMsg)
-				}
-				logger.Debug("Image URL check passed", "status", resp.Status)
 			}
 
 			var finalValue interface{}
@@ -186,80 +191,93 @@ func Process(irc state.State, aiEnhancedPrompt string, gpu meta.GPUType) (string
 				var parseErr error
 				switch paramDef.Type {
 				case "string":
-					finalValue = rawUserInput.(string)
+					if strVal, ok := rawUserInput.(string); ok {
+						finalValue = strVal
+					}
 				case "bool":
 					// Special handling for fullblocks parameter - invert the boolean
 					if paramName == "fullblocks" {
-						finalValue = !rawUserInput.(bool) // Invert: --fullblocks means disable halfblock mode
+						if boolVal, ok := rawUserInput.(bool); ok {
+							finalValue = !boolVal // Invert: --fullblocks means disable halfblock mode
+						}
 					} else {
-						finalValue = rawUserInput.(bool)
+						if boolVal, ok := rawUserInput.(bool); ok {
+							finalValue = boolVal
+						}
 					}
 				case "int":
-					val, parseErr := strconv.ParseInt(rawUserInput.(string), 10, 64)
-					if parseErr == nil {
-						finalValue = val
-						// Perform validation
-						if paramDef.Min != nil && float64(val) < *paramDef.Min {
-							errMsg := fmt.Sprintf("⚠️ Value for --%s is too low. Minimum is %g, but you gave %d.", paramName, *paramDef.Min, val)
-							return "", errors.New(errMsg)
-						}
-						if paramDef.Max != nil && float64(val) > *paramDef.Max {
-							errMsg := fmt.Sprintf("⚠️ Value for --%s is too high. Maximum is %g, but you gave %d.", paramName, *paramDef.Max, val)
-							return "", errors.New(errMsg)
+					if strVal, ok := rawUserInput.(string); ok {
+						val, parseErr := strconv.ParseInt(strVal, 10, 64)
+						if parseErr == nil {
+							finalValue = val
+							// Perform validation
+							if paramDef.Min != nil && float64(val) < *paramDef.Min {
+								errMsg := fmt.Sprintf("⚠️ Value for --%s is too low. Minimum is %g, but you gave %d.", paramName, *paramDef.Min, val)
+								return "", errors.New(errMsg)
+							}
+							if paramDef.Max != nil && float64(val) > *paramDef.Max {
+								errMsg := fmt.Sprintf("⚠️ Value for --%s is too high. Maximum is %g, but you gave %d.", paramName, *paramDef.Max, val)
+								return "", errors.New(errMsg)
+							}
 						}
 					}
 				case "float":
-					val, parseErr := strconv.ParseFloat(rawUserInput.(string), 64)
-					if parseErr == nil {
-						finalValue = val
-						// Perform validation
-						if paramDef.Min != nil && val < *paramDef.Min {
-							errMsg := fmt.Sprintf("⚠️ Value for --%s is too low. Minimum is %g, but you gave %g.", paramName, *paramDef.Min, val)
-							return "", errors.New(errMsg)
-						}
-						if paramDef.Max != nil && val > *paramDef.Max {
-							errMsg := fmt.Sprintf("⚠️ Value for --%s is too high. Maximum is %g, but you gave %g.", paramName, *paramDef.Max, val)
-							return "", errors.New(errMsg)
+					if strVal, ok := rawUserInput.(string); ok {
+						val, parseErr := strconv.ParseFloat(strVal, 64)
+						if parseErr == nil {
+							finalValue = val
+							// Perform validation
+							if paramDef.Min != nil && val < *paramDef.Min {
+								errMsg := fmt.Sprintf("⚠️ Value for --%s is too low. Minimum is %g, but you gave %g.", paramName, *paramDef.Min, val)
+								return "", errors.New(errMsg)
+							}
+							if paramDef.Max != nil && val > *paramDef.Max {
+								errMsg := fmt.Sprintf("⚠️ Value for --%s is too high. Maximum is %g, but you gave %g.", paramName, *paramDef.Max, val)
+								return "", errors.New(errMsg)
+							}
 						}
 					}
 				case "lyrics":
-					lyricsPrompt := rawUserInput.(string)
-					var lyrics string
-					var lyErr error
-					if lyricsPrompt == "" {
-						if paramDef.Default != nil {
-							lyrics = paramDef.Default.(string)
+					if lyricsPrompt, ok := rawUserInput.(string); ok {
+						var lyrics string
+						var lyErr error
+						if lyricsPrompt == "" {
+							if paramDef.Default != nil {
+								if defaultStr, ok := paramDef.Default.(string); ok {
+									lyrics = defaultStr
+								}
+							} else {
+								lyrics = ""
+							}
 						} else {
-							lyrics = ""
-						}
-					} else {
-						if strings.HasPrefix(lyricsPrompt, "http") && strings.HasSuffix(lyricsPrompt, ".txt") {
-							irc.Send("📜 Downloading lyrics from URL! ✨")
-							resp, httpErr := http.Get(lyricsPrompt)
-							if httpErr != nil {
-								return "", fmt.Errorf("failed to download lyrics from URL: %w", httpErr)
-							}
-							defer resp.Body.Close()
+							if strings.HasPrefix(lyricsPrompt, "http") && strings.HasSuffix(lyricsPrompt, ".txt") {
+								irc.Send("📜 Downloading lyrics from URL! ✨")
+								resp, httpErr := http.Get(lyricsPrompt) // #nosec G107 - URL validated for http prefix and .txt suffix
+								if httpErr != nil {
+									return "", fmt.Errorf("failed to download lyrics from URL: %w", httpErr)
+								}
+								defer resp.Body.Close()
 
-							if resp.StatusCode != http.StatusOK {
-								return "", fmt.Errorf("failed to download lyrics from URL: status code %d", resp.StatusCode)
-							}
+								if resp.StatusCode != http.StatusOK {
+									return "", fmt.Errorf("failed to download lyrics from URL: status code %d", resp.StatusCode)
+								}
 
-							bodyBytes, ioErr := io.ReadAll(resp.Body)
-							if ioErr != nil {
-								return "", fmt.Errorf("failed to read lyrics from response body: %w", ioErr)
-							}
-							lyrics = string(bodyBytes)
-						} else {
-							irc.Send("✍️ Generating lyrics with ai! ✨")
-							lyrics, lyErr = gemini.GenerateLyrics(lyricsPrompt, irc.Config.Gemini)
-							if lyErr != nil {
-								return "", fmt.Errorf("failed to generate lyrics: %w", lyErr)
+								bodyBytes, ioErr := io.ReadAll(resp.Body)
+								if ioErr != nil {
+									return "", fmt.Errorf("failed to read lyrics from response body: %w", ioErr)
+								}
+								lyrics = string(bodyBytes)
+							} else {
+								irc.Send("✍️ Generating lyrics with ai! ✨")
+								lyrics, lyErr = gemini.GenerateLyrics(lyricsPrompt, irc.Config.Gemini)
+								if lyErr != nil {
+									return "", fmt.Errorf("failed to generate lyrics: %w", lyErr)
+								}
 							}
 						}
+						finalValue = lyrics
+						parseErr = nil
 					}
-					finalValue = lyrics
-					parseErr = nil
 				default:
 					return "", fmt.Errorf("unsupported parameter type '%s' in metadata for '%s'", paramDef.Type, paramName)
 				}
@@ -343,7 +361,9 @@ func Process(irc state.State, aiEnhancedPrompt string, gpu meta.GPUType) (string
 							// Special handling for the original prompt which might be a concatenation
 							if (node.Title == metaData.PromptTarget.Node || node.Type == metaData.PromptTarget.Node) && widgetIndex == metaData.PromptTarget.WidgetIndex {
 								if originalPrompt, ok := values[widgetIndex].(string); ok && originalPrompt != "" {
-									values[widgetIndex] = originalPrompt + " " + value.(string)
+									if strVal, ok := value.(string); ok {
+										values[widgetIndex] = originalPrompt + " " + strVal
+									}
 								} else {
 									values[widgetIndex] = value
 								}
@@ -422,8 +442,6 @@ func Process(irc state.State, aiEnhancedPrompt string, gpu meta.GPUType) (string
 		logger.Debug("Finishing comfyui.Process", "gpu", gpu, "action", irc.Action())
 		return "", errors.New("error processing comfyui: no output file received")
 	}
-	if err != nil {
-		logger.Error("Failed to load workflow metadata", "error", err)
-	}
+	logger.Error("Failed to load workflow metadata", "error", err)
 	return "", fmt.Errorf("failed to process workflow metadata for %s: %w", model, err)
 }

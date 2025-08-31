@@ -242,7 +242,7 @@ func BadWordsCheck(message string, config settings.ComfyUiConfig) bool {
 	return false
 }
 
-func GetAibirdMeta(workflowFile string) (*AibirdMeta, error) {
+func GetAibirdMeta(workflowFile string) (*AibirdMeta, error) { //nolint:gocyclo
 	// aibird_meta node title
 	const metaNodeTitle = "aibird_meta"
 
@@ -252,7 +252,7 @@ func GetAibirdMeta(workflowFile string) (*AibirdMeta, error) {
 	}
 
 	// Read the workflow JSON file
-	data, err := os.ReadFile(workflowFile)
+	data, err := os.ReadFile(workflowFile) // #nosec G304 - Path traversal already validated above
 	if err != nil {
 		logger.Error("Failed to read workflow file", "file", workflowFile, "error", err)
 		return nil, fmt.Errorf("failed to read workflow file %s: %w", workflowFile, err)

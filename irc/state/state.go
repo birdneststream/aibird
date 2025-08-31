@@ -127,7 +127,11 @@ func (s *State) GetIntArg(name string, def int) (int, bool) {
 
 func (s *State) GetBoolArg(name string) bool {
 	val := s.FindArgument(name, false)
-	boolVal, _ := val.(bool)
+	boolVal, ok := val.(bool)
+	if !ok {
+		logger.Warn("Type assertion failed for bool value")
+		return false
+	}
 	return boolVal
 }
 
@@ -240,7 +244,7 @@ func (s *State) Send(message string) {
 	}
 }
 
-func (s *State) Verify() error {
+func (s *State) Verify() error { //nolint:gocyclo
 	// User already verified to use the bot in PM
 	if s.Event.IsFromUser() {
 		channelUser := s.Network.GetUserWithIdentAndHost(s.Event.Source.Ident, s.Event.Source.Host)

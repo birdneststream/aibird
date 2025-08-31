@@ -19,8 +19,7 @@ func ToJpeg(imageBytes []byte) ([]byte, error) {
 	// DetectContentType detects the content type
 	contentType := http.DetectContentType(imageBytes)
 
-	switch contentType {
-	case "image/png":
+	if contentType == "image/png" {
 		// Decode the PNG image bytes
 		img, err := png.Decode(bytes.NewReader(imageBytes))
 
@@ -49,7 +48,7 @@ func ConvertPngToJpg(fileName string) string {
 			return failedConvertPNGToJPG
 		}
 
-		imageBytes, err := os.ReadFile(fileName)
+		imageBytes, err := os.ReadFile(fileName) // #nosec G304 - Path validated above for traversal attempts
 
 		if err != nil {
 			logger.Error("Failed to read image file", "file", fileName, "error", err)
@@ -79,10 +78,7 @@ func ConvertPngToJpg(fileName string) string {
 }
 
 func ExtractURLs(input string) ([]string, error) {
-	regex, err := regexp.Compile(`https?://[^\s/$.?#].[^\s]*`)
-	if err != nil {
-		return nil, fmt.Errorf("failed to compile the regex: %v", err)
-	}
+	regex := regexp.MustCompile(`https?://[^\s/$.?#].[^\s]*`)
 
 	// Extract all URLs from input
 	urls := regex.FindAllString(input, -1)
@@ -97,7 +93,7 @@ func IsImageURL(rawURL string) bool {
 		return false
 	}
 
-	resp, err := http.Head(rawURL)
+	resp, err := http.Head(rawURL) // #nosec G107 - URL scheme validated above
 	if err != nil {
 		logger.Error("Error checking image URL", "url", rawURL, "error", err)
 		return false

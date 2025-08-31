@@ -93,7 +93,7 @@ func (s *State) GetModesFromChannel() []string {
 	return modesToSet
 }
 
-func (s *State) CompareUserModes() {
+func (s *State) CompareUserModes() { //nolint:gocyclo
 	var differences []ModeDifference
 
 	for _, user := range s.Channel.Users {
@@ -372,7 +372,7 @@ func (s *State) UpdateNetworkBasedOnArgs() {
 }
 
 // UpdateBasedOnArgs accepts Network, Channel and User to update their fields based on the arguments provided
-func (s *State) UpdateBasedOnArgs(obj interface{}, immutableKeys map[string]bool) {
+func (s *State) UpdateBasedOnArgs(obj interface{}, immutableKeys map[string]bool) { //nolint:gocyclo
 	args := s.GetArguments()
 
 	uValue := reflect.ValueOf(obj).Elem()
@@ -405,40 +405,55 @@ func (s *State) UpdateBasedOnArgs(obj interface{}, immutableKeys map[string]bool
 		}
 
 		if fieldVal := uValue.FieldByName(fieldName); fieldVal.IsValid() {
-			var err error
 			var successMessage string
+			var boolErr, intErr, uintErr, floatErr error
+			var boolVal bool
+			var intVal int64
+			var uintVal uint64
+			var floatVal float64
 			switch fieldVal.Kind() {
 			case reflect.Bool:
-				val, err := strconv.ParseBool(fieldValueStr)
-				if err == nil {
-					fieldVal.SetBool(val)
-					successMessage = fmt.Sprintf("Updated %s to %t", fieldName, val)
+				boolVal, boolErr = strconv.ParseBool(fieldValueStr)
+				if boolErr == nil {
+					fieldVal.SetBool(boolVal)
+					successMessage = fmt.Sprintf("Updated %s to %t", fieldName, boolVal)
 				}
 			case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
-				val, err := strconv.ParseInt(fieldValueStr, 10, fieldVal.Type().Bits())
-				if err == nil {
-					fieldVal.SetInt(val)
-					successMessage = fmt.Sprintf("Updated %s to %d", fieldName, val)
+				intVal, intErr = strconv.ParseInt(fieldValueStr, 10, fieldVal.Type().Bits())
+				if intErr == nil {
+					fieldVal.SetInt(intVal)
+					successMessage = fmt.Sprintf("Updated %s to %d", fieldName, intVal)
 				}
 			case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
-				val, err := strconv.ParseUint(fieldValueStr, 10, fieldVal.Type().Bits())
-				if err == nil {
-					fieldVal.SetUint(val)
-					successMessage = fmt.Sprintf("Updated %s to %d", fieldName, val)
+				uintVal, uintErr = strconv.ParseUint(fieldValueStr, 10, fieldVal.Type().Bits())
+				if uintErr == nil {
+					fieldVal.SetUint(uintVal)
+					successMessage = fmt.Sprintf("Updated %s to %d", fieldName, uintVal)
 				}
 			case reflect.String:
 				fieldVal.SetString(fieldValueStr)
 				successMessage = fmt.Sprintf("Updated %s to %s", fieldName, fieldValueStr)
 			case reflect.Float32, reflect.Float64:
-				val, err := strconv.ParseFloat(fieldValueStr, fieldVal.Type().Bits())
-				if err == nil {
-					fieldVal.SetFloat(val)
-					successMessage = fmt.Sprintf("Updated %s to %f", fieldName, val)
+				floatVal, floatErr = strconv.ParseFloat(fieldValueStr, fieldVal.Type().Bits())
+				if floatErr == nil {
+					fieldVal.SetFloat(floatVal)
+					successMessage = fmt.Sprintf("Updated %s to %f", fieldName, floatVal)
 				}
 			}
 
-			if err != nil {
-				s.SendError(fmt.Sprintf("Error updating %s's: %v", fieldName, err))
+			// Check for parsing errors
+			if boolErr != nil || intErr != nil || uintErr != nil || floatErr != nil {
+				var parseErr error
+				if boolErr != nil {
+					parseErr = boolErr
+				} else if intErr != nil {
+					parseErr = intErr
+				} else if uintErr != nil {
+					parseErr = uintErr
+				} else if floatErr != nil {
+					parseErr = floatErr
+				}
+				s.SendError(fmt.Sprintf("Error updating %s: %v", fieldName, parseErr))
 			} else if successMessage != "" {
 				s.SendSuccess(successMessage)
 			}

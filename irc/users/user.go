@@ -38,7 +38,7 @@ func (u *User) UpdateNick(nick string) {
 	u.NickName = nick
 }
 
-func (u *User) UpdateIdentHost(ident string, host string) {
+func (u *User) UpdateIdentHost(ident, host string) {
 	if u.Ident == ident && u.Host == host {
 		return
 	}

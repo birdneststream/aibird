@@ -55,7 +55,11 @@ func handleDbStats(irc state.State) {
 
 	// Format size in human readable format
 	sizeStr := formatBytes(totalSize)
-	bitcaskSize := formatBytes(stats["size"].(int64))
+	sizeVal, ok := stats["size"].(int64)
+	if !ok {
+		sizeVal = 0
+	}
+	bitcaskSize := formatBytes(sizeVal)
 
 	response := fmt.Sprintf("Database Status: %d keys | %d datafiles | Bitcask size: %s | Disk usage: %s",
 		stats["keys"], stats["datafiles"], bitcaskSize, sizeStr)
