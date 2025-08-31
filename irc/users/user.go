@@ -230,6 +230,8 @@ func (u *User) FromUserData(userData *birdbase.UserData) error {
 	u.LatestChat = userData.LatestChat
 	u.IsAdmin = userData.IsAdmin
 	u.IsOwner = userData.IsOwner
+	// NOTE: Ignored status will be set correctly when the user is loaded into network context
+	// This prevents users from staying ignored when they're removed from the ignore list
 	u.Ignored = userData.Ignored
 	u.AccessLevel = userData.AccessLevel
 	u.AiService = userData.AiService

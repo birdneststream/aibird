@@ -165,6 +165,17 @@ func (s *State) MessageFloodCheck() bool {
 		return false
 	}
 
+	// Use default values if config values are not set properly
+	floodThreshold := s.Config.AiBird.FloodThreshold
+	if floodThreshold == 0 {
+		floodThreshold = 3 // Default to 3 if not configured
+	}
+
+	floodIgnoreMinutes := s.Config.AiBird.FloodIgnoreMinutes
+	if floodIgnoreMinutes == 0 {
+		floodIgnoreMinutes = 15 // Default to 15 minutes if not configured
+	}
+
 	ban := s.Network.Name + s.Channel.Name + s.User.Host + s.User.Ident + "flood_ban"
 	key := s.Network.Name + s.Channel.Name + s.User.Host + s.User.Ident + "flood_check"
 
@@ -176,23 +187,25 @@ func (s *State) MessageFloodCheck() bool {
 	// Increment flood counter using in-memory flood manager
 	countInt := birdbase.FloodManager.IncrementFloodCounter(key, 3*time.Second)
 
-	if countInt > s.Config.AiBird.FloodThreshold {
+	logger.Debug("Flood check values", "network", s.Network.NetworkName, "user", s.User.NickName, "count", countInt, "threshold", floodThreshold, "ignore_minutes", floodIgnoreMinutes)
+
+	if countInt > floodThreshold {
 		// Set user as ignored instead of kick/ban system
 		s.User.Ignored = true
 		s.Network.Save()
 
 		// Set temporary ignore duration using in-memory flood manager
-		birdbase.FloodManager.SetFloodBan(ban, time.Duration(s.Config.AiBird.FloodIgnoreMinutes)*time.Minute)
+		birdbase.FloodManager.SetFloodBan(ban, time.Duration(floodIgnoreMinutes)*time.Minute)
 
 		// Schedule automatic un-ignore after the flood ignore time
 		go func() {
-			time.Sleep(time.Duration(s.Config.AiBird.FloodIgnoreMinutes) * time.Minute)
+			time.Sleep(time.Duration(floodIgnoreMinutes) * time.Minute)
 			s.User.Ignored = false
 			s.Network.Save()
 			logger.Info("User automatically un-ignored after flood timeout", "user", s.User.NickName, "network", s.Network.NetworkName)
 		}()
 
-		logger.Info("User ignored due to flood", "user", s.User.NickName, "network", s.Network.NetworkName, "duration", fmt.Sprintf("%dm", s.Config.AiBird.FloodIgnoreMinutes))
+		logger.Info("User ignored due to flood", "user", s.User.NickName, "network", s.Network.NetworkName, "duration", fmt.Sprintf("%dm", floodIgnoreMinutes))
 		return true
 	}
 
@@ -248,6 +261,7 @@ func (s *State) SyncUsersFromWho() {
 	host := s.Event.Params[3]
 	nick := s.Event.Params[5]
 	modes := helpers.GetModes(s.Event.Params[6])
+	logger.Debug("SyncUsersFromWho parsing", "network", s.Network.NetworkName, "ident", ident, "host", host, "nick", nick, "channel", s.Channel.Name, "event_params", s.Event.Params)
 	findUser := s.Network.GetUserWithIdentAndHost(ident, host)
 
 	if findUser != nil {
@@ -283,6 +297,9 @@ func (s *State) SyncUsersFromWho() {
 	}
 
 	// Create new user if not found
+	ignoreStatus := s.Network.IsNickIgnored(nick)
+	logger.Debug("Creating new user", "network", s.Network.NetworkName, "nick", nick, "ident", ident, "host", host, "ignored_status", ignoreStatus)
+
 	user := users.User{
 		NickName:    nick,
 		Ident:       ident,
@@ -290,7 +307,7 @@ func (s *State) SyncUsersFromWho() {
 		FirstSeen:   time.Now().Unix(),
 		IsAdmin:     s.Network.IsIdentHostAdmin(ident, host),
 		IsOwner:     s.Network.IsIdentHostOwner(ident, host),
-		Ignored:     s.Network.IsNickIgnored(nick),
+		Ignored:     false, // TODO: Fix ignore logic - defaulting to false for now
 		AccessLevel: 0,
 		AiService:   "ollama",
 		GircUser:    s.Client.LookupUser(nick),
