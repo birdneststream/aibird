@@ -18,6 +18,7 @@ import (
 	"aibird/irc/commands/help"
 	"aibird/irc/networks"
 	"aibird/irc/state"
+	"aibird/irc/users"
 	"aibird/logger"
 	"aibird/queue"
 	"aibird/settings"
@@ -283,15 +284,52 @@ func handleJoin(c *girc.Client, e girc.Event, network *networks.Network, config 
 		return
 	}
 
-	// Update user's ident/host if we already know them, and save the update
-	if existingUser := network.GetUserWithNick(e.Source.Name); existingUser != nil {
+	// Check for existing user by nick first
+	var existingUser *users.User
+	if userByNick := network.GetUserWithNick(e.Source.Name); userByNick != nil {
+		existingUser = userByNick
 		existingUser.UpdateIdentHost(e.Source.Ident, e.Source.Host)
+		logger.Debug("Updated existing user ident/host", "network", network.NetworkName, "nick", e.Source.Name, "ident", e.Source.Ident, "host", e.Source.Host)
+	} else {
+		// Check for existing user by ident@host (nick change case)
+		if userByIdentHost := network.GetUserWithIdentAndHost(e.Source.Ident, e.Source.Host); userByIdentHost != nil {
+			existingUser = userByIdentHost
+			existingUser.UpdateNick(e.Source.Name)
+			logger.Debug("Updated existing user nick", "network", network.NetworkName, "old_nick", existingUser.NickName, "new_nick", e.Source.Name, "ident", e.Source.Ident, "host", e.Source.Host)
+		}
+	}
 
-		// Save just this user update (performance optimization)
+	// Save user update if we found an existing user, or create a new user
+	if existingUser != nil {
 		if userData, err := existingUser.ToUserData(0); err != nil {
-			logger.Warn("Failed to convert user to UserData after ident/host update", "error", err, "network", network.NetworkName, "nick", existingUser.NickName)
+			logger.Warn("Failed to convert user to UserData after update", "error", err, "network", network.NetworkName, "nick", existingUser.NickName)
 		} else if err := birdbase.SaveSingleUser(network.NetworkName, existingUser.Ident, existingUser.Host, userData); err != nil {
-			logger.Warn("Failed to save user after ident/host update", "error", err, "network", network.NetworkName, "nick", existingUser.NickName)
+			logger.Warn("Failed to save user after update", "error", err, "network", network.NetworkName, "nick", existingUser.NickName)
+		}
+	} else {
+		// Create new user if they don't exist in our network
+		logger.Debug("Creating new user from JOIN event", "network", network.NetworkName, "nick", e.Source.Name, "ident", e.Source.Ident, "host", e.Source.Host)
+		newUser := users.User{
+			NickName:    e.Source.Name,
+			Ident:       e.Source.Ident,
+			Host:        e.Source.Host,
+			FirstSeen:   time.Now().Unix(),
+			IsAdmin:     network.IsIdentHostAdmin(e.Source.Ident, e.Source.Host),
+			IsOwner:     network.IsIdentHostOwner(e.Source.Ident, e.Source.Host),
+			Ignored:     false, // Default to not ignored
+			AccessLevel: 0,
+			AiService:   "ollama",
+			GircUser:    c.LookupUser(e.Source.Name),
+		}
+		
+		// Add to network users list
+		network.Users = append(network.Users, newUser)
+		
+		// Save new user to database
+		if userData, err := newUser.ToUserData(0); err != nil {
+			logger.Warn("Failed to convert new user to UserData", "error", err, "network", network.NetworkName, "nick", newUser.NickName)
+		} else if err := birdbase.SaveSingleUser(network.NetworkName, newUser.Ident, newUser.Host, userData); err != nil {
+			logger.Warn("Failed to save new user", "error", err, "network", network.NetworkName, "nick", newUser.NickName)
 		}
 	}
 
