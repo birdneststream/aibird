@@ -126,7 +126,6 @@ func processAisciiCommand(irc state.State, response, message string) bool {
 	return true
 }
 
-
 // ParseAiImageWithGPU handles image commands with explicit GPU selection
 func ParseAiImageWithGPU(irc state.State, gpu meta.GPUType) bool {
 	if irc.IsAction("sd") {
@@ -134,11 +133,11 @@ func ParseAiImageWithGPU(irc state.State, gpu meta.GPUType) bool {
 			irc.Send(girc.Fmt(help.FindHelp(irc)))
 			return true
 		}
+	}
 
-		if irc.GetBoolArg("models") {
-			irc.Send(girc.Fmt("📸 The following sd models are available: " + comfyui.GetWorkFlows(true)))
-			return true
-		}
+	if irc.GetBoolArg("models") {
+		irc.Send(girc.Fmt("📸 The following sd models are available: " + comfyui.GetWorkFlows(true)))
+		return true
 	}
 
 	if comfyui.WorkflowExists(irc.Action()) {
@@ -200,7 +199,7 @@ func ParseAiImageWithGPU(irc state.State, gpu meta.GPUType) bool {
 
 			// Special handling for aiscii command - convert to IRC art instead of uploading
 			logger.Debug("Checking aiscii action in GPU function", "action", irc.Action(), "isAiscii", irc.IsAction("aiscii"))
-			if irc.IsAction("aiscii") {
+			if strings.Contains(irc.Action(), "aiscii") {
 				return processAisciiCommand(irc, response, message)
 			}
 
