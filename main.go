@@ -17,6 +17,7 @@ import (
 	"aibird/irc/commands"
 	"aibird/irc/commands/help"
 	"aibird/irc/networks"
+	"aibird/irc/participant"
 	"aibird/irc/state"
 	"aibird/irc/users"
 	"aibird/logger"
@@ -42,6 +43,9 @@ func main() {
 	// Initialize database
 	birdbase.Init()
 	defer birdbase.Close()
+
+	// Initialize participant system
+	participant.InitParticipant(config)
 
 	// Clean up orphaned networks (exist in DB but not in config)
 	cleanupOrphanedNetworks(config)
@@ -444,8 +448,12 @@ func handleKick(c *girc.Client, e girc.Event, network *networks.Network, config 
 }
 
 func handlePrivMsg(c *girc.Client, e girc.Event, network *networks.Network, config *settings.Config, q *queue.DualQueue) {
-	// Lightweight check for command trigger before initializing state. If it's not a command, do nothing.
-	if !strings.HasPrefix(e.Last(), config.AiBird.ActionTrigger) {
+	// Check if this is a command (starts with trigger)
+	isCommand := strings.HasPrefix(e.Last(), config.AiBird.ActionTrigger)
+	
+	if !isCommand {
+		// Not a command - check if we should handle it as a chat message for participant system
+		participant.HandleChatMessage(c, e, network, config)
 		return
 	}
 

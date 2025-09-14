@@ -20,5 +20,10 @@ type (
 		Users         []*users.User
 		TrimOutput    bool
 		ActivityTimer *time.Timer // Used in DelayedWhoTimer to prevent multiple who requests
+		// Participant system fields
+		ChatMode         bool    `toml:"chatMode"`         // Enable AI participant mode
+		CompanionMode    bool    `toml:"companionMode"`    // Enable companion personality
+		ChatPersonality  string  `toml:"chatPersonality"`  // Personality profile name
+		ChatResponseRate float64 `toml:"chatResponseRate"` // Base response probability (0.0-1.0)
 	}
 )

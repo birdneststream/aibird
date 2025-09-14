@@ -137,12 +137,12 @@ func CleanPrompt(message string) string {
 		`(?i)\b(granddaughter|grandson)\b`:                                "relative",
 
 		// Generic youth terms
-		`(?i)\b(child|children|kid|kids|kiddo|kiddies|kiddie|youngster|youngsters)\b`:    "adult",
-		`(?i)\b(teen|teens|teenager|teenagers|teenage|adolescent|adolescents)\b`:         "adult",
-		`(?i)\b(youth|youths|juvenile|juveniles|minor|minors|underage)\b`:                "adult",
-		`(?i)\b(baby|babies|infant|infants|toddler|toddlers|preschooler|preschoolers)\b`: "adult",
-		`(?i)\b(tween|tweens|preteen|preteens|pre-teen|pre-teens)\b`:                     "adult",
-		`(?i)\b(young adult|young person|young people|young ones|young individual)\b`:    "adult",
+		`(?i)\b(pre-k|pre k|child|children|kid|kids|kiddo|kiddies|kiddie|youngster|youngsters)\b`: "adult",
+		`(?i)\b(teen|teens|teenager|teenagers|teenage|adolescent|adolescents)\b`:                  "adult",
+		`(?i)\b(youth|youths|juvenile|juveniles|minor|minors|underage)\b`:                         "adult",
+		`(?i)\b(baby|babies|infant|infants|toddler|toddlers|preschooler|preschoolers)\b`:          "adult",
+		`(?i)\b(tween|tweens|preteen|preteens|pre-teen|pre-teens)\b`:                              "adult",
+		`(?i)\b(young adult|young person|young people|young ones|young individual)\b`:             "adult",
 
 		// School and education terms
 		`(?i)\b(elementary school|grade school|primary school)\b`:               "workplace",
