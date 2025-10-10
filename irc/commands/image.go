@@ -111,11 +111,30 @@ func processAisciiCommand(irc state.State, response, message string) bool {
 
 	// Send a header message
 	detailURL := convertToDetailURL(upload)
-	irc.Send(fmt.Sprintf("🎨 IRC Art for '%s' download the ascii here %s", message, detailURL))
 
-	// Send each line of IRC art
-	for _, line := range formattedLines {
-		irc.Client.Cmd.SendRawNoSplit(fmt.Sprintf("PRIVMSG %s :%s", irc.Channel.Name, line))
+	// Special handling for Libera Chat's ## channel and efnet #birdnest - send URL instead of scrolling
+	if (strings.EqualFold(irc.Network.NetworkName, "libera") && irc.Channel.Name == "##") ||
+		(strings.EqualFold(irc.Network.NetworkName, "efnet") && strings.EqualFold(irc.Channel.Name, "#birdnest")) {
+		irc.Send(fmt.Sprintf("🎨 IRC Art for '%s' download the ascii here %s", message, detailURL))
+
+		// Extract the ID from the upload URL to construct the derived txt URL
+		// Upload URL format: https://hole.birdnest.live/abc123.png
+		lastSlash := strings.LastIndex(upload, "/")
+		if lastSlash != -1 {
+			filename := upload[lastSlash+1:]
+			// Remove extension to get ID
+			id := strings.TrimSuffix(filename, ".png")
+			txtURL := fmt.Sprintf("https://hole.birdnest.live/derived/%s.png/%s.txt", id, id)
+			irc.Send(fmt.Sprintf("@url %s", txtURL))
+		}
+	} else {
+		// Normal behavior for other networks/channels - scroll the ASCII art
+		irc.Send(fmt.Sprintf("🎨 IRC Art for '%s' download the ascii here %s", message, detailURL))
+
+		// Send each line of IRC art
+		for _, line := range formattedLines {
+			irc.Client.Cmd.SendRawNoSplit(fmt.Sprintf("PRIVMSG %s :%s", irc.Channel.Name, line))
+		}
 	}
 
 	// Clean up the copy file after processing

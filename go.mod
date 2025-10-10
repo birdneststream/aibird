@@ -6,6 +6,7 @@ toolchain go1.24.6
 
 require (
 	github.com/BurntSushi/toml v1.5.0
+	github.com/agnivade/levenshtein v1.2.1
 	github.com/dsoprea/go-png-image-structure/v2 v2.0.0-20210512210324-29b889a6093d
 	github.com/go-playground/validator/v10 v10.27.0
 	github.com/google/generative-ai-go v0.20.1

@@ -1,0 +1,487 @@
+{
+  "id": "e278a325-8ae5-416a-bb56-ba9bd57fa4d2",
+  "revision": 0,
+  "last_node_id": 60,
+  "last_link_id": 90,
+  "nodes": [
+    {
+      "id": 54,
+      "type": "VAEDecode",
+      "pos": [
+        -145.83261108398438,
+        -1309.784912109375
+      ],
+      "size": [
+        210,
+        46
+      ],
+      "flags": {},
+      "order": 7,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "samples",
+          "type": "LATENT",
+          "link": 90
+        },
+        {
+          "name": "vae",
+          "type": "VAE",
+          "link": 77
+        }
+      ],
+      "outputs": [
+        {
+          "name": "IMAGE",
+          "type": "IMAGE",
+          "slot_index": 0,
+          "links": [
+            82
+          ]
+        }
+      ],
+      "properties": {
+        "cnr_id": "comfy-core",
+        "ver": "0.3.18",
+        "Node name for S&R": "VAEDecode"
+      },
+      "widgets_values": []
+    },
+    {
+      "id": 51,
+      "type": "CLIPTextEncode",
+      "pos": [
+        -454.12908935546875,
+        -1962.2015380859375
+      ],
+      "size": [
+        400,
+        200
+      ],
+      "flags": {},
+      "order": 3,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "clip",
+          "type": "CLIP",
+          "link": 69
+        }
+      ],
+      "outputs": [
+        {
+          "name": "CONDITIONING",
+          "type": "CONDITIONING",
+          "slot_index": 0,
+          "links": [
+            72
+          ]
+        }
+      ],
+      "title": "Positive",
+      "properties": {
+        "cnr_id": "comfy-core",
+        "ver": "0.3.18",
+        "Node name for S&R": "CLIPTextEncode"
+      },
+      "widgets_values": [
+        ""
+      ]
+    },
+    {
+      "id": 53,
+      "type": "KSampler",
+      "pos": [
+        -405.12908935546875,
+        -1690.2015380859375
+      ],
+      "size": [
+        315,
+        262
+      ],
+      "flags": {},
+      "order": 5,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "model",
+          "type": "MODEL",
+          "link": 79
+        },
+        {
+          "name": "positive",
+          "type": "CONDITIONING",
+          "link": 72
+        },
+        {
+          "name": "negative",
+          "type": "CONDITIONING",
+          "link": 87
+        },
+        {
+          "name": "latent_image",
+          "type": "LATENT",
+          "link": 74
+        }
+      ],
+      "outputs": [
+        {
+          "name": "LATENT",
+          "type": "LATENT",
+          "slot_index": 0,
+          "links": [
+            89
+          ]
+        }
+      ],
+      "title": "Sampler",
+      "properties": {
+        "cnr_id": "comfy-core",
+        "ver": "0.3.18",
+        "Node name for S&R": "KSampler"
+      },
+      "widgets_values": [
+        1070419808771801,
+        "randomize",
+        12,
+        4,
+        "dpmpp_2m",
+        "karras",
+        1
+      ]
+    },
+    {
+      "id": 55,
+      "type": "EmptyLatentImage",
+      "pos": [
+        -962.6799926757812,
+        -1626.9398193359375
+      ],
+      "size": [
+        315,
+        106
+      ],
+      "flags": {
+        "collapsed": false
+      },
+      "order": 0,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "LATENT",
+          "type": "LATENT",
+          "slot_index": 0,
+          "links": [
+            74
+          ]
+        }
+      ],
+      "properties": {
+        "cnr_id": "comfy-core",
+        "ver": "0.3.18",
+        "Node name for S&R": "EmptyLatentImage"
+      },
+      "widgets_values": [
+        1024,
+        1024,
+        1
+      ]
+    },
+    {
+      "id": 58,
+      "type": "CLIPTextEncode",
+      "pos": [
+        -978.1900634765625,
+        -1434.070068359375
+      ],
+      "size": [
+        400,
+        200
+      ],
+      "flags": {},
+      "order": 4,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "clip",
+          "type": "CLIP",
+          "link": 88
+        }
+      ],
+      "outputs": [
+        {
+          "name": "CONDITIONING",
+          "type": "CONDITIONING",
+          "slot_index": 0,
+          "links": [
+            87
+          ]
+        }
+      ],
+      "properties": {
+        "cnr_id": "comfy-core",
+        "ver": "0.3.18",
+        "Node name for S&R": "CLIPTextEncode"
+      },
+      "widgets_values": [
+        "logo, ((big hands, un-detailed skin, semi-realistic, cgi, 3d, render, sketch, cartoon, drawing, anime)), ((ugly mouth, ugly eyes, missing teeth, crooked teeth, close up, cropped, out of frame)), worst quality, low quality, jpeg artifacts, ugly, duplicate, morbid, mutilated, extra fingers, mutated hands, poorly drawn hands, poorly drawn face, mutation, deformed, blurry, dehydrated, bad anatomy, bad proportions, extra limbs, cloned face, disfigured, gross proportions, malformed limbs, missing arms, missing legs, extra arms, extra legs, fused fingers, too many fingers, long neck,(more than two arm per body:1.5), (more than two leg per body:1.5), (more than five fingers on one hand:1.5), multi arms, multi legs, bad arm anatomy, bad leg anatomy, bad hand anatomy, bad finger anatomy, bad detailed background, unclear architectural outline, non-linear background, elf-ears, hair crosses the screen border, obesity, fat, lowres, worst quality, low quality, blurry, mutated hands and fingers, disfigured, fused, cloned, duplicate, artist name, giantess, odd eyes, long fingers, long neck"
+      ]
+    },
+    {
+      "id": 59,
+      "type": "LatentGC",
+      "pos": [
+        -417.2572937011719,
+        -1307.2481689453125
+      ],
+      "size": [
+        210,
+        26
+      ],
+      "flags": {},
+      "order": 6,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "samples",
+          "type": "LATENT",
+          "link": 89
+        }
+      ],
+      "outputs": [
+        {
+          "name": "LATENT",
+          "type": "LATENT",
+          "links": [
+            90
+          ]
+        }
+      ],
+      "properties": {
+        "cnr_id": "ComfyUI-LatentGC_Aggressive",
+        "ver": "a080aa9bbc652275bc880348a1b7414df189673b",
+        "Node name for S&R": "LatentGC"
+      },
+      "widgets_values": []
+    },
+    {
+      "id": 49,
+      "type": "CheckpointLoaderSimple",
+      "pos": [
+        -951.2501220703125,
+        -1818.090087890625
+      ],
+      "size": [
+        315,
+        98
+      ],
+      "flags": {},
+      "order": 1,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "MODEL",
+          "type": "MODEL",
+          "slot_index": 0,
+          "links": [
+            79
+          ]
+        },
+        {
+          "name": "CLIP",
+          "type": "CLIP",
+          "slot_index": 1,
+          "links": [
+            69,
+            88
+          ]
+        },
+        {
+          "name": "VAE",
+          "type": "VAE",
+          "slot_index": 2,
+          "links": [
+            77
+          ]
+        }
+      ],
+      "properties": {
+        "cnr_id": "comfy-core",
+        "ver": "0.3.18",
+        "Node name for S&R": "CheckpointLoaderSimple"
+      },
+      "widgets_values": [
+        "sdxl/mklanNextgenXl_v1.safetensors"
+      ]
+    },
+    {
+      "id": 60,
+      "type": "Note",
+      "pos": [
+        -33.371376037597656,
+        -1957.3724365234375
+      ],
+      "size": [
+        415.5272521972656,
+        548.0908813476562
+      ],
+      "flags": {},
+      "order": 2,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [],
+      "title": "aibird_meta",
+      "properties": {},
+      "widgets_values": [
+        "name = \"Stable Diffusion XL - Mklan NextGen XL\"\ncommand = \"sd\"\ndescription = \"Generates a basic image using Mklan NextGen XL model.\"\nurl = \"https://civitai.com/models/525094/mklan-nextgen-xl\"\nexample = \"!sd a beautiful landscape painting --seed 12345\"\n\n# --- Technical Details ---\n\n# This workflow requires a more powerful GPU.\nbigModel = false\n\n# This command is available to all users.\naccessLevel = 0\n\n# The output type of this workflow.\ntype = \"image\"\n\n# This tells the bot where to put the main prompt text.\n# It targets the node titled \"Positive\" and its first widget (index 0).\npromptTarget = { node = \"Positive\", widget_index = 0 }\n\n# --- User Parameters ---\n\n[parameters]\n  # This section defines the --seed argument.\n  [parameters.seed]\n    type = \"int\"\n    description = \"Seed for randomization. If not provided, a random one is used.\"\n    # The value from --seed will be placed in the first widget (index 0) of the \"Sampler\" node.\n    targets = [ { node = \"Sampler\", widget_index = 0 } ]"
+      ],
+      "color": "#432",
+      "bgcolor": "#653"
+    },
+    {
+      "id": 56,
+      "type": "PreviewImage",
+      "pos": [
+        114.32788848876953,
+        -1309.2166748046875
+      ],
+      "size": [
+        305.4960632324219,
+        82.47309112548828
+      ],
+      "flags": {},
+      "order": 8,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "images",
+          "type": "IMAGE",
+          "link": 82
+        }
+      ],
+      "outputs": [],
+      "properties": {
+        "cnr_id": "comfy-core",
+        "ver": "0.3.18",
+        "Node name for S&R": "PreviewImage"
+      },
+      "widgets_values": []
+    }
+  ],
+  "links": [
+    [
+      69,
+      49,
+      1,
+      51,
+      0,
+      "CLIP"
+    ],
+    [
+      72,
+      51,
+      0,
+      53,
+      1,
+      "CONDITIONING"
+    ],
+    [
+      74,
+      55,
+      0,
+      53,
+      3,
+      "LATENT"
+    ],
+    [
+      77,
+      49,
+      2,
+      54,
+      1,
+      "VAE"
+    ],
+    [
+      79,
+      49,
+      0,
+      53,
+      0,
+      "MODEL"
+    ],
+    [
+      82,
+      54,
+      0,
+      56,
+      0,
+      "IMAGE"
+    ],
+    [
+      87,
+      58,
+      0,
+      53,
+      2,
+      "CONDITIONING"
+    ],
+    [
+      88,
+      49,
+      1,
+      58,
+      0,
+      "CLIP"
+    ],
+    [
+      89,
+      53,
+      0,
+      59,
+      0,
+      "LATENT"
+    ],
+    [
+      90,
+      59,
+      0,
+      54,
+      0,
+      "LATENT"
+    ]
+  ],
+  "groups": [
+    {
+      "id": 2,
+      "title": "API",
+      "bounding": [
+        -464,
+        -2036,
+        861.0999755859375,
+        640
+      ],
+      "color": "#3f789e",
+      "font_size": 24,
+      "flags": {}
+    }
+  ],
+  "config": {},
+  "extra": {
+    "ds": {
+      "scale": 1.1,
+      "offset": [
+        1015.6496819209015,
+        2091.844645436643
+      ]
+    },
+    "frontendVersion": "1.21.7",
+    "groupNodes": {},
+    "VHS_latentpreview": false,
+    "VHS_latentpreviewrate": 0,
+    "VHS_MetadataImage": true,
+    "VHS_KeepIntermediate": true
+  },
+  "version": 0.4
+}
