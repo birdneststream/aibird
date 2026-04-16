@@ -366,13 +366,13 @@ func (p *Participant) isUserInBurst(memory *ConversationMemory, username string)
 	// Look at recent messages from this user
 	recentUserMessages := 0
 	cutoff := time.Now().Add(-5 * time.Second) // 5 second window
-	
+
 	for _, msg := range memory.RecentMessages {
 		if msg.Username == username && msg.Timestamp.After(cutoff) && !msg.IsBot {
 			recentUserMessages++
 		}
 	}
-	
+
 	// Consider it a burst if user sent 2+ messages in 5 seconds
 	return recentUserMessages >= 2
 }
@@ -380,21 +380,21 @@ func (p *Participant) isUserInBurst(memory *ConversationMemory, username string)
 // handleBurstResponse manages delayed responses for users sending message bursts
 func (p *Participant) handleBurstResponse(c *girc.Client, e girc.Event, network *networks.Network, channel *channels.Channel, memory *ConversationMemory, delay time.Duration) {
 	username := e.Source.Name
-	
+
 	// Cancel any existing timer for this user
 	if timer, exists := memory.BurstTimers[username]; exists {
 		timer.Stop()
 	}
-	
+
 	// Mark this user as having a pending response
 	memory.PendingResponses[username] = true
-	
+
 	// Create new timer
 	memory.BurstTimers[username] = time.AfterFunc(delay, func() {
 		// Check if response is still pending (not cancelled by another message)
 		if memory.PendingResponses[username] {
 			logger.Debug("Burst delay expired, sending response", "user", username)
-			
+
 			// Generate response with full context including all burst messages
 			ctx := p.buildMessageContext(memory, channel, network, e, "reactive")
 			response, err := GenerateParticipantMessage(ctx, p.config.OpenRouter)
@@ -402,13 +402,13 @@ func (p *Participant) handleBurstResponse(c *girc.Client, e girc.Event, network 
 				logger.Error("Failed to generate burst response", "error", err)
 				return
 			}
-			
+
 			if response != "" {
 				logger.Info("Participant sending burst response", "network", network.NetworkName, "channel", channel.Name, "response", response)
 				c.Cmd.Message(channel.Name, response)
 				p.recordMessage(memory, network.Nick, response, true)
 			}
-			
+
 			// Clean up
 			delete(memory.PendingResponses, username)
 			delete(memory.BurstTimers, username)

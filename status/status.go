@@ -346,20 +346,18 @@ type UserAccess interface {
 	CanUsePremiumGPU() bool
 }
 
-// CheckModelExecution performs various checks to see if a model can be executed.
-// It returns a boolean indicating if the 5090 (cuda:1) should be used, and an error if execution is not permitted.
-func (c *Client) CheckModelExecution(model string, meta *meta.AibirdMeta, user UserAccess, userNickName string) (bool, error) {
+// CheckModelExecution performs pre-flight checks before executing a ComfyUI model.
+// Returns an error if execution is not permitted.
+func (c *Client) CheckModelExecution(metaData *meta.AibirdMeta, user UserAccess) error {
 	status, err := c.GetStatus()
 	if err != nil {
-		return false, errors.New("AI rig is offline!!! Sorry pal")
+		return errors.New("AI rig is offline!!! Sorry pal")
 	}
 
-	isSteamRunning := status.IsRunning
 	comfyUIRunning := status.DockerStatus.ComfyUI
 	canUse := status.CanUse
 
 	logger.Debug("CheckModelExecution",
-		"steam", isSteamRunning,
 		"comfyui", comfyUIRunning,
 		"canUse", canUse,
 		"userAccessLevel", user.GetAccessLevel(),
@@ -368,32 +366,23 @@ func (c *Client) CheckModelExecution(model string, meta *meta.AibirdMeta, user U
 
 	// Check if bot usage is allowed
 	if !canUse {
-		return false, errors.New("sorry pal jewbird is doing secret ai experiments and requires all gpus")
+		return errors.New("sorry pal jewbird is doing secret ai experiments and requires all gpus")
 	}
 
 	if !comfyUIRunning {
-		return false, errors.New("AI rig seems online but the comfyui generation is not running!!! Sorry pal")
+		return errors.New("AI rig seems online but the comfyui generation is not running!!! Sorry pal")
 	}
 
 	// Check GPU temperatures - warn if any GPU is over 80°C
 	const tempThreshold = 80
 	if hotGPU, temp := checkGPUTemperatures(status.GPUs, tempThreshold); hotGPU != "" {
-		return false, fmt.Errorf("🌡️ GPU %s is running hot at %d°C! Please wait a moment and try again when it cools down", hotGPU, temp)
+		return fmt.Errorf("🌡️ GPU %s is running hot at %d°C! Please wait a moment and try again when it cools down", hotGPU, temp)
 	}
 
 	// Access level check
-	if user.GetAccessLevel() < meta.AccessLevel {
-		return false, fmt.Errorf("⛔️ Sorry, you need access level %d to use this command. Check !support for more info", meta.AccessLevel)
+	if user.GetAccessLevel() < metaData.AccessLevel {
+		return fmt.Errorf("⛔️ Sorry, you need access level %d to use this command. Check !support for more info", metaData.AccessLevel)
 	}
 
-	// Use 5090 (cuda:1) for all generation, unless Steam is running
-	// When Steam is running, force 4090 (cuda:0) usage
-	if isSteamRunning {
-		logger.Debug("CheckModelExecution: Steam running, using 4090 (cuda:0)")
-		return false, nil
-	}
-
-	// Default to 5090 for all users
-	logger.Debug("CheckModelExecution: Using 5090 (cuda:1)")
-	return true, nil
+	return nil
 }

@@ -6,15 +6,15 @@ import (
 
 // MessageContext holds context information for generating responses
 type MessageContext struct {
-	Type              string    // "wake_greeting", "sleep_message", "spontaneous", "check_in", "activity_response", "reactive"
-	TimeOfDay         string    // "morning", "afternoon", "evening", "night"
-	ChannelActivity   string    // "quiet", "active", "very_active"
-	RecentMessages    []string  // Last few messages for context
-	UserRelation      string    // "stranger", "regular", "companion"
-	PersonalityMode   string    // "friendly", "companion", "casual"
-	DaysSinceLastChat int       // For companion check-ins
-	IsHighlighted     bool      // Bot was mentioned/highlighted
-	TriggerUser       string    // Username that triggered the response
+	Type              string   // "wake_greeting", "sleep_message", "spontaneous", "check_in", "activity_response", "reactive"
+	TimeOfDay         string   // "morning", "afternoon", "evening", "night"
+	ChannelActivity   string   // "quiet", "active", "very_active"
+	RecentMessages    []string // Last few messages for context
+	UserRelation      string   // "stranger", "regular", "companion"
+	PersonalityMode   string   // "friendly", "companion", "casual"
+	DaysSinceLastChat int      // For companion check-ins
+	IsHighlighted     bool     // Bot was mentioned/highlighted
+	TriggerUser       string   // Username that triggered the response
 }
 
 // ConversationMemory stores recent channel activity and user relationships
@@ -25,7 +25,7 @@ type ConversationMemory struct {
 	UserProfiles     map[string]UserProfile
 	LastInteractions map[string]time.Time
 	LastBotMessage   time.Time
-	MessageCount     int // Messages since last bot response
+	MessageCount     int                    // Messages since last bot response
 	BurstTimers      map[string]*time.Timer // Per-user burst response timers
 	PendingResponses map[string]bool        // Users with pending burst responses
 }
@@ -65,10 +65,10 @@ type DaySchedule struct {
 
 // SleepPattern controls sleep/wake behavior
 type SleepPattern struct {
-	TransitionMinutes int     // Minutes for gradual sleep/wake
-	WakeGreeting      bool    // Send morning greetings
-	SleepGreeting     bool    // Send goodnight messages
-	GreetingWindow    int     // Minutes after wake to potentially greet
+	TransitionMinutes   int     // Minutes for gradual sleep/wake
+	WakeGreeting        bool    // Send morning greetings
+	SleepGreeting       bool    // Send goodnight messages
+	GreetingWindow      int     // Minutes after wake to potentially greet
 	GreetingProbability float64 // Chance to send greeting
 }
 
@@ -83,20 +83,20 @@ type ActivityTrigger struct {
 
 // SpontaneousConfig controls proactive messaging
 type SpontaneousConfig struct {
-	Enabled         bool
-	MinInterval     int     // Minimum minutes between spontaneous messages
-	MaxInterval     int     // Maximum minutes
-	Probability     float64 // Base chance per interval
-	ActivityBased   bool    // Wait for some activity before sending
-	MaxDailyCount   int     // Maximum spontaneous messages per day
-	QuietThreshold  int     // Minutes of silence before considering channel "quiet"
+	Enabled        bool
+	MinInterval    int     // Minimum minutes between spontaneous messages
+	MaxInterval    int     // Maximum minutes
+	Probability    float64 // Base chance per interval
+	ActivityBased  bool    // Wait for some activity before sending
+	MaxDailyCount  int     // Maximum spontaneous messages per day
+	QuietThreshold int     // Minutes of silence before considering channel "quiet"
 }
 
 // ParticipantState tracks the current state of the participant system
 type ParticipantState struct {
 	NetworkName            string
 	ChannelName            string
-	IsActive               bool      // Currently active based on schedule
+	IsActive               bool // Currently active based on schedule
 	LastSpontaneousMessage time.Time
 	LastWakeGreeting       time.Time
 	LastSleepGreeting      time.Time
@@ -106,10 +106,10 @@ type ParticipantState struct {
 
 // PersonalityConfig defines personality traits and prompts
 type PersonalityConfig struct {
-	Name         string
-	SystemPrompt string
-	Chattiness   float64 // 0.0-1.0, affects response probability
-	CompanionMode bool   // Special behaviors for companion relationships
+	Name          string
+	SystemPrompt  string
+	Chattiness    float64 // 0.0-1.0, affects response probability
+	CompanionMode bool    // Special behaviors for companion relationships
 }
 
 // ParticipantConfig holds all configuration for the participant system

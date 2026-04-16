@@ -74,7 +74,7 @@ func main() {
 	var wg sync.WaitGroup
 
 	// Init and start the dual queue process
-	q := queue.NewDualQueue()
+	q := queue.NewProcessingQueue()
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
@@ -129,7 +129,7 @@ func cleanupOrphanedNetworks(config *settings.Config) {
 	}
 }
 
-func ircClient(ctx context.Context, network *networks.Network, config *settings.Config, q *queue.DualQueue, wg *sync.WaitGroup) {
+func ircClient(ctx context.Context, network *networks.Network, config *settings.Config, q *queue.ProcessingQueue, wg *sync.WaitGroup) {
 	defer wg.Done()
 	network.Load()
 	logger.Info("Connecting to network", "network", network.Name)
@@ -329,10 +329,10 @@ func handleJoin(c *girc.Client, e girc.Event, network *networks.Network, config 
 			AiService:   "ollama",
 			GircUser:    c.LookupUser(e.Source.Name),
 		}
-		
+
 		// Add to network users list
 		network.Users = append(network.Users, newUser)
-		
+
 		// Save new user to database
 		if userData, err := newUser.ToUserData(0); err != nil {
 			logger.Warn("Failed to convert new user to UserData", "error", err, "network", network.NetworkName, "nick", newUser.NickName)
@@ -451,7 +451,7 @@ func handleKick(c *girc.Client, e girc.Event, network *networks.Network, config 
 	}
 }
 
-func handlePrivMsg(c *girc.Client, e girc.Event, network *networks.Network, config *settings.Config, q *queue.DualQueue) {
+func handlePrivMsg(c *girc.Client, e girc.Event, network *networks.Network, config *settings.Config, q *queue.ProcessingQueue) {
 	// Ignore ZNC buffer playback
 	if !network.ConnectedAt.IsZero() {
 		// Method 1: If server-time is supported, check if message is from before we connected
@@ -562,7 +562,7 @@ func checkFlood(irc state.State) {
 	}
 }
 
-func dispatchCommand(irc state.State, q *queue.DualQueue) {
+func dispatchCommand(irc state.State, q *queue.ProcessingQueue) {
 	// Check if the command is denied at any level
 	action := irc.Action()
 	if irc.Channel != nil {
@@ -608,7 +608,7 @@ func dispatchCommand(irc state.State, q *queue.DualQueue) {
 			},
 			Model: "ollama-ai", // Special identifier for Ollama requests
 			User:  irc.User,
-			GPU:   meta.GPU5090, // Default GPU, not really used for Ollama
+			GPU:   meta.GPU4090,
 		}
 
 		msg, err := q.Enqueue(queueItem)

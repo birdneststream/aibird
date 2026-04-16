@@ -8,28 +8,25 @@ import (
 	"aibird/queue"
 )
 
-func ShowQueueStatus(s state.State, q *queue.DualQueue) string {
+func ShowQueueStatus(s state.State, q *queue.ProcessingQueue) string {
 	status := q.GetDetailedStatus()
-
-	// Get currently processing action (single queue now)
-	processingAction := q.Queue4090.GetProcessingAction()
+	processingAction := q.Queue.GetProcessingAction()
 
 	var messages []string
 
-	// Single Queue Status
 	if processingAction != "" {
-		if status.Queue4090Length > 0 {
-			messages = append(messages, fmt.Sprintf("🟢 GPU: Processing (%s) | 🟡 %d queued (%s)", processingAction, status.Queue4090Length, strings.Join(status.Queue4090Items, ", ")))
+		if status.QueueLength > 0 {
+			messages = append(messages, fmt.Sprintf("🟢 GPU: Processing (%s) | 🟡 %d queued (%s)", processingAction, status.QueueLength, strings.Join(status.QueueItems, ", ")))
 		} else {
 			messages = append(messages, fmt.Sprintf("🟢 GPU: Processing (%s)", processingAction))
 		}
-	} else if status.Queue4090Length > 0 {
-		messages = append(messages, fmt.Sprintf("🟡 GPU: %d queued (%s)", status.Queue4090Length, strings.Join(status.Queue4090Items, ", ")))
+	} else if status.QueueLength > 0 {
+		messages = append(messages, fmt.Sprintf("🟡 GPU: %d queued (%s)", status.QueueLength, strings.Join(status.QueueItems, ", ")))
 	} else {
 		messages = append(messages, "⚪ GPU: Queue empty")
 	}
 
-	if status.Queue4090Length == 0 && processingAction == "" {
+	if status.QueueLength == 0 && processingAction == "" {
 		return "Queue Status: Queue is empty"
 	}
 

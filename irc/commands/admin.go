@@ -19,11 +19,11 @@ func ParseAdmin(irc state.State) {
 	parseAdminCommands(irc, nil)
 }
 
-func ParseAdminWithQueue(irc state.State, q *queue.DualQueue) {
+func ParseAdminWithQueue(irc state.State, q *queue.ProcessingQueue) {
 	parseAdminCommands(irc, q)
 }
 
-func parseAdminCommands(irc state.State, q *queue.DualQueue) {
+func parseAdminCommands(irc state.State, q *queue.ProcessingQueue) {
 	if irc.User.IsAdmin {
 		switch irc.Command.Action {
 

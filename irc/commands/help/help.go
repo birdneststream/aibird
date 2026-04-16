@@ -168,7 +168,7 @@ func TextHelp() []Help {
 				{Argument: "--size", Help: "Image size (default: 1024x1024).", Values: "1024x1024, 768x1024, 1024x768"},
 			},
 			Queueable: false,
-			Example: "!glm-img a cute cat sitting on a windowsill --size=1024x1024",
+			Example:   "!glm-img a cute cat sitting on a windowsill --size=1024x1024",
 		},
 	}
 }
@@ -397,12 +397,10 @@ func AdminHelp() []Help {
 			Queueable: false,
 		},
 		{
-			Name: "clearqueue",
-			Type: "admin",
-			Help: "Clear specified queue(s) or all queues.",
-			Arguments: []Arguments{
-				{Argument: "[5090|4090|all]", Help: "Specify which queue(s) to clear. Use 'all' to clear both queues.", Values: "5090, 4090, all"},
-			},
+			Name:      "clearqueue",
+			Type:      "admin",
+			Help:      "Clear the processing queue.",
+			Arguments: []Arguments{},
 			Queueable: false,
 		},
 		{

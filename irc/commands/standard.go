@@ -39,7 +39,7 @@ func filterHelp(commands []help.Help, irc state.State) []help.Help {
 	return filtered
 }
 
-func ParseStandardWithQueue(irc state.State, q *queue.DualQueue) {
+func ParseStandardWithQueue(irc state.State, q *queue.ProcessingQueue) {
 	switch irc.Command.Action {
 	case "help":
 		irc.Send("Type  <command> --help for more information on a command.")

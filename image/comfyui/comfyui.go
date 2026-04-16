@@ -24,7 +24,6 @@ import (
 
 const boolType = "bool"
 
-
 func freeVram(clientAddr string, clientPort int) error {
 	url := fmt.Sprintf("http://%s:%d/free", clientAddr, clientPort)
 	req, err := http.NewRequest("POST", url, http.NoBody)
@@ -65,13 +64,8 @@ func Process(irc state.State, aiEnhancedPrompt string, gpu meta.GPUType) (string
 			return "", fmt.Errorf("⛔️ Sorry, you need access level %d to use this command. Check !support for more info", metaData.AccessLevel)
 		}
 
-		// Single ComfyUI instance - determine CUDA device based on GPU type
-		// GPU5090 -> cuda:1 (RTX 5090)
-		// GPU4090 -> cuda:0 (RTX 4090)
-		cudaDevice := "cuda:0" // Default to 4090
-		if gpu == meta.GPU5090 {
-			cudaDevice = "cuda:1" // 5090
-		}
+		// Always use 4090 on cuda:0
+		cudaDevice := "cuda:0"
 		logger.Debug("ComfyUI CUDA device selection", "gpu", gpu, "cudaDevice", cudaDevice)
 
 		clientPort := comfyUiConfig.Port

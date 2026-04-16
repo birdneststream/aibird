@@ -55,11 +55,11 @@ func GenerateParticipantMessage(ctx MessageContext, config settings.OpenRouterCo
 	// Add conversation history for better context
 	for _, msgText := range ctx.RecentMessages {
 		messages = append(messages, Message{
-			Role:    "user", 
+			Role:    "user",
 			Content: msgText,
 		})
 	}
-	
+
 	// Add a final instruction to prevent repetition
 	if len(ctx.RecentMessages) > 0 {
 		messages = append(messages, Message{

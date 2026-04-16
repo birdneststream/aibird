@@ -12,18 +12,17 @@ type Item struct {
 	Function func(state.State, meta.GPUType)
 }
 
-// Dual Queue Types
-type DualQueue struct {
-	Queue4090 *Queue
-	Queue2070 *Queue
-	Mutex     sync.Mutex
+// ProcessingQueue manages a single GPU processing queue
+type ProcessingQueue struct {
+	Queue *Queue
+	Mutex sync.Mutex
 }
 
 type QueueItem struct {
 	Item
 	Model string
 	User  UserAccess
-	GPU   meta.GPUType // Explicit GPU routing
+	GPU   meta.GPUType
 }
 
 // UserAccess interface for queue items

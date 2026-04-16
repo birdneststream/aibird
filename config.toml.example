@@ -73,14 +73,6 @@ defaultModel = "anthropic/claude-3.5-sonnet"
 maxTokens = 4096
 temperature = 0.7
 
-# Gemini AI Service Configuration
-[gemini]
-enabled = false
-apiKey = "your-gemini-api-key-here"
-defaultModel = "gemini-pro"
-maxTokens = 4096
-temperature = 0.7
-
 # Ollama AI Service Configuration
 [ollama]
 enabled = false

@@ -194,7 +194,6 @@ func TestCleanPrompt(t *testing.T) {
 			input:    "boop beep",
 			expected: "boop beep",
 		},
-
 	}
 
 	for _, tt := range tests {
@@ -206,4 +205,3 @@ func TestCleanPrompt(t *testing.T) {
 		})
 	}
 }
-

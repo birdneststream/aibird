@@ -232,16 +232,6 @@ func ParseAiText(irc state.State) bool {
 		return true
 	}
 
-	if irc.IsAction("anal") {
-		if irc.IsEmptyMessage() {
-			return true
-		}
-
-		// HuggingBird sentiment analysis removed - service no longer available
-		irc.Send(girc.Fmt("🧠 Sentiment analysis service is currently unavailable"))
-		return true
-	}
-
 	return false
 }
 
@@ -289,7 +279,7 @@ func handleAiResponse(irc state.State, response string) {
 
 		irc.SetMessage(ttsResponse)
 
-		ProcessAndUploadAudio(irc, originalMessage, ttsResponse)
+		ProcessAndUploadAudio(irc, originalMessage, ttsResponse, meta.GPU4090)
 
 		irc.Command.Action = "ai"
 		irc.SetMessage(originalMessage)
