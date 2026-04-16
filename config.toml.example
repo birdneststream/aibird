@@ -73,13 +73,12 @@ defaultModel = "anthropic/claude-3.5-sonnet"
 maxTokens = 4096
 temperature = 0.7
 
-# Ollama AI Service Configuration
-[ollama]
-enabled = false
-baseUrl = "http://localhost:11434"
-defaultModel = "llama3"
-maxTokens = 4096
-temperature = 0.7
+# llama.cpp AI Service Configuration
+[llamacpp]
+url = "http://localhost"
+port = "8081"
+defaultModel = "Qwen3.5-9B-ultra-heretic.Q5_K_M"
+contextLimit = 15
 
 # ComfyUI Image Generation Configuration
 [comfyui]

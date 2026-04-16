@@ -1,9 +1,11 @@
-package ollama
+package llamacpp
 
 import (
 	"errors"
+	"net/http"
 	"regexp"
 	"strings"
+	"time"
 
 	"aibird/birdbase"
 	"aibird/helpers"
@@ -13,8 +15,29 @@ import (
 	"aibird/text"
 )
 
+// IsLlamaCppRunning checks if the llama.cpp server is healthy by hitting its /health endpoint.
+// Returns true if the server responds with HTTP 200.
+func IsLlamaCppRunning(url, port string) (bool, error) {
+	healthURL := helpers.MakeUrlWithPort(url, port) + "health"
+
+	client := &http.Client{
+		Timeout: 2 * time.Second,
+	}
+
+	resp, err := client.Get(healthURL) //nolint:gosec // URL constructed from config
+	if err != nil {
+		return false, nil // Connection failure means not running, no error
+	}
+	defer resp.Body.Close()
+
+	return resp.StatusCode == http.StatusOK, nil
+}
+
+// ChatRequest sends a chat completion request to the llama.cpp server.
+// The llama.cpp server (with --reasoning-format deepseek, the default) separates
+// thinking/reasoning content into reasoning_content, so message.content is clean.
 func ChatRequest(irc state.State) (string, error) {
-	ollamaConfig := irc.Config.Ollama
+	llamacppConfig := irc.Config.LlamaCpp
 
 	if irc.Message() == "reset" {
 		if text.DeleteChatCache(irc.UserAiChatCacheKey()) {
@@ -29,29 +52,13 @@ func ChatRequest(irc state.State) (string, error) {
 		message = text.AppendFullStop(irc.Message())
 	}
 
-	requestBody := &OllamaRequestBody{
-		Model:     ollamaConfig.DefaultModel,
-		Stream:    false,
-		KeepAlive: "0m",
-		Messages: []text.Message{
-			{
-				Role:    "system",
-				Content: irc.User.GetBasePrompt(),
-			},
-		},
-		Options: OllamaOptions{
-			RepeatPenalty:    1.2,
-			PresencePenalty:  1.5,
-			FrequencyPenalty: 2,
-		},
-	}
-
-	if dsArg, ok := irc.FindArgument("ds", false).(bool); ok && dsArg {
-		requestBody.Model = "deepseek-r1:8b"
-	}
-
-	if dsqwenArg, ok := irc.FindArgument("dsqwen", false).(bool); ok && dsqwenArg {
-		requestBody.Model = "deepseek-r1:32b"
+	requestBody := &LlamaCppRequest{
+		Model:            llamacppConfig.DefaultModel,
+		Stream:           false,
+		RepeatPenalty:    1.2,
+		PresencePenalty:  1.5,
+		FrequencyPenalty: 2.0,
+		Messages:         []text.Message{},
 	}
 
 	// Get the chat history from the cache if it exists
@@ -63,31 +70,43 @@ func ChatRequest(irc state.State) (string, error) {
 	// Append the new user message to the cache before making the request
 	text.AppendChatCache(irc.UserAiChatCacheKey(), "user", message, irc.Config.AiBird.AiChatContextLimit)
 
-	// Append the newest message
+	// Build messages: system prompt + history + current message
+	systemMessage := text.Message{
+		Role:    "system",
+		Content: irc.User.GetBasePrompt(),
+	}
+
 	currentUserMessage := text.Message{
 		Role:    "user",
 		Content: message,
 	}
 
+	requestBody.Messages = append(requestBody.Messages, systemMessage)
 	requestBody.Messages = append(requestBody.Messages, chatHistory...)
 	requestBody.Messages = append(requestBody.Messages, currentUserMessage)
 
-	ollamaRequest := request.Request{
-		Url:     helpers.MakeUrlWithPort(ollamaConfig.Url, ollamaConfig.Port) + "api/chat",
+	llamacppReq := request.Request{
+		Url:     helpers.MakeUrlWithPort(llamacppConfig.Url, llamacppConfig.Port) + "v1/chat/completions",
 		Method:  "POST",
 		Headers: []request.Headers{{Key: "Content-Type", Value: "application/json"}},
 		Payload: requestBody,
 	}
 
-	var response OllamaResponse
-	err := ollamaRequest.Call(&response)
-
+	var response LlamaCppResponse
+	err := llamacppReq.Call(&response)
 	if err != nil {
 		return "", err
 	}
 
-	if response.Message.Content != "" {
-		apiResponse := strings.TrimSpace(response.Message.Content)
+	// Bounds check on choices array
+	if len(response.Choices) == 0 {
+		return "", errors.New("no choices returned from llama.cpp")
+	}
+
+	if response.Choices[0].Message.Content != "" {
+		apiResponse := strings.TrimSpace(response.Choices[0].Message.Content)
+		// reasoning_content is separated by the server, no stripping needed
+
 		text.AppendChatCache(irc.UserAiChatCacheKey(), "assistant", apiResponse, irc.Config.AiBird.AiChatContextLimit)
 
 		return apiResponse, nil
@@ -96,14 +115,16 @@ func ChatRequest(irc state.State) (string, error) {
 	return "", errors.New("no content found")
 }
 
-func EnhancePrompt(message string, config settings.OllamaConfig) (string, error) {
+// EnhancePrompt expands a simple prompt into a more detailed one for image/video generation.
+func EnhancePrompt(message string, config settings.LlamaCppConfig) (string, error) {
 	systemPrompt := "your function is to expand out prompts from a simple sentence to a more complex one, including vivid detail and descriptions. Only include the expanded prompt, do not provide any explanations or things like Description:"
 	userPrompt := "Expand out the following prompt, include details such as camera movements and describe it as a movie scene:" + message
 
 	return SingleRequest(userPrompt, systemPrompt, config)
 }
 
-func GenerateArtFilename(prompt string, config settings.OllamaConfig) (string, error) {
+// GenerateArtFilename generates a short, creative filename for digital artwork.
+func GenerateArtFilename(prompt string, config settings.LlamaCppConfig) (string, error) {
 	systemPrompt := "Generate a short, creative filename for digital artwork. Rules: 1) Use only letters, numbers, and hyphens 2) Maximum 20 characters 3) Describe the main subject/theme 4) No file extensions 5) Return ONLY the filename, nothing else"
 	userPrompt := "Create filename for art prompt: " + prompt
 
@@ -112,18 +133,18 @@ func GenerateArtFilename(prompt string, config settings.OllamaConfig) (string, e
 		return "", err
 	}
 
-	// Remove various thinking/reasoning patterns (case insensitive, multiline)
+	// Safety fallback: remove thinking/reasoning patterns in case the model
+	// outputs them despite reasoning-format separation (e.g. for single-shot requests)
 	patterns := []string{
-		`(?i)<think>.*?</think>`,       // <think></think> tags
-		`(?i)<thinking>.*?</thinking>`, // <thinking></thinking> tags
-		`(?i)\*thinks?\*.*?\*`,         // *thinks* ... *
-		`(?i)\*thinking\*.*?\*`,        // *thinking* ... *
-		`(?i)let me think.*?(?:\n|$)`,  // "let me think..." lines
+		`(?is)<think\b[^>]*>.*?</think\>`,
+		`(?i)\*thinks?\*.*?\*`,
+		`(?i)\*thinking\*.*?\*`,
+		`(?i)let me think.*?(?:\n|$)`,
 	}
 
 	cleaned := response
 	for _, pattern := range patterns {
-		re := regexp.MustCompile(`(?s)` + pattern) // (?s) makes . match newlines
+		re := regexp.MustCompile(`(?s)` + pattern)
 		cleaned = re.ReplaceAllString(cleaned, "")
 	}
 
@@ -131,7 +152,7 @@ func GenerateArtFilename(prompt string, config settings.OllamaConfig) (string, e
 	lines := strings.Split(strings.TrimSpace(cleaned), "\n")
 	for _, line := range lines {
 		line = strings.TrimSpace(line)
-		if line != "" && len(line) <= 30 { // Reasonable filename length
+		if line != "" && len(line) <= 30 {
 			return line, nil
 		}
 	}
@@ -144,7 +165,8 @@ func GenerateArtFilename(prompt string, config settings.OllamaConfig) (string, e
 	return result, nil
 }
 
-func SdPrompt(message string, config settings.OllamaConfig) (string, error) {
+// SdPrompt enhances a prompt for Stable Diffusion image generation.
+func SdPrompt(message string, config settings.LlamaCppConfig) (string, error) {
 	systemPrompt, err := text.GetPrompt("sd.md")
 	if err != nil {
 		return "", err
@@ -156,14 +178,15 @@ func SdPrompt(message string, config settings.OllamaConfig) (string, error) {
 		return "", err
 	}
 
-	// replace , with ,  in prompt
+	// Normalise punctuation
 	prompt = strings.ReplaceAll(prompt, ",", ", ")
 	prompt = strings.ReplaceAll(prompt, "_", " ")
 
 	return prompt, nil
 }
 
-func GenerateLyrics(message string, config settings.OllamaConfig) (string, error) {
+// GenerateLyrics generates song lyrics based on the given topic.
+func GenerateLyrics(message string, config settings.LlamaCppConfig) (string, error) {
 	systemPrompt, err := text.GetPrompt("lyrics.md")
 	if err != nil {
 		return "", err
@@ -173,11 +196,11 @@ func GenerateLyrics(message string, config settings.OllamaConfig) (string, error
 	return SingleRequest(userPrompt, systemPrompt, config)
 }
 
-func SingleRequest(message, system string, config settings.OllamaConfig) (string, error) {
-	requestBody := &OllamaRequestBody{
-		Model:     "dolphin-llama3:8b",
-		Stream:    false,
-		KeepAlive: "0m",
+// SingleRequest sends a single message to the llama.cpp server without chat history.
+func SingleRequest(message, system string, config settings.LlamaCppConfig) (string, error) {
+	requestBody := &LlamaCppRequest{
+		Model:  config.DefaultModel,
+		Stream: false,
 		Messages: []text.Message{
 			{
 				Role:    "system",
@@ -186,7 +209,6 @@ func SingleRequest(message, system string, config settings.OllamaConfig) (string
 		},
 	}
 
-	// Append the newest message
 	currentUserMessage := text.Message{
 		Role:    "user",
 		Content: message,
@@ -194,23 +216,25 @@ func SingleRequest(message, system string, config settings.OllamaConfig) (string
 
 	requestBody.Messages = append(requestBody.Messages, currentUserMessage)
 
-	ollamaRequest := request.Request{
-		Url:     helpers.MakeUrlWithPort(config.Url, config.Port) + "api/chat",
+	llamacppReq := request.Request{
+		Url:     helpers.MakeUrlWithPort(config.Url, config.Port) + "v1/chat/completions",
 		Method:  "POST",
 		Headers: []request.Headers{{Key: "Content-Type", Value: "application/json"}},
 		Payload: requestBody,
 	}
 
-	var response OllamaResponse
-	err := ollamaRequest.Call(&response)
-
+	var response LlamaCppResponse
+	err := llamacppReq.Call(&response)
 	if err != nil {
 		return "", err
 	}
 
-	if response.Message.Content != "" {
-		apiResponse := strings.TrimSpace(response.Message.Content)
-		return apiResponse, nil
+	if len(response.Choices) == 0 {
+		return "", errors.New("no choices returned from llama.cpp")
+	}
+
+	if response.Choices[0].Message.Content != "" {
+		return strings.TrimSpace(response.Choices[0].Message.Content), nil
 	}
 
 	return "", errors.New("no content found")

@@ -11,6 +11,7 @@ import (
 	"sync"
 	"time"
 
+	"aibird/helpers"
 	"aibird/logger"
 	"aibird/settings"
 	"aibird/shared/meta"
@@ -27,7 +28,6 @@ type GPUInfo struct {
 }
 
 type DockerStatus struct {
-	Ollama  bool `json:"ollama"`
 	ComfyUI bool `json:"comfyui"`
 }
 
@@ -215,13 +215,23 @@ func (c *Client) GetDockerStatus() (*DockerStatus, error) {
 	return &status.DockerStatus, nil
 }
 
-// IsOllamaRunning returns true if the Ollama container is running
-func (c *Client) IsOllamaRunning() (bool, error) {
-	status, err := c.GetStatus()
-	if err != nil {
-		return false, err
+// IsLlamaCppRunning checks if the llama.cpp server is healthy by hitting its /health endpoint.
+// This is a direct HTTP check, independent of the Docker status API.
+// For convenience, this wraps the llamacpp package function.
+func (c *Client) IsLlamaCppRunning(url, port string) (bool, error) {
+	healthURL := helpers.MakeUrlWithPort(url, port) + "health"
+
+	client := &http.Client{
+		Timeout: 2 * time.Second,
 	}
-	return status.DockerStatus.Ollama, nil
+
+	resp, err := client.Get(healthURL) //nolint:gosec // URL constructed from config
+	if err != nil {
+		return false, nil // Connection failure means not running
+	}
+	defer resp.Body.Close()
+
+	return resp.StatusCode == http.StatusOK, nil
 }
 
 // IsComfyUIRunning returns true if the ComfyUI container is running
@@ -300,7 +310,6 @@ func formatDockerStatus(docker DockerStatus) string {
 	}
 
 	statuses := []string{
-		format("Ollama", docker.Ollama),
 		format("ComfyUI", docker.ComfyUI),
 	}
 	return strings.Join(statuses, " | ")

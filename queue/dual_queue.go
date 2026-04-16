@@ -25,7 +25,7 @@ func (pq *ProcessingQueue) Enqueue(item QueueItem) (string, error) { //nolint:go
 	// Check if this is a ComfyUI workflow by checking if the workflow file exists
 	workflowFile := "comfyuijson/" + item.Model + ".json"
 	if _, err := os.Stat(workflowFile); os.IsNotExist(err) {
-		// Not a ComfyUI workflow (e.g. Ollama AI request)
+		// Not a ComfyUI workflow (e.g. llama.cpp AI request)
 		logger.Debug("Enqueuing non-workflow command", "model", item.Model)
 
 		if item.GPU == "" {

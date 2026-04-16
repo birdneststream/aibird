@@ -310,7 +310,7 @@ func (s *State) SyncUsersFromWho() {
 		IsOwner:     s.Network.IsIdentHostOwner(ident, host),
 		Ignored:     ignoreStatus,
 		AccessLevel: 0,
-		AiService:   "ollama",
+		AiService:   "llamacpp",
 		GircUser:    s.Client.LookupUser(nick),
 	}
 

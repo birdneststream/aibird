@@ -10,7 +10,7 @@ type (
 		Networks   map[string]networks.Network `toml:"networks" validate:"required,min=1"`
 		AiBird     AiBird                      `toml:"aibird" validate:"required"`
 		OpenRouter OpenRouterConfig            `toml:"openrouter" validate:"required"`
-		Ollama     OllamaConfig                `toml:"ollama" validate:"required"`
+		LlamaCpp   LlamaCppConfig              `toml:"llamacpp" validate:"required"`
 		Glm        GlmConfig                   `toml:"glm"`
 		ComfyUi    ComfyUiConfig               `toml:"comfyui" validate:"required"`
 		Birdhole   BirdholeConfig              `toml:"birdhole" validate:"required"`
@@ -49,7 +49,7 @@ type (
 		DefaultModel string `toml:"defaultModel"`
 	}
 
-	OllamaConfig struct {
+	LlamaCppConfig struct {
 		Url          string `toml:"url" validate:"required,url"`
 		Port         string `toml:"port" validate:"required"`
 		DefaultModel string `toml:"defaultModel"`

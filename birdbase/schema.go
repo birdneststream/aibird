@@ -5,7 +5,7 @@ import (
 	"fmt"
 )
 
-const schemaVersion = 1
+const schemaVersion = 2
 
 // Specialized tables for different data types
 var schema = `
@@ -110,7 +110,7 @@ CREATE TABLE IF NOT EXISTS irc_users (
     is_owner BOOLEAN NOT NULL DEFAULT 0,
     ignored BOOLEAN NOT NULL DEFAULT 0,
     access_level INTEGER NOT NULL DEFAULT 0,
-    ai_service TEXT DEFAULT 'ollama',
+    ai_service TEXT DEFAULT 'llamacpp',
     ai_model TEXT,
     ai_base_prompt TEXT,
     ai_personality TEXT,
@@ -231,6 +231,13 @@ func (s *SQLiteDB) initSchema() error {
 	}
 
 	if currentVersion < schemaVersion {
+		// Migration 1→2: Replace ollama service references with llamacpp
+		if currentVersion < 2 {
+			if _, migErr := tx.Exec("UPDATE irc_users SET ai_service = 'llamacpp' WHERE ai_service = 'ollama'"); migErr != nil {
+				return fmt.Errorf("failed to migrate ai_service from ollama to llamacpp: %w", migErr)
+			}
+		}
+
 		_, err = tx.Exec("INSERT INTO schema_version (version) VALUES (?)", schemaVersion)
 		if err != nil {
 			return err

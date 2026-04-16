@@ -9,7 +9,7 @@ import (
 	"aibird/image/comfyui"
 	"aibird/irc/state"
 	"aibird/logger"
-	"aibird/text/ollama"
+	"aibird/text/llamacpp"
 
 	meta "aibird/shared/meta"
 )
@@ -31,7 +31,7 @@ func parseAiVideoInternal(irc state.State, gpu meta.GPUType) bool {
 
 		if irc.GetBoolArg("pe") {
 			irc.Send("✨ Enhancing prompt with ai! ✨")
-			aiEnhancedPrompt, _ = ollama.EnhancePrompt(message, irc.Config.Ollama)
+			aiEnhancedPrompt, _ = llamacpp.EnhancePrompt(message, irc.Config.LlamaCpp)
 		}
 
 		if irc.User.CanUsePremiumGPU() {

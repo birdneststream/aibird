@@ -14,7 +14,7 @@ import (
 	"aibird/shared/meta"
 	"aibird/status"
 	"aibird/text/glm"
-	"aibird/text/ollama"
+	"aibird/text/llamacpp"
 	"aibird/text/openrouter"
 
 	"github.com/lrstanley/girc"
@@ -81,8 +81,8 @@ func ParseAiText(irc state.State) bool {
 
 		setAiService, _ := irc.GetStringArg("setAiService", "")
 		if setAiService != "" {
-			if setAiService != "ollama" && setAiService != openrouterService {
-				irc.SendError("🧠 AI service not found. Please choose between ollama or openrouter")
+			if setAiService != "llamacpp" && setAiService != openrouterService {
+				irc.SendError("🧠 AI service not found. Please choose between llamacpp or openrouter")
 				return true
 			}
 
@@ -120,43 +120,30 @@ func ParseAiText(irc state.State) bool {
 			}
 			return true
 
-		case "ollama":
+		case "llamacpp":
 			if irc.IsEmptyMessage() {
 				return true
 			}
 
-			// Try to check Ollama status, but proceed anyway if status service is offline
-			systemStatus := status.NewClient(irc.Config.AiBird)
-			isOllamaRunning, err := systemStatus.IsOllamaRunning()
+			// Try to check llama.cpp status, but proceed anyway if health check fails
+			isLlamaCppRunning, err := llamacpp.IsLlamaCppRunning(irc.Config.LlamaCpp.Url, irc.Config.LlamaCpp.Port)
 			if err != nil {
-				logger.Warn("Status service offline, proceeding with Ollama request anyway", "error", err)
-				isOllamaRunning = true // Assume it's running and let the actual request fail if it's not
+				logger.Warn("Health check failed, proceeding with llama.cpp request anyway", "error", err)
+				isLlamaCppRunning = true // Assume it's running and let the actual request fail if it's not
 			}
 
-			if !isOllamaRunning {
-				irc.SendError("🧠 Ollama AI service is offline")
+			if !isLlamaCppRunning {
+				irc.SendError("🧠 llama.cpp AI service is offline")
 				return true
 			}
 
-			// dsqwen is 32b and uses all the 4090, so we need to check if it's available
-			if irc.GetBoolArg("dsqwen") {
-				isSteamRunning, err := systemStatus.IsSteamRunning()
-				if err != nil {
-					logger.Warn("Status service offline, cannot check Steam status for dsqwen", "error", err)
-					// Proceed anyway - let the actual request fail if there's not enough VRAM
-				} else if isSteamRunning {
-					irc.SendError("🧠 Not enough VRAM to process request")
-					return true
-				}
-			}
-
 			irc.ReplyTo(girc.Fmt("🧠 Processing AI request, please wait..."))
-			response, err := ollama.ChatRequest(irc)
+			response, err := llamacpp.ChatRequest(irc)
 			if err != nil {
 				logger.Error("Error processing AI request", "error", err)
 				irc.SendError(fmt.Sprintf("🧠 Error processing AI request: %s", err))
 			} else {
-				logger.Debug("Calling handleAiResponse from Ollama path")
+				logger.Debug("Calling handleAiResponse from llama.cpp path")
 				handleAiResponse(irc, response)
 			}
 
@@ -239,20 +226,19 @@ func callOpenRouterWithFallback(irc state.State) (string, error) {
 	response, err := openrouter.OpenRouterRequest(irc)
 	if err != nil {
 		logger.Error("OpenRouter request failed", "error", err)
-		irc.Send(girc.Fmt("🧠 OpenRouter failed, falling back to ollama..."))
+		irc.Send(girc.Fmt("🧠 OpenRouter failed, falling back to llama.cpp..."))
 
-		systemStatus := status.NewClient(irc.Config.AiBird)
-		isOllamaRunning, ollamaErr := systemStatus.IsOllamaRunning()
-		if ollamaErr != nil {
-			logger.Warn("Status service offline, proceeding with ollama fallback anyway", "error", ollamaErr)
-			// Try ollama anyway - let it fail if it's actually offline
-			return ollama.ChatRequest(irc)
+		isLlamaCppRunning, llamaCppErr := llamacpp.IsLlamaCppRunning(irc.Config.LlamaCpp.Url, irc.Config.LlamaCpp.Port)
+		if llamaCppErr != nil {
+			logger.Warn("Health check failed, proceeding with llama.cpp fallback anyway", "error", llamaCppErr)
+			// Try llama.cpp anyway - let it fail if it's actually offline
+			return llamacpp.ChatRequest(irc)
 		}
-		if !isOllamaRunning {
-			return "", fmt.Errorf("🧠 Ollama AI service is offline")
+		if !isLlamaCppRunning {
+			return "", fmt.Errorf("🧠 llama.cpp AI service is offline")
 		}
 
-		return ollama.ChatRequest(irc)
+		return llamacpp.ChatRequest(irc)
 	}
 	return response, nil
 }
@@ -364,9 +350,9 @@ func stripEmojis(text string) string {
 	return text
 }
 
-// ShouldQueueOllamaAi checks if an !ai command needs to be queued.
-// Returns true if it's an Ollama request that should be queued.
-func ShouldQueueOllamaAi(irc state.State) bool {
+// ShouldQueueLlamaCppAi checks if an !ai command needs to be queued.
+// Returns true if it's a llama.cpp request that should be queued.
+func ShouldQueueLlamaCppAi(irc state.State) bool {
 	if !irc.IsAction("ai") {
 		return false
 	}
@@ -407,13 +393,13 @@ func ShouldQueueOllamaAi(irc state.State) bool {
 		return false
 	}
 
-	// Only queue if using Ollama service
+	// Only queue if using llama.cpp service
 	service := irc.User.GetAiService()
 	if service == "" {
 		service = "openrouter"
 	}
 
-	return service == "ollama"
+	return service == "llamacpp"
 }
 
 // CheckAiCanUse checks if the AI system is available (respects can_use flag)
@@ -423,40 +409,28 @@ func CheckAiCanUse(irc state.State) error {
 	return err
 }
 
-// ProcessOllamaAiRequest handles Ollama AI requests from the queue.
+// ProcessLlamaCppAiRequest handles llama.cpp AI requests from the queue.
 // This is called by the queue processor, not directly by ParseAiText.
-func ProcessOllamaAiRequest(irc state.State, gpu meta.GPUType) {
-	// Try to check Ollama status, but proceed anyway if status service is offline
-	systemStatus := status.NewClient(irc.Config.AiBird)
-	isOllamaRunning, err := systemStatus.IsOllamaRunning()
+func ProcessLlamaCppAiRequest(irc state.State, gpu meta.GPUType) {
+	// Try to check llama.cpp status, but proceed anyway if health check fails
+	isLlamaCppRunning, err := llamacpp.IsLlamaCppRunning(irc.Config.LlamaCpp.Url, irc.Config.LlamaCpp.Port)
 	if err != nil {
-		logger.Warn("Status service offline, proceeding with Ollama request anyway", "error", err)
-		isOllamaRunning = true // Assume it's running
+		logger.Warn("Health check failed, proceeding with llama.cpp request anyway", "error", err)
+		isLlamaCppRunning = true // Assume it's running
 	}
 
-	if !isOllamaRunning {
-		irc.SendError("🧠 Ollama AI service is offline")
+	if !isLlamaCppRunning {
+		irc.SendError("🧠 llama.cpp AI service is offline")
 		return
 	}
 
-	// dsqwen check for VRAM
-	if irc.GetBoolArg("dsqwen") {
-		isSteamRunning, err := systemStatus.IsSteamRunning()
-		if err != nil {
-			logger.Warn("Status service offline, cannot check Steam status for dsqwen", "error", err)
-		} else if isSteamRunning {
-			irc.SendError("🧠 Not enough VRAM to process request")
-			return
-		}
-	}
-
 	irc.ReplyTo(girc.Fmt("🧠 Processing AI request, please wait..."))
-	response, err := ollama.ChatRequest(irc)
+	response, err := llamacpp.ChatRequest(irc)
 	if err != nil {
 		logger.Error("Error processing AI request", "error", err)
 		irc.SendError(fmt.Sprintf("🧠 Error processing AI request: %s", err))
 	} else {
-		logger.Debug("Calling handleAiResponse from Ollama queue path")
+		logger.Debug("Calling handleAiResponse from llama.cpp queue path")
 		handleAiResponse(irc, response)
 	}
 }

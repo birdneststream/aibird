@@ -326,7 +326,7 @@ func handleJoin(c *girc.Client, e girc.Event, network *networks.Network, config 
 			IsOwner:     network.IsIdentHostOwner(e.Source.Ident, e.Source.Host),
 			Ignored:     network.IsNickIgnored(e.Source.Name),
 			AccessLevel: 0,
-			AiService:   "ollama",
+			AiService:   "llamacpp",
 			GircUser:    c.LookupUser(e.Source.Name),
 		}
 
@@ -591,8 +591,8 @@ func dispatchCommand(irc state.State, q *queue.ProcessingQueue) {
 		return
 	}
 
-	// Special handling for !ai with Ollama - needs queue and can_use check
-	if commands.ShouldQueueOllamaAi(irc) {
+	// Special handling for !ai with llama.cpp - needs queue and can_use check
+	if commands.ShouldQueueLlamaCppAi(irc) {
 		// Check can_use flag before queueing
 		if err := commands.CheckAiCanUse(irc); err != nil {
 			irc.SendError(err.Error())
@@ -603,10 +603,10 @@ func dispatchCommand(irc state.State, q *queue.ProcessingQueue) {
 			Item: queue.Item{
 				State: irc,
 				Function: func(s state.State, gpu meta.GPUType) {
-					commands.ProcessOllamaAiRequest(s, gpu)
+					commands.ProcessLlamaCppAiRequest(s, gpu)
 				},
 			},
-			Model: "ollama-ai", // Special identifier for Ollama requests
+			Model: "llamacpp-ai", // Special identifier for llama.cpp requests
 			User:  irc.User,
 			GPU:   meta.GPU4090,
 		}

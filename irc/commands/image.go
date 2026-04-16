@@ -16,7 +16,7 @@ import (
 	"aibird/irc/commands/help"
 	"aibird/irc/state"
 	"aibird/logger"
-	"aibird/text/ollama"
+	"aibird/text/llamacpp"
 
 	meta "aibird/shared/meta"
 
@@ -199,7 +199,7 @@ func ParseAiImageWithGPU(irc state.State, gpu meta.GPUType) bool {
 		aiEnhancedPrompt = ""
 		if (irc.IsAction("ltx") || irc.IsAction("img2ltx")) || irc.GetBoolArg("pe") {
 			irc.Send("✨ Enhancing prompt with ai! ✨")
-			aiEnhancedPrompt, _ = ollama.EnhancePrompt(message, irc.Config.Ollama)
+			aiEnhancedPrompt, _ = llamacpp.EnhancePrompt(message, irc.Config.LlamaCpp)
 		}
 
 		// Send processing message before starting the actual processing
