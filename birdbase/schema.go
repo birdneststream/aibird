@@ -5,7 +5,7 @@ import (
 	"fmt"
 )
 
-const schemaVersion = 2
+const schemaVersion = 3
 
 // Specialized tables for different data types
 var schema = `
@@ -53,7 +53,7 @@ CREATE TABLE IF NOT EXISTS key_value_store (
 CREATE INDEX IF NOT EXISTS idx_kv_expires ON key_value_store(expires_at);
 
 -- ===========================================
--- NORMALIZED IRC DATA SCHEMA (Version 2)
+-- NORMALIZED IRC DATA SCHEMA (Version 3)
 -- ===========================================
 
 -- Networks table - core network configurations
@@ -235,6 +235,13 @@ func (s *SQLiteDB) initSchema() error {
 		if currentVersion < 2 {
 			if _, migErr := tx.Exec("UPDATE irc_users SET ai_service = 'llamacpp' WHERE ai_service = 'ollama'"); migErr != nil {
 				return fmt.Errorf("failed to migrate ai_service from ollama to llamacpp: %w", migErr)
+			}
+		}
+
+		// Migration 2→3: Replace openrouter service references with llamacpp
+		if currentVersion < 3 {
+			if _, migErr := tx.Exec("UPDATE irc_users SET ai_service = 'llamacpp' WHERE ai_service = 'openrouter'"); migErr != nil {
+				return fmt.Errorf("failed to migrate ai_service from openrouter to llamacpp: %w", migErr)
 			}
 		}
 

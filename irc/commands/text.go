@@ -15,18 +15,15 @@ import (
 	"aibird/status"
 	"aibird/text/glm"
 	"aibird/text/llamacpp"
-	"aibird/text/openrouter"
 
 	"github.com/lrstanley/girc"
 )
-
-const openrouterService = "openrouter"
 
 func ParseAiText(irc state.State) bool {
 	if irc.IsAction("ai") {
 		if irc.GetBoolArg("info") {
 			irc.ReplyTo(girc.Fmt(fmt.Sprintf("🧠 AI service: %s 🧠 AI model: %s 🧠 Base prompt: %s 🧠 Personality: %s",
-				defaultIfEmpty(irc.User.GetAiService(), "openrouter"),
+				defaultIfEmpty(irc.User.GetAiService(), "llamacpp"),
 				defaultIfEmpty(irc.User.GetAiModel(), "default"),
 				defaultIfEmpty(irc.User.GetBasePrompt(), "will use personality"),
 				defaultIfEmpty(irc.User.GetPersonality(), "ai"))))
@@ -81,8 +78,13 @@ func ParseAiText(irc state.State) bool {
 
 		setAiService, _ := irc.GetStringArg("setAiService", "")
 		if setAiService != "" {
-			if setAiService != "llamacpp" && setAiService != openrouterService {
-				irc.SendError("🧠 AI service not found. Please choose between llamacpp or openrouter")
+			if setAiService != "llamacpp" && setAiService != "glm" {
+				irc.SendError("🧠 AI service not found. Please choose between llamacpp or glm")
+				return true
+			}
+
+			if setAiService == "glm" && irc.Config.Glm.ApiKey == "" {
+				irc.SendError("🧠 GLM is not configured. Please set up GLM before using it as AI service.")
 				return true
 			}
 
@@ -93,31 +95,37 @@ func ParseAiText(irc state.State) bool {
 		}
 
 		if irc.GetBoolArg("clearAiService") {
-			irc.User.SetAiService("openrouter")
-			irc.Send(girc.Fmt("🧠 AI service defaulting to openrouter"))
+			irc.User.SetAiService("llamacpp")
+			irc.Send(girc.Fmt("🧠 AI service defaulting to llamacpp"))
 			irc.Network.Save()
 			return true
 		}
 
 		service := irc.User.GetAiService()
 		if service == "" {
-			service = "openrouter"
+			service = "llamacpp"
 		}
 
 		switch service {
-		case "openrouter":
+		case "glm":
+			if irc.Config.Glm.ApiKey == "" {
+				irc.SendError("🧠 GLM is not configured")
+				return true
+			}
 			if irc.IsEmptyMessage() {
 				return true
 			}
 			irc.ReplyTo(girc.Fmt("🧠 Processing AI request, please wait..."))
-			response, err := callOpenRouterWithFallback(irc)
-			if err != nil {
-				logger.Error("Error processing AI request", "error", err)
-				irc.SendError(fmt.Sprintf("🧠 Error processing AI request: %s", err))
-			} else {
-				logger.Debug("Calling handleAiResponse from OpenRouter path")
-				handleAiResponse(irc, response)
-			}
+			go func() {
+				response, err := glm.Request(irc)
+				if err != nil {
+					logger.Error("Error processing AI request", "error", err)
+					irc.SendError(fmt.Sprintf("🧠 Error processing AI request: %s", err))
+				} else {
+					logger.Debug("Calling handleAiResponse from GLM path")
+					handleAiResponse(irc, response)
+				}
+			}()
 			return true
 
 		case "llamacpp":
@@ -144,6 +152,35 @@ func ParseAiText(irc state.State) bool {
 				irc.SendError(fmt.Sprintf("🧠 Error processing AI request: %s", err))
 			} else {
 				logger.Debug("Calling handleAiResponse from llama.cpp path")
+				handleAiResponse(irc, response)
+			}
+
+			return true
+
+		default:
+			// Fallback for unknown or legacy service values (e.g. "openrouter") -> use llamacpp
+			if irc.IsEmptyMessage() {
+				return true
+			}
+
+			isLlamaCppRunning, err := llamacpp.IsLlamaCppRunning(irc.Config.LlamaCpp.Url, irc.Config.LlamaCpp.Port)
+			if err != nil {
+				logger.Warn("Health check failed, proceeding with llama.cpp request anyway", "error", err)
+				isLlamaCppRunning = true
+			}
+
+			if !isLlamaCppRunning {
+				irc.SendError("🧠 llama.cpp AI service is offline")
+				return true
+			}
+
+			irc.ReplyTo(girc.Fmt("🧠 Processing AI request, please wait..."))
+			response, err := llamacpp.ChatRequest(irc)
+			if err != nil {
+				logger.Error("Error processing AI request", "error", err)
+				irc.SendError(fmt.Sprintf("🧠 Error processing AI request: %s", err))
+			} else {
+				logger.Debug("Calling handleAiResponse from default path", "original_service", service)
 				handleAiResponse(irc, response)
 			}
 
@@ -220,27 +257,6 @@ func ParseAiText(irc state.State) bool {
 	}
 
 	return false
-}
-
-func callOpenRouterWithFallback(irc state.State) (string, error) {
-	response, err := openrouter.OpenRouterRequest(irc)
-	if err != nil {
-		logger.Error("OpenRouter request failed", "error", err)
-		irc.Send(girc.Fmt("🧠 OpenRouter failed, falling back to llama.cpp..."))
-
-		isLlamaCppRunning, llamaCppErr := llamacpp.IsLlamaCppRunning(irc.Config.LlamaCpp.Url, irc.Config.LlamaCpp.Port)
-		if llamaCppErr != nil {
-			logger.Warn("Health check failed, proceeding with llama.cpp fallback anyway", "error", llamaCppErr)
-			// Try llama.cpp anyway - let it fail if it's actually offline
-			return llamacpp.ChatRequest(irc)
-		}
-		if !isLlamaCppRunning {
-			return "", fmt.Errorf("🧠 llama.cpp AI service is offline")
-		}
-
-		return llamacpp.ChatRequest(irc)
-	}
-	return response, nil
 }
 
 func handleAiResponse(irc state.State, response string) {
@@ -393,13 +409,13 @@ func ShouldQueueLlamaCppAi(irc state.State) bool {
 		return false
 	}
 
-	// Only queue if using llama.cpp service
+	// Queue all non-GLM requests (llamacpp, default, and any legacy/unknown services)
 	service := irc.User.GetAiService()
 	if service == "" {
-		service = "openrouter"
+		service = "llamacpp"
 	}
 
-	return service == "llamacpp"
+	return service != "glm"
 }
 
 // CheckAiCanUse checks if the AI system is available (respects can_use flag)

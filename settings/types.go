@@ -7,14 +7,13 @@ import (
 
 type (
 	Config struct {
-		Networks   map[string]networks.Network `toml:"networks" validate:"required,min=1"`
-		AiBird     AiBird                      `toml:"aibird" validate:"required"`
-		OpenRouter OpenRouterConfig            `toml:"openrouter" validate:"required"`
-		LlamaCpp   LlamaCppConfig              `toml:"llamacpp" validate:"required"`
-		Glm        GlmConfig                   `toml:"glm"`
-		ComfyUi    ComfyUiConfig               `toml:"comfyui" validate:"required"`
-		Birdhole   BirdholeConfig              `toml:"birdhole" validate:"required"`
-		Logging    logger.Config               `toml:"logging" validate:"required"`
+		Networks map[string]networks.Network `toml:"networks" validate:"required,min=1"`
+		AiBird   AiBird                      `toml:"aibird" validate:"required"`
+		LlamaCpp LlamaCppConfig              `toml:"llamacpp" validate:"required"`
+		Glm      GlmConfig                   `toml:"glm"`
+		ComfyUi  ComfyUiConfig               `toml:"comfyui" validate:"required"`
+		Birdhole BirdholeConfig              `toml:"birdhole" validate:"required"`
+		Logging  logger.Config               `toml:"logging" validate:"required"`
 	}
 
 	AiBird struct {
@@ -41,12 +40,6 @@ type (
 		Pass string `toml:"pass"`
 		Host string `toml:"host"`
 		Port string `toml:"port"`
-	}
-
-	OpenRouterConfig struct {
-		Url          string `toml:"url" validate:"required,url"`
-		ApiKey       string `toml:"apiKey" validate:"required"`
-		DefaultModel string `toml:"defaultModel"`
 	}
 
 	LlamaCppConfig struct {

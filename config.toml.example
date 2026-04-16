@@ -64,15 +64,6 @@ name = "#test"
 ai = true
 sd = true
 
-# OpenRouter AI Service Configuration
-[openrouter]
-enabled = true
-apiKey = "your-openrouter-api-key-here"
-baseUrl = "https://openrouter.ai/api/v1"
-defaultModel = "anthropic/claude-3.5-sonnet"
-maxTokens = 4096
-temperature = 0.7
-
 # llama.cpp AI Service Configuration
 [llamacpp]
 url = "http://localhost"

@@ -63,12 +63,11 @@ func LoadConfig() (*Config, error) {
 // loadServiceConfigs loads all individual service configuration files
 func loadServiceConfigs(config *Config) error {
 	serviceConfigs := map[string]interface{}{
-		"settings/openrouter.toml": &config.OpenRouter,
-		"settings/llamacpp.toml":   &config.LlamaCpp,
-		"settings/glm.toml":        &config.Glm,
-		"settings/comfyui.toml":    &config.ComfyUi,
-		"settings/birdhole.toml":   &config.Birdhole,
-		"settings/logging.toml":    &config.Logging,
+		"settings/llamacpp.toml": &config.LlamaCpp,
+		"settings/glm.toml":      &config.Glm,
+		"settings/comfyui.toml":  &config.ComfyUi,
+		"settings/birdhole.toml": &config.Birdhole,
+		"settings/logging.toml":  &config.Logging,
 	}
 
 	for configPath, configStruct := range serviceConfigs {

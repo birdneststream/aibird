@@ -137,8 +137,8 @@ func (p *Participant) generateAndSendResponse(c *girc.Client, e girc.Event, netw
 	// Build context for response generation
 	ctx := p.buildMessageContext(memory, channel, network, e, "reactive")
 
-	// Generate response using OpenRouter
-	response, err := GenerateParticipantMessage(ctx, p.config.OpenRouter)
+	// Generate response using GLM
+	response, err := GenerateParticipantMessage(ctx, p.config.Glm)
 	if err != nil {
 		logger.Error("Failed to generate participant response", "error", err, "network", network.NetworkName, "channel", channel.Name)
 		return
@@ -397,7 +397,7 @@ func (p *Participant) handleBurstResponse(c *girc.Client, e girc.Event, network 
 
 			// Generate response with full context including all burst messages
 			ctx := p.buildMessageContext(memory, channel, network, e, "reactive")
-			response, err := GenerateParticipantMessage(ctx, p.config.OpenRouter)
+			response, err := GenerateParticipantMessage(ctx, p.config.Glm)
 			if err != nil {
 				logger.Error("Failed to generate burst response", "error", err)
 				return

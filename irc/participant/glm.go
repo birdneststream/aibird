@@ -7,37 +7,34 @@ import (
 	"aibird/http/request"
 	"aibird/logger"
 	"aibird/settings"
+	"aibird/text"
 )
 
-// OpenRouterRequest represents a request to OpenRouter API
-type OpenRouterRequest struct {
-	Model       string    `json:"model"`
-	Messages    []Message `json:"messages"`
-	MaxTokens   int       `json:"max_tokens"`
-	Temperature float64   `json:"temperature"`
-	Stop        []string  `json:"stop,omitempty"`
+// ParticipantRequest represents a chat completion request for the participant system
+type ParticipantRequest struct {
+	Model       string         `json:"model"`
+	Messages    []text.Message `json:"messages"`
+	Stream      bool           `json:"stream"`
+	MaxTokens   int            `json:"max_tokens,omitempty"`
+	Temperature float64        `json:"temperature,omitempty"`
 }
 
-// Message represents a chat message in OpenRouter format
-type Message struct {
-	Role    string `json:"role"`
-	Content string `json:"content"`
+// ParticipantResponse represents the response from a chat completion API
+type ParticipantResponse struct {
+	Choices []ParticipantChoice `json:"choices"`
 }
 
-// OpenRouterResponse represents the response from OpenRouter API
-type OpenRouterResponse struct {
-	Choices []Choice `json:"choices"`
+// ParticipantChoice represents a response choice
+type ParticipantChoice struct {
+	Message text.Message `json:"message"`
 }
 
-// Choice represents a response choice from OpenRouter
-type Choice struct {
-	Message Message `json:"message"`
-}
-
-// GenerateParticipantMessage generates a contextual response using OpenRouter
-func GenerateParticipantMessage(ctx MessageContext, config settings.OpenRouterConfig) (string, error) {
-	// Use a cheap, fast model for participant messages
-	cheapModel := "mistralai/mistral-nemo"
+// GenerateParticipantMessage generates a contextual response using GLM
+func GenerateParticipantMessage(ctx MessageContext, config settings.GlmConfig) (string, error) {
+	// Guard: skip participant responses if GLM is not configured
+	if config.ApiKey == "" || config.Url == "" {
+		return "", fmt.Errorf("GLM is not configured for participant system")
+	}
 
 	prompt := buildContextualPrompt(ctx)
 	if prompt == "" {
@@ -45,7 +42,7 @@ func GenerateParticipantMessage(ctx MessageContext, config settings.OpenRouterCo
 	}
 
 	// Build conversation history as messages
-	messages := []Message{
+	messages := []text.Message{
 		{
 			Role:    "system",
 			Content: prompt,
@@ -54,7 +51,7 @@ func GenerateParticipantMessage(ctx MessageContext, config settings.OpenRouterCo
 
 	// Add conversation history for better context
 	for _, msgText := range ctx.RecentMessages {
-		messages = append(messages, Message{
+		messages = append(messages, text.Message{
 			Role:    "user",
 			Content: msgText,
 		})
@@ -62,29 +59,29 @@ func GenerateParticipantMessage(ctx MessageContext, config settings.OpenRouterCo
 
 	// Add a final instruction to prevent repetition
 	if len(ctx.RecentMessages) > 0 {
-		messages = append(messages, Message{
+		messages = append(messages, text.Message{
 			Role:    "user",
 			Content: "Please respond naturally considering the conversation above. Don't repeat greetings or questions already asked.",
 		})
 	}
 
-	requestBody := OpenRouterRequest{
-		Model:       cheapModel,
+	requestBody := ParticipantRequest{
+		Model:       config.DefaultModel,
 		Messages:    messages,
-		MaxTokens:   200,                                        // Allow longer responses with more context
-		Temperature: 0.8,                                        // Natural variation
-		Stop:        []string{"\n", "USER:", "ASSISTANT:", "*"}, // Prevent multi-line and actions
+		Stream:      false,
+		MaxTokens:   200, // Allow longer responses with more context
+		Temperature: 0.8, // Natural variation
 	}
 
 	logger.Debug("Generating participant message", "type", ctx.Type, "personality", ctx.PersonalityMode, "context_messages", len(ctx.RecentMessages))
 
-	response, err := makeOpenRouterRequest(requestBody, config)
+	response, err := makeGlmRequest(requestBody, config)
 	if err != nil {
-		return "", fmt.Errorf("OpenRouter request failed: %w", err)
+		return "", fmt.Errorf("GLM request failed: %w", err)
 	}
 
 	if len(response.Choices) == 0 {
-		return "", fmt.Errorf("no response choices received from OpenRouter")
+		return "", fmt.Errorf("no response choices received from GLM")
 	}
 
 	// Clean and validate response
@@ -204,11 +201,11 @@ func getPersonalityPrompt(personalityMode string) string {
 	}
 }
 
-// makeOpenRouterRequest sends a request to OpenRouter API
-func makeOpenRouterRequest(requestBody OpenRouterRequest, config settings.OpenRouterConfig) (*OpenRouterResponse, error) {
+// makeGlmRequest sends a request to the GLM API
+func makeGlmRequest(requestBody ParticipantRequest, config settings.GlmConfig) (*ParticipantResponse, error) {
 	httpRequest := request.Request{
 		Method: "POST",
-		Url:    config.Url + "chat/completions",
+		Url:    config.Url,
 		Headers: []request.Headers{
 			{Key: "Authorization", Value: "Bearer " + config.ApiKey},
 			{Key: "Content-Type", Value: "application/json"},
@@ -216,7 +213,7 @@ func makeOpenRouterRequest(requestBody OpenRouterRequest, config settings.OpenRo
 		Payload: requestBody,
 	}
 
-	var response OpenRouterResponse
+	var response ParticipantResponse
 	if err := httpRequest.Call(&response); err != nil {
 		return nil, err
 	}

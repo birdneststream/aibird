@@ -2,7 +2,7 @@
 
 A sophisticated multi-network IRC bot that provides AI-powered services including text generation, image generation, and audio processing. Built with Go and featuring a dual-GPU queue system, comprehensive state management, and modular architecture.
 
-You can find the bot in use on popular IRC networks in the channel #birdnest. The main #birdnest channel is on efnet, however also on libera, rizon and a few other networks. It's free to use and so far compared to other online AI generation services for images, sounds or music - it has unlimited use and is less censored. Also as it's mostly ran from my local system here it's more private. The exception is when Google Gemini or OpenRouter services are used. Everything else runs off the `airig` which has a 2070 and 4090 dual GPU setup which is networked with wireguard.
+You can find the bot in use on popular IRC networks in the channel #birdnest. The main #birdnest channel is on efnet, however also on libera, rizon and a few other networks. It's free to use and so far compared to other online AI generation services for images, sounds or music - it has unlimited use and is less censored. Also as it's mostly ran from my local system here it's more private. The exception is when Google Gemini services are used. Everything else runs off the `airig` which has a 2070 and 4090 dual GPU setup which is networked with wireguard.
 
 
 
@@ -44,7 +44,7 @@ The bot is built with a modular architecture featuring:
 - **Go 1.23+** - Minimum Go version required
 - **GPU Support** - NVIDIA GPUs for image generation (optional)
 - **IRC Networks** - Access to IRC networks you want to connect to
-- **AI Services** - API keys for text generation services (OpenRouter, Gemini, etc.)
+- **AI Services** - API keys for text generation services (GLM, Gemini, etc.)
 
 ## 🛠️ Installation
 
