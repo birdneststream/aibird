@@ -285,8 +285,9 @@ func (s *State) SyncUsersFromWho() {
 			// user already exists, check if modes are in sync
 			s.User = findUser
 
-			// Only restore modes if preservation is enabled
-			if s.ShouldPreserveModes() {
+			// Only restore modes if preservation is enabled AND we're past the connection grace period
+			// Skip mode restoration during initial connection to avoid flooding when connecting through ZNC
+			if s.ShouldPreserveModes() && (s.Network.ConnectedAt.IsZero() || time.Since(s.Network.ConnectedAt) >= 30*time.Second) {
 				applyOps := s.GetModesFromChannel()
 				if len(applyOps) > 0 {
 					s.Client.Cmd.SendRaw("MODE " + s.Channel.Name + " +" + strings.Join(applyOps, "") + " " + findUser.NickName)
@@ -307,7 +308,7 @@ func (s *State) SyncUsersFromWho() {
 		FirstSeen:   time.Now().Unix(),
 		IsAdmin:     s.Network.IsIdentHostAdmin(ident, host),
 		IsOwner:     s.Network.IsIdentHostOwner(ident, host),
-		Ignored:     false, // TODO: Fix ignore logic - defaulting to false for now
+		Ignored:     ignoreStatus,
 		AccessLevel: 0,
 		AiService:   "ollama",
 		GircUser:    s.Client.LookupUser(nick),
@@ -499,6 +500,14 @@ func (s *State) UpdateBasedOnArgs(obj interface{}, immutableKeys map[string]bool
 func (s *State) RestoreUserModes() {
 	if s.Channel == nil {
 		logger.Warn("RestoreUserModes called with nil channel")
+		return
+	}
+
+	// Skip mode restoration during initial connection period (ZNC buffer playback)
+	// When connecting through ZNC, the bot receives WHO data but users already have their modes
+	// Wait 30 seconds after connection to allow ZNC state to stabilize
+	if !s.Network.ConnectedAt.IsZero() && time.Since(s.Network.ConnectedAt) < 30*time.Second {
+		logger.Debug("Skipping mode restoration during connection grace period", "network", s.Network.NetworkName, "channel", s.Channel.Name, "elapsed", time.Since(s.Network.ConnectedAt))
 		return
 	}
 

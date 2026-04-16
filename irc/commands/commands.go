@@ -169,7 +169,7 @@ func IsImageCommand(command string, config settings.AiBird) bool {
 
 // IsGenerativeCommand checks if a command generates content (for leaderboard tracking)
 func IsGenerativeCommand(action string, config settings.AiBird) bool {
-	// Text generation commands (ai, bard, gemini, etc.)
+	// Text generation commands (ai, glm, etc.)
 	if IsTextCommand(action) {
 		return true
 	}

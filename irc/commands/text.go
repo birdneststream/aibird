@@ -2,13 +2,18 @@ package commands
 
 import (
 	"fmt"
+	"os"
 	"regexp"
 	"strings"
+	"time"
 
+	"aibird/http/request"
+	"aibird/http/uploaders/birdhole"
 	"aibird/irc/state"
 	"aibird/logger"
+	"aibird/shared/meta"
 	"aibird/status"
-	"aibird/text/gemini"
+	"aibird/text/glm"
 	"aibird/text/ollama"
 	"aibird/text/openrouter"
 
@@ -120,9 +125,15 @@ func ParseAiText(irc state.State) bool {
 				return true
 			}
 
+			// Try to check Ollama status, but proceed anyway if status service is offline
 			systemStatus := status.NewClient(irc.Config.AiBird)
 			isOllamaRunning, err := systemStatus.IsOllamaRunning()
-			if err != nil || !isOllamaRunning {
+			if err != nil {
+				logger.Warn("Status service offline, proceeding with Ollama request anyway", "error", err)
+				isOllamaRunning = true // Assume it's running and let the actual request fail if it's not
+			}
+
+			if !isOllamaRunning {
 				irc.SendError("🧠 Ollama AI service is offline")
 				return true
 			}
@@ -131,11 +142,9 @@ func ParseAiText(irc state.State) bool {
 			if irc.GetBoolArg("dsqwen") {
 				isSteamRunning, err := systemStatus.IsSteamRunning()
 				if err != nil {
-					logger.Error("Error checking Steam status", "error", err)
-					return true
-				}
-
-				if isSteamRunning {
+					logger.Warn("Status service offline, cannot check Steam status for dsqwen", "error", err)
+					// Proceed anyway - let the actual request fail if there's not enough VRAM
+				} else if isSteamRunning {
 					irc.SendError("🧠 Not enough VRAM to process request")
 					return true
 				}
@@ -155,32 +164,71 @@ func ParseAiText(irc state.State) bool {
 		}
 	}
 
-	if (irc.IsAction("bard") || irc.IsAction("gemini")) && irc.Config.Gemini.ApiKey != "" {
+	if irc.IsAction("glm") && irc.Config.Glm.ApiKey != "" {
 		if irc.IsEmptyMessage() {
 			return true
 		}
 
-		irc.ReplyTo(girc.Fmt("🧠 Processing Google Gemini request, please wait..."))
+		irc.ReplyTo(girc.Fmt("🧠 Processing GLM request, please wait..."))
 
-		response, err := gemini.Request(irc)
-		if err != nil {
-			logger.Error("Gemini request failed", "error", err)
-		} else {
-			if irc.GetBoolArg("tts") || irc.FindArgument("voice", "") != "" {
-				originalMessage := irc.Message()
-				irc.Command.Action = "tts"
-				irc.SetMessage(response)
-
-				ProcessAndUploadAudio(irc, originalMessage, response)
-
-				irc.Command.Action = "bard"
-				irc.SetMessage(originalMessage)
-
-				return true
+		go func() {
+			response, err := glm.Request(irc)
+			if err != nil {
+				logger.Error("GLM request failed", "error", err)
+				irc.SendError(fmt.Sprintf("🧠 GLM error: %s", err))
 			} else {
 				irc.TextToBirdhole(response)
 			}
+		}()
+		return true
+	}
+
+	if irc.IsAction("glm-img") && irc.Config.Glm.ApiKey != "" {
+		if irc.IsEmptyMessage() {
+			irc.Send("Usage: !glm-img <prompt> [--size=1024x1024]")
+			return true
 		}
+
+		size, _ := irc.GetStringArg("size", "1024x1024")
+		irc.ReplyTo(girc.Fmt("🎨 Generating image with CogView-4, please wait..."))
+
+		go func() {
+			imageUrl, err := glm.ImageRequest(irc.Message(), size, irc.Config.Glm)
+			if err != nil {
+				logger.Error("GLM image request failed", "error", err)
+				irc.SendError(fmt.Sprintf("🎨 GLM image error: %s", err))
+				return
+			}
+
+			// Download the image to a temp file
+			tempFile := fmt.Sprintf("%s/glm-img-%d.png", os.TempDir(), time.Now().UnixNano())
+			downloadReq := request.Request{
+				Url:      imageUrl,
+				FileName: tempFile,
+			}
+			if err := downloadReq.Download(); err != nil {
+				logger.Error("Failed to download GLM image", "error", err)
+				irc.SendError("Failed to download generated image")
+				return
+			}
+			defer os.Remove(tempFile)
+
+			// Upload to birdhole
+			fields := []request.Fields{
+				{Key: "tags", Value: "glm-img," + irc.Network.NetworkName},
+				{Key: "meta_network", Value: irc.Network.NetworkName},
+				{Key: "meta_nick", Value: irc.User.NickName},
+				{Key: "meta_prompt", Value: irc.Message()},
+			}
+			upload, err := birdhole.BirdHole(tempFile, irc.Message(), fields, irc.Config.Birdhole)
+			if err != nil {
+				logger.Error("Birdhole upload failed", "error", err)
+				irc.SendError("Failed to upload image: " + err.Error())
+				return
+			}
+
+			irc.ReplyTo(fmt.Sprintf("🎨 %s", upload))
+		}()
 		return true
 	}
 
@@ -205,7 +253,12 @@ func callOpenRouterWithFallback(irc state.State) (string, error) {
 
 		systemStatus := status.NewClient(irc.Config.AiBird)
 		isOllamaRunning, ollamaErr := systemStatus.IsOllamaRunning()
-		if ollamaErr != nil || !isOllamaRunning {
+		if ollamaErr != nil {
+			logger.Warn("Status service offline, proceeding with ollama fallback anyway", "error", ollamaErr)
+			// Try ollama anyway - let it fail if it's actually offline
+			return ollama.ChatRequest(irc)
+		}
+		if !isOllamaRunning {
 			return "", fmt.Errorf("🧠 Ollama AI service is offline")
 		}
 
@@ -319,4 +372,101 @@ func stripEmojis(text string) string {
 	text = regexp.MustCompile(`[\x{1F1E6}-\x{1F1FF}]`).ReplaceAllString(text, "")
 
 	return text
+}
+
+// ShouldQueueOllamaAi checks if an !ai command needs to be queued.
+// Returns true if it's an Ollama request that should be queued.
+func ShouldQueueOllamaAi(irc state.State) bool {
+	if !irc.IsAction("ai") {
+		return false
+	}
+
+	// Don't queue info command
+	if irc.GetBoolArg("info") {
+		return false
+	}
+
+	// Don't queue settings commands
+	if setPersonality, _ := irc.GetStringArg("setPersonality", ""); setPersonality != "" {
+		return false
+	}
+	if irc.GetBoolArg("clearPersonality") {
+		return false
+	}
+	if setBasePrompt, _ := irc.GetStringArg("setBasePrompt", ""); setBasePrompt != "" {
+		return false
+	}
+	if irc.GetBoolArg("clearBasePrompt") {
+		return false
+	}
+	if setAiModel, _ := irc.GetStringArg("setAiModel", ""); setAiModel != "" {
+		return false
+	}
+	if irc.GetBoolArg("clearAiModel") {
+		return false
+	}
+	if setAiService, _ := irc.GetStringArg("setAiService", ""); setAiService != "" {
+		return false
+	}
+	if irc.GetBoolArg("clearAiService") {
+		return false
+	}
+
+	// Don't queue empty messages
+	if irc.IsEmptyMessage() {
+		return false
+	}
+
+	// Only queue if using Ollama service
+	service := irc.User.GetAiService()
+	if service == "" {
+		service = "openrouter"
+	}
+
+	return service == "ollama"
+}
+
+// CheckAiCanUse checks if the AI system is available (respects can_use flag)
+func CheckAiCanUse(irc state.State) error {
+	statusClient := status.NewClient(irc.Config.AiBird)
+	_, err := statusClient.CheckCanUse()
+	return err
+}
+
+// ProcessOllamaAiRequest handles Ollama AI requests from the queue.
+// This is called by the queue processor, not directly by ParseAiText.
+func ProcessOllamaAiRequest(irc state.State, gpu meta.GPUType) {
+	// Try to check Ollama status, but proceed anyway if status service is offline
+	systemStatus := status.NewClient(irc.Config.AiBird)
+	isOllamaRunning, err := systemStatus.IsOllamaRunning()
+	if err != nil {
+		logger.Warn("Status service offline, proceeding with Ollama request anyway", "error", err)
+		isOllamaRunning = true // Assume it's running
+	}
+
+	if !isOllamaRunning {
+		irc.SendError("🧠 Ollama AI service is offline")
+		return
+	}
+
+	// dsqwen check for VRAM
+	if irc.GetBoolArg("dsqwen") {
+		isSteamRunning, err := systemStatus.IsSteamRunning()
+		if err != nil {
+			logger.Warn("Status service offline, cannot check Steam status for dsqwen", "error", err)
+		} else if isSteamRunning {
+			irc.SendError("🧠 Not enough VRAM to process request")
+			return
+		}
+	}
+
+	irc.ReplyTo(girc.Fmt("🧠 Processing AI request, please wait..."))
+	response, err := ollama.ChatRequest(irc)
+	if err != nil {
+		logger.Error("Error processing AI request", "error", err)
+		irc.SendError(fmt.Sprintf("🧠 Error processing AI request: %s", err))
+	} else {
+		logger.Debug("Calling handleAiResponse from Ollama queue path")
+		handleAiResponse(irc, response)
+	}
 }

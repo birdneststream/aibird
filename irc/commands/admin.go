@@ -10,8 +10,6 @@ import (
 	"aibird/logger"
 	"aibird/queue"
 
-	meta "aibird/shared/meta"
-
 	"github.com/lrstanley/girc"
 )
 
@@ -169,27 +167,10 @@ func parseAdminCommands(irc state.State, q *queue.DualQueue) {
 				return
 			}
 
-			targetVal := irc.FindArgument("4090", "all")
-			target, ok := targetVal.(string)
-			if !ok {
-				target = "all"
-			}
-			switch target {
-			case "4090":
-				irc.Send("🔄 Clearing 4090 queue...")
-				q.ClearQueue(meta.GPU4090)
-				irc.Send("✅ 4090 queue cleared")
-			case "2070":
-				irc.Send("🔄 Clearing 2070 queue...")
-				q.ClearQueue(meta.GPU2070)
-				irc.Send("✅ 2070 queue cleared")
-			case "all":
-				irc.Send("🔄 Clearing all queues...")
-				q.ClearAllQueues()
-				irc.Send("✅ All queues cleared")
-			default:
-				irc.SendError("Invalid target. Use: 4090, 2070, or all")
-			}
+			// Single queue now - all clears affect the same queue
+			irc.Send("🔄 Clearing queue...")
+			q.ClearAllQueues()
+			irc.Send("✅ Queue cleared")
 			return
 		case "removecurrent":
 			if q == nil {

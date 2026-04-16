@@ -13,7 +13,7 @@ import (
 
 	"aibird/irc/state"
 	"aibird/settings"
-	"aibird/text/gemini"
+	"aibird/text/glm"
 )
 
 var (
@@ -98,17 +98,17 @@ func fetchRedditHeadlines(proxy settings.Proxy) ([]string, error) {
 	return titles, nil
 }
 
-func callGeminiAndSend(irc state.State, prompt string, message string) {
+func callAIAndSend(irc state.State, prompt string, message string) {
 	irc.Send(fmt.Sprintf("%s, %s", irc.User.NickName, message))
 
-	if irc.Config.Gemini.ApiKey == "" {
-		irc.Send("Error: Gemini API key is not configured.")
+	if irc.Config.Glm.ApiKey == "" {
+		irc.Send("Error: GLM API key is not configured.")
 		return
 	}
 
-	answer, err := gemini.SingleRequest(prompt, irc.Config.Gemini)
+	answer, err := glm.SingleRequest(prompt, irc.Config.Glm)
 	if err != nil {
-		irc.Send("Error getting summary from AI.")
+		irc.Send("Error getting summary from AI: " + err.Error())
 		return
 	}
 
@@ -140,7 +140,7 @@ func ParseHeadlines(irc state.State) {
 		prompt := fmt.Sprintf("As a man who is skeptical and think the satanists control everything, summarize the following headlines into a single, concise paragraph blaming the satanists and the illuminati:\n\n%s", allTitles)
 		message := "fetching a summary of the latest headlines..."
 
-		callGeminiAndSend(irc, prompt, message)
+		callAIAndSend(irc, prompt, message)
 	}()
 }
 
@@ -212,6 +212,6 @@ Here are the rules for the rewrite:
 Headline to rewrite: %s`, randomHeadline)
 		message := "Getting the latest IRC news..."
 
-		callGeminiAndSend(irc, prompt, message)
+		callAIAndSend(irc, prompt, message)
 	}()
 }

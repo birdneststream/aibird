@@ -37,7 +37,7 @@ func convertAudioToMp3AndAmplify(inputFile string) (string, error) {
 }
 
 func ProcessAndUploadAudio(irc state.State, message, response string) {
-	audioFile, err := comfyui.Process(irc, "", meta.GPU4090)
+	audioFile, err := comfyui.Process(irc, "", meta.GPU5090)
 	if err != nil {
 		logger.Error("Failed to process comfyui request", "error", err)
 		irc.SendError(err.Error())

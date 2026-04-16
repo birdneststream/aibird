@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"os"
-	"sync"
 	"time"
 
 	"aibird/image/comfyui"
@@ -27,18 +26,22 @@ func (dq *DualQueue) Enqueue(item QueueItem) (string, error) { //nolint:gocyclo
 	// Check if this is a ComfyUI workflow by checking if the workflow file exists
 	workflowFile := "comfyuijson/" + item.Model + ".json"
 	if _, err := os.Stat(workflowFile); os.IsNotExist(err) {
-		// Not a ComfyUI workflow, treat as text command or other non-workflow command
+		// Not a ComfyUI workflow (could be Ollama AI request or other)
 		logger.Debug("Enqueuing non-workflow command", "model", item.Model)
 
-		// For non-workflow commands, use 2070 by default (they don't need GPU)
-		item.GPU = meta.GPU2070
-		if item.User != nil && item.User.CanSkipQueue() {
-			return dq.Queue2070.EnqueueFront(item, "")
+		// Default GPU type for non-workflow items (not really used, but set for consistency)
+		if item.GPU == "" {
+			item.GPU = meta.GPU5090 // Default to primary GPU (5090/cuda:1)
 		}
-		return dq.Queue2070.Enqueue(item)
+
+		// All items go to the primary queue now
+		if item.User != nil && item.User.CanSkipQueue() {
+			return dq.Queue4090.EnqueueFront(item, "")
+		}
+		return dq.Queue4090.Enqueue(item)
 	}
 
-	// Handle ComfyUI workflows
+	// Handle ComfyUI workflows - determine GPU based on status
 	metaData, err := comfyui.GetAibirdMeta(workflowFile)
 	if err != nil {
 		return "", errors.New("could not load workflow metadata for this model")
@@ -47,93 +50,31 @@ func (dq *DualQueue) Enqueue(item QueueItem) (string, error) { //nolint:gocyclo
 	statusClient := status.NewClient(item.State.Config.AiBird)
 	statusMeta := &meta.AibirdMeta{
 		AccessLevel: metaData.AccessLevel,
-		BigModel:    metaData.BigModel,
 	}
-	use4090, err := statusClient.CheckModelExecution(item.Model, statusMeta, item.User, item.State.User.NickName)
+	use5090, err := statusClient.CheckModelExecution(item.Model, statusMeta, item.User, item.State.User.NickName)
 	if err != nil {
 		return "", err
 	}
 
-	// Big model: strict 4090 only
-	if metaData.BigModel {
-		item.GPU = meta.GPU4090
-		if item.User != nil && item.User.CanSkipQueue() {
-			return dq.Queue4090.EnqueueFront(item, "")
-		}
-		return dq.Queue4090.Enqueue(item)
+	// Set GPU type based on status check
+	if use5090 {
+		item.GPU = meta.GPU5090 // 5090 (cuda:1)
+	} else {
+		item.GPU = meta.GPU4090 // 4090 (cuda:0)
 	}
 
-	// Small model logic with defer to 2070 if 4090 is busy
-	if use4090 {
-		if !dq.Queue4090.IsCurrentlyProcessing() {
-			item.GPU = meta.GPU4090
-			if item.User != nil && item.User.CanSkipQueue() {
-				return dq.Queue4090.EnqueueFront(item, "")
-			}
-			return dq.Queue4090.Enqueue(item)
-		} else {
-			item.GPU = meta.GPU2070
-			msg := "4090 is busy, your request is being processed on the 2070 instead."
-			if item.User != nil && item.User.CanSkipQueue() {
-				return dq.Queue2070.EnqueueFront(item, msg)
-			}
-			return dq.Queue2070.Enqueue(item)
-		}
-	} else {
-		item.GPU = meta.GPU2070
-		if item.User != nil && item.User.CanSkipQueue() {
-			return dq.Queue2070.EnqueueFront(item, "")
-		}
-		return dq.Queue2070.Enqueue(item)
+	logger.Info("Enqueue GPU selection", "model", item.Model, "use5090", use5090, "gpu", item.GPU)
+
+	// All items go to the single primary queue
+	if item.User != nil && item.User.CanSkipQueue() {
+		return dq.Queue4090.EnqueueFront(item, "")
 	}
+	return dq.Queue4090.Enqueue(item)
 }
 
 func (dq *DualQueue) ProcessQueues(ctx context.Context) error {
-	// Use errgroup to manage both goroutines and handle errors
-	type errgroup struct {
-		ctx    context.Context
-		cancel context.CancelFunc
-		wg     sync.WaitGroup
-		errMu  sync.Mutex
-		err    error
-	}
-
-	eg := &errgroup{}
-	eg.ctx, eg.cancel = context.WithCancel(ctx)
-	defer eg.cancel()
-
-	// Process 4090 queue
-	eg.wg.Add(1)
-	go func() {
-		defer eg.wg.Done()
-		if err := dq.processQueue(eg.ctx, dq.Queue4090, "4090"); err != nil {
-			eg.errMu.Lock()
-			if eg.err == nil {
-				eg.err = err
-			}
-			eg.errMu.Unlock()
-			eg.cancel()
-		}
-	}()
-
-	// Process 2070 queue
-	eg.wg.Add(1)
-	go func() {
-		defer eg.wg.Done()
-		if err := dq.processQueue(eg.ctx, dq.Queue2070, "2070"); err != nil {
-			eg.errMu.Lock()
-			if eg.err == nil {
-				eg.err = err
-			}
-			eg.errMu.Unlock()
-			eg.cancel()
-		}
-	}()
-
-	eg.wg.Wait()
-	eg.errMu.Lock()
-	defer eg.errMu.Unlock()
-	return eg.err
+	// Single queue processing now - all items go through Queue4090 (primary queue)
+	return dq.processQueue(ctx, dq.Queue4090, "Primary")
 }
 
 func (dq *DualQueue) processQueue(ctx context.Context, queue *Queue, queueName string) error {
@@ -190,21 +131,23 @@ func (dq *DualQueue) processQueueItem(queue *Queue) {
 	}
 }
 
-// Status methods
+// Status methods - single queue
 func (dq *DualQueue) IsEmpty() bool {
-	return dq.Queue4090.IsEmpty() && dq.Queue2070.IsEmpty()
+	return dq.Queue4090.IsEmpty()
 }
 
 func (dq *DualQueue) IsCurrentlyProcessing() bool {
-	return dq.Queue4090.IsCurrentlyProcessing() || dq.Queue2070.IsCurrentlyProcessing()
+	return dq.Queue4090.IsCurrentlyProcessing()
 }
 
 func (dq *DualQueue) GetQueueLengths() (int, int) {
-	return dq.Queue4090.GetQueueLength(), dq.Queue2070.GetQueueLength()
+	// Return (primary_length, 0) for compatibility
+	return dq.Queue4090.GetQueueLength(), 0
 }
 
 func (dq *DualQueue) GetActionLists() ([]string, []string) {
-	return dq.Queue4090.GetActionList(), dq.Queue2070.GetActionList()
+	// Return (primary_actions, empty) for compatibility
+	return dq.Queue4090.GetActionList(), []string{}
 }
 
 // Admin control methods
@@ -213,32 +156,23 @@ func (dq *DualQueue) ClearAllQueues() {
 	defer dq.Mutex.Unlock()
 
 	dq.Queue4090.Clear()
-	dq.Queue2070.Clear()
-	logger.Info("All queues cleared by admin")
+	logger.Info("Queue cleared by admin")
 }
 
 func (dq *DualQueue) ClearQueue(gpuType meta.GPUType) {
 	dq.Mutex.Lock()
 	defer dq.Mutex.Unlock()
 
-	switch gpuType {
-	case meta.GPU4090:
-		dq.Queue4090.Clear()
-		logger.Info("4090 queue cleared by admin")
-	case meta.GPU2070:
-		dq.Queue2070.Clear()
-		logger.Info("2070 queue cleared by admin")
-	}
+	// All clears now affect the single queue
+	dq.Queue4090.Clear()
+	logger.Info("Queue cleared by admin", "requested_gpu", gpuType)
 }
 
 func (dq *DualQueue) RemoveCurrentItem() bool {
 	dq.Mutex.Lock()
 	defer dq.Mutex.Unlock()
 
-	removed4090 := dq.Queue4090.RemoveCurrent()
-	removed2070 := dq.Queue2070.RemoveCurrent()
-
-	return removed4090 || removed2070
+	return dq.Queue4090.RemoveCurrent()
 }
 
 func (dq *DualQueue) GetDetailedStatus() *QueueStatus {
@@ -247,11 +181,11 @@ func (dq *DualQueue) GetDetailedStatus() *QueueStatus {
 
 	return &QueueStatus{
 		Queue4090Length: dq.Queue4090.GetQueueLength(),
-		Queue2070Length: dq.Queue2070.GetQueueLength(),
+		Queue2070Length: 0, // Always 0 - single queue now
 		Processing4090:  dq.Queue4090.IsCurrentlyProcessing(),
-		Processing2070:  dq.Queue2070.IsCurrentlyProcessing(),
+		Processing2070:  false, // Always false - single queue now
 		Queue4090Items:  dq.Queue4090.GetActionList(),
-		Queue2070Items:  dq.Queue2070.GetActionList(),
+		Queue2070Items:  []string{}, // Always empty - single queue now
 	}
 }
 

@@ -15,10 +15,8 @@ import (
 	"aibird/birdbase"
 	"aibird/irc/state"
 	"aibird/logger"
-	"aibird/settings"
-	"aibird/text/gemini"
-
 	"aibird/shared/meta"
+	"aibird/text/glm"
 
 	"github.com/richinsley/comfy2go/client"
 	"github.com/schollz/progressbar/v3"
@@ -26,24 +24,6 @@ import (
 
 const boolType = "bool"
 
-// Define a local struct for status.AibirdMeta
-// Only the fields needed for access/routing
-
-type StatusAibirdMeta struct {
-	AccessLevel int
-	BigModel    bool
-}
-
-// getPortByName searches for a port by name in the ComfyUiConfig.
-// It returns the port string and a boolean indicating if it was found.
-func getPortByName(config settings.ComfyUiConfig, name string) (int, bool) {
-	for _, p := range config.Ports {
-		if p.Name == name {
-			return p.Port, true
-		}
-	}
-	return 0, false
-}
 
 func freeVram(clientAddr string, clientPort int) error {
 	url := fmt.Sprintf("http://%s:%d/free", clientAddr, clientPort)
@@ -84,23 +64,17 @@ func Process(irc state.State, aiEnhancedPrompt string, gpu meta.GPUType) (string
 			logger.Error("Access level too low", "required", metaData.AccessLevel, "user", irc.User.GetAccessLevel())
 			return "", fmt.Errorf("⛔️ Sorry, you need access level %d to use this command. Check !support for more info", metaData.AccessLevel)
 		}
-		var clientPort int
-		var portFound bool
-		if gpu == meta.GPU4090 {
-			clientPort, portFound = getPortByName(comfyUiConfig, "4090")
-		} else {
-			clientPort, portFound = getPortByName(comfyUiConfig, "2070")
+
+		// Single ComfyUI instance - determine CUDA device based on GPU type
+		// GPU5090 -> cuda:1 (RTX 5090)
+		// GPU4090 -> cuda:0 (RTX 4090)
+		cudaDevice := "cuda:0" // Default to 4090
+		if gpu == meta.GPU5090 {
+			cudaDevice = "cuda:1" // 5090
 		}
-		if !portFound {
-			if len(comfyUiConfig.Ports) > 0 {
-				clientPort = comfyUiConfig.Ports[0].Port
-				portFound = true
-			}
-		}
-		if !portFound {
-			logger.Error("No ComfyUI ports configured")
-			return "", errors.New("no ComfyUI ports configured")
-		}
+		logger.Debug("ComfyUI CUDA device selection", "gpu", gpu, "cudaDevice", cudaDevice)
+
+		clientPort := comfyUiConfig.Port
 		clientAddr := comfyUiConfig.Url
 		defer func() {
 			if err := freeVram(clientAddr, clientPort); err != nil {
@@ -147,6 +121,11 @@ func Process(irc state.State, aiEnhancedPrompt string, gpu meta.GPUType) (string
 					rawUserInput = strVal
 					userInputProvided = strVal != ""
 				}
+			}
+
+			// Check if required parameter is provided
+			if paramDef.Required && !userInputProvided {
+				return "", fmt.Errorf("⚠️ Parameter --%s is required. %s", paramName, paramDef.Description)
 			}
 
 			// Special pre-flight check for image URLs to give users faster feedback
@@ -269,7 +248,7 @@ func Process(irc state.State, aiEnhancedPrompt string, gpu meta.GPUType) (string
 								lyrics = string(bodyBytes)
 							} else {
 								irc.Send("✍️ Generating lyrics with ai! ✨")
-								lyrics, lyErr = gemini.GenerateLyrics(lyricsPrompt, irc.Config.Gemini)
+								lyrics, lyErr = glm.GenerateLyrics(lyricsPrompt, irc.Config.Glm)
 								if lyErr != nil {
 									return "", fmt.Errorf("failed to generate lyrics: %w", lyErr)
 								}
@@ -326,6 +305,20 @@ func Process(irc state.State, aiEnhancedPrompt string, gpu meta.GPUType) (string
 					}
 					logger.Debug("Setting hardcoded parameter", "param", paramName, "node", target.Node, "widget", target.WidgetIndex, "value", finalValue)
 					widgetUpdates[target.Node][target.WidgetIndex] = finalValue
+				}
+			}
+		}
+
+		// --- Inject GPU device for GPU parameters ---
+		// Parameters like gpu_unet, gpu_clip, gpu_vae get the cuda device based on user's assigned GPU
+		for paramName, paramDef := range metaData.Parameters {
+			if strings.HasPrefix(paramName, "gpu_") {
+				for _, target := range paramDef.Targets {
+					if _, ok := widgetUpdates[target.Node]; !ok {
+						widgetUpdates[target.Node] = make(map[int]interface{})
+					}
+					logger.Debug("Injecting GPU device", "param", paramName, "node", target.Node, "widget", target.WidgetIndex, "cudaDevice", cudaDevice)
+					widgetUpdates[target.Node][target.WidgetIndex] = cudaDevice
 				}
 			}
 		}

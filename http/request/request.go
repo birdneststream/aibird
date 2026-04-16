@@ -13,6 +13,7 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"time"
 
 	"aibird/logger"
 )
@@ -164,7 +165,9 @@ func (r *Request) Call(response interface{}) error { //nolint:gocyclo
 		req.Header.Set(header.Key, header.Value)
 	}
 
-	client := &http.Client{}
+	client := &http.Client{
+		Timeout: 120 * time.Second, // 2 minute timeout for AI API calls
+	}
 	resp, err := client.Do(req)
 	if err != nil {
 		return fmt.Errorf("failed to execute request: %w", err)

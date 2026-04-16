@@ -13,7 +13,6 @@ import (
 	"aibird/settings"
 
 	"github.com/BurntSushi/toml"
-	"github.com/agnivade/levenshtein"
 )
 
 func WorkflowExists(workflow string) bool {
@@ -59,139 +58,6 @@ func GetWorkFlowsSlice() []string {
 	}
 
 	return workflows
-}
-
-// blocklist contains words to check with fuzzy matching (extracted from replacement patterns)
-var blocklist = []string{
-	// Female youth terms
-	"girl", "girls", "grl", "grll", "grls", "grlls", "girly", "girlish",
-	"maiden", "maidens", "schoolgirl", "loli", "lolli", "lolita",
-
-	// Male youth terms
-	"boy", "boys", "boi", "boii", "boyz", "boyish", "schoolboy",
-
-	// Generic youth terms
-	"child", "children", "kid", "kids", "kiddo", "kiddies", "kiddie",
-	"youngster", "youngsters", "teen", "teens", "teenager", "teenagers",
-	"teenage", "adolescent", "adolescents", "youth", "youths",
-	"juvenile", "juveniles", "minor", "minors", "underage",
-	"baby", "bby", "babies", "infant", "infants", "toddler", "toddlers",
-	"preschooler", "preschoolers", "tween", "tweens", "preteen", "preteens",
-
-	// School/education terms
-	"elementary", "preschool", "kindergarten", "daycare", "playground",
-	"playroom", "classroom", "schoolroom",
-
-	// Scout terms
-	"cubscout", "webelos", "brownie",
-
-	// Angel-related terms
-	"cherub", "cherubs", "cherubic",
-}
-
-// commonWords that should never be fuzzy matched
-// Based on Google 10000 most common English words (no swears)
-// Focusing on 4-letter words that could false-positive match blocklist terms
-var commonWords = map[string]bool{
-	// Common verbs/pronouns/conjunctions
-	"then": true, "than": true, "them": true, "they": true, "when": true,
-	"been": true, "seen": true, "keen": true, "open": true, "oven": true,
-	"here": true, "were": true, "have": true, "more": true,
-	"make": true, "made": true, "come": true, "came": true, "some": true,
-	"time": true, "very": true, "just": true, "into": true, "even": true,
-	"also": true, "must": true, "does": true, "each": true, "said": true,
-	"over": true, "such": true, "well": true, "back": true, "only": true,
-	"good": true, "know": true, "take": true, "used": true, "work": true,
-
-	// Common nouns
-	"home": true, "page": true, "news": true, "help": true, "site": true,
-	"user": true, "data": true, "post": true, "city": true, "book": true,
-	"read": true, "item": true, "real": true, "life": true, "week": true,
-	"name": true, "year": true, "team": true, "area": true, "room": true,
-	"food": true, "tree": true, "door": true, "fire": true, "wall": true,
-
-	// Sound effects / casual words
-	"boop": true, "beep": true, "poop": true, "zoom": true, "boom": true,
-}
-
-// normalizeRepeatedChars reduces repeated characters to handle obfuscation like "tooddleeer" -> "todler"
-func normalizeRepeatedChars(word string) string {
-	if len(word) < 3 {
-		return word
-	}
-
-	var result strings.Builder
-	result.WriteByte(word[0])
-
-	for i := 1; i < len(word); i++ {
-		// Only add character if it's different from the previous one
-		if word[i] != word[i-1] {
-			result.WriteByte(word[i])
-		}
-	}
-
-	return result.String()
-}
-
-// correctFuzzyMatches replaces misspelled words with their correct blocklist term
-func correctFuzzyMatches(text string, maxDistance int) string {
-	words := strings.Fields(text)
-	corrected := false
-
-	for i, word := range words {
-		wordLower := strings.ToLower(word)
-		// Skip very short words to avoid false positives
-		if len(wordLower) < 4 {
-			continue
-		}
-
-		// Skip common words that should never be matched
-		if commonWords[wordLower] {
-			continue
-		}
-
-		// First try direct match
-		for _, blocked := range blocklist {
-			// Only match if lengths are reasonably similar (within 3 chars difference)
-			lengthDiff := len(wordLower) - len(blocked)
-			if lengthDiff < -3 || lengthDiff > 3 {
-				continue
-			}
-
-			distance := levenshtein.ComputeDistance(wordLower, blocked)
-			if distance <= maxDistance && distance > 0 {
-				words[i] = blocked
-				corrected = true
-				break
-			}
-		}
-
-		// If no match found, try with normalized repeated characters
-		if !corrected || words[i] == word {
-			normalized := normalizeRepeatedChars(wordLower)
-			if normalized != wordLower {
-				for _, blocked := range blocklist {
-					// Only match if lengths are reasonably similar
-					lengthDiff := len(normalized) - len(blocked)
-					if lengthDiff < -3 || lengthDiff > 3 {
-						continue
-					}
-
-					distance := levenshtein.ComputeDistance(normalized, blocked)
-					if distance <= maxDistance {
-						words[i] = blocked
-						corrected = true
-						break
-					}
-				}
-			}
-		}
-	}
-
-	if corrected {
-		return strings.Join(words, " ")
-	}
-	return text
 }
 
 func CleanPrompt(message string) string {
@@ -278,11 +144,6 @@ func CleanPrompt(message string) string {
 			return message
 		}
 	}
-
-	// Correct fuzzy matches (misspellings) to proper blocklist terms
-	// AFTER exception check so exceptions aren't fuzzy-matched
-	// Use distance of 1 to be more conservative and avoid false positives
-	message = correctFuzzyMatches(message, 1)
 
 	// Expanded replacement patterns
 	replacements := map[string]string{

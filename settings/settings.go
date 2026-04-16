@@ -64,8 +64,8 @@ func LoadConfig() (*Config, error) {
 func loadServiceConfigs(config *Config) error {
 	serviceConfigs := map[string]interface{}{
 		"settings/openrouter.toml": &config.OpenRouter,
-		"settings/gemini.toml":     &config.Gemini,
 		"settings/ollama.toml":     &config.Ollama,
+		"settings/glm.toml":        &config.Glm,
 		"settings/comfyui.toml":    &config.ComfyUi,
 		"settings/birdhole.toml":   &config.Birdhole,
 		"settings/logging.toml":    &config.Logging,

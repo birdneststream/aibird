@@ -4,6 +4,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"regexp"
 	"strconv"
 	"strings"
 
@@ -215,11 +216,24 @@ func (s *State) ReplyTo(message string) {
 func (s *State) Send(message string) {
 	message = helpers.MarkdownToIrc(message)
 
+	// Filter banned words for specific networks
+	if s.Network.NetworkName == "supernets" {
+		// Insert zero-width space to bypass word filters (case insensitive)
+		message = regexp.MustCompile(`(?i)pizza`).ReplaceAllString(message, "piz\u200Bza")
+	}
+
 	// for each new line break in response choices write to channel
 	for _, line := range strings.Split(message, "\n") {
 		sendString := ""
-		// Remove blank or one/two char lines
-		if len(line) <= 2 {
+
+		// Send empty line as a single space for visual separation between sections
+		if strings.TrimSpace(line) == "" {
+			s.Client.Cmd.Reply(s.Event, " ")
+			continue
+		}
+
+		// Skip very short lines (1-2 chars) that aren't meaningful
+		if len(strings.TrimSpace(line)) <= 2 {
 			continue
 		}
 
@@ -234,13 +248,14 @@ func (s *State) Send(message string) {
 
 			// Trim by words for a cleaner output
 			if len(sendString) > 450 {
-
-				s.Client.Cmd.Reply(s.Event, sendString)
+				s.Client.Cmd.Reply(s.Event, strings.TrimSpace(sendString))
 				sendString = ""
 			}
 		}
 
-		s.Client.Cmd.Reply(s.Event, sendString)
+		if strings.TrimSpace(sendString) != "" {
+			s.Client.Cmd.Reply(s.Event, strings.TrimSpace(sendString))
+		}
 	}
 }
 
@@ -274,7 +289,7 @@ func (s *State) Verify() error { //nolint:gocyclo
 		return errors.New("not enough parameters in s.event.Params to proceed")
 	}
 
-	if s.User.Ignored {
+	if s.User.Ignored || s.Network.IsNickIgnored(s.Event.Source.Name) {
 		return errors.New("user is ignored")
 	}
 

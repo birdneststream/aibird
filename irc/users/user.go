@@ -105,7 +105,7 @@ func (u *User) GetAccessLevelString() string {
 	}
 }
 
-func (u *User) CanUse4090() bool {
+func (u *User) CanUsePremiumGPU() bool {
 	// Perform a strict check to prevent false positives
 	accessLevel := u.GetAccessLevel()
 	return accessLevel >= 2 || u.IsAdmin || u.IsOwner

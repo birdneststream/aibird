@@ -150,26 +150,25 @@ func TextHelp() []Help {
 			Queueable: true,
 		},
 		{
-			Name: "bard",
+			Name: "glm",
 			Type: "text",
-			Help: "Process a Google Gemini request.",
+			Help: "Process a GLM (ChatGLM) request.",
 			Arguments: []Arguments{
 				{Argument: "<message>", Help: "Specify the message to process.", Values: ""},
-				{Argument: "--help", Help: "Show this help message.", Values: ""},
-				{Argument: "--voice", Help: "Specify the voice for TTS.", Values: "e.g., woman"},
+				{Argument: "reset", Help: "Reset the conversation cache.", Values: ""},
 			},
 			Queueable: false,
 		},
 		{
-			Name: "gemini",
+			Name: "glm-img",
 			Type: "text",
-			Help: "Process a Google Gemini request.",
+			Help: "Generate an image using CogView-4 from Z.AI.",
 			Arguments: []Arguments{
-				{Argument: "<message>", Help: "Specify the message to process.", Values: ""},
-				{Argument: "--help", Help: "Show this help message.", Values: ""},
-				{Argument: "--voice", Help: "Specify the voice for TTS.", Values: "e.g., woman"},
+				{Argument: "<prompt>", Help: "Describe the image you want to generate.", Values: ""},
+				{Argument: "--size", Help: "Image size (default: 1024x1024).", Values: "1024x1024, 768x1024, 1024x768"},
 			},
 			Queueable: false,
+			Example: "!glm-img a cute cat sitting on a windowsill --size=1024x1024",
 		},
 	}
 }
@@ -402,7 +401,7 @@ func AdminHelp() []Help {
 			Type: "admin",
 			Help: "Clear specified queue(s) or all queues.",
 			Arguments: []Arguments{
-				{Argument: "[4090|2070|all]", Help: "Specify which queue(s) to clear. Use 'all' to clear both queues.", Values: "4090, 2070, all"},
+				{Argument: "[5090|4090|all]", Help: "Specify which queue(s) to clear. Use 'all' to clear both queues.", Values: "5090, 4090, all"},
 			},
 			Queueable: false,
 		},

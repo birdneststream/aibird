@@ -10,8 +10,8 @@ type (
 		Networks   map[string]networks.Network `toml:"networks" validate:"required,min=1"`
 		AiBird     AiBird                      `toml:"aibird" validate:"required"`
 		OpenRouter OpenRouterConfig            `toml:"openrouter" validate:"required"`
-		Gemini     GeminiConfig                `toml:"gemini"`
 		Ollama     OllamaConfig                `toml:"ollama" validate:"required"`
+		Glm        GlmConfig                   `toml:"glm"`
 		ComfyUi    ComfyUiConfig               `toml:"comfyui" validate:"required"`
 		Birdhole   BirdholeConfig              `toml:"birdhole" validate:"required"`
 		Logging    logger.Config               `toml:"logging" validate:"required"`
@@ -49,10 +49,6 @@ type (
 		DefaultModel string `toml:"defaultModel"`
 	}
 
-	GeminiConfig struct {
-		ApiKey string `toml:"apiKey"`
-	}
-
 	OllamaConfig struct {
 		Url          string `toml:"url" validate:"required,url"`
 		Port         string `toml:"port" validate:"required"`
@@ -60,18 +56,21 @@ type (
 		ContextLimit int    `toml:"contextLimit" validate:"gte=0"`
 	}
 
-	ComfyUiConfig struct {
-		Url            string        `toml:"url" validate:"required"`
-		Ports          []ComfyUiPort `toml:"ports" validate:"required,min=1,dive"`
-		BadWords       []string      `toml:"badWords"`
-		BadWordsPrompt string        `toml:"badWordsPrompt"`
-		MaxQueueSize   int           `toml:"maxQueueSize" validate:"gte=0"`
-		RewritePrompts bool          `toml:"rewritePrompts"`
+	GlmConfig struct {
+		Url          string `toml:"url"`
+		ApiKey       string `toml:"apiKey"`
+		DefaultModel string `toml:"defaultModel"`
+		ImageUrl     string `toml:"imageUrl"`
+		ImageModel   string `toml:"imageModel"`
 	}
 
-	ComfyUiPort struct {
-		Name string `toml:"name" validate:"required"`
-		Port int    `toml:"port" validate:"required"`
+	ComfyUiConfig struct {
+		Url            string   `toml:"url" validate:"required"`
+		Port           int      `toml:"port" validate:"required"`
+		BadWords       []string `toml:"badWords"`
+		BadWordsPrompt string   `toml:"badWordsPrompt"`
+		MaxQueueSize   int      `toml:"maxQueueSize" validate:"gte=0"`
+		RewritePrompts bool     `toml:"rewritePrompts"`
 	}
 
 	BirdholeConfig struct {

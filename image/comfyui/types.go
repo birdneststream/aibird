@@ -43,6 +43,7 @@ type ParameterDef struct {
 	Targets     []Target    `toml:"targets"`
 	Min         *float64    `toml:"min"`
 	Max         *float64    `toml:"max"`
+	Required    bool        `toml:"required"`
 }
 
 // HardcodedValue defines a value to be set directly in the workflow.

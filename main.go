@@ -214,6 +214,10 @@ func ircClient(ctx context.Context, network *networks.Network, config *settings.
 }
 
 func handleWelcome(c *girc.Client, e girc.Event, network *networks.Network) {
+	// Set connection time to ignore ZNC buffer playback
+	network.ConnectedAt = time.Now()
+	logger.Info("Connected to network", "network", network.NetworkName, "connected_at", network.ConnectedAt)
+
 	if network.NickServPass != "" {
 		if err := c.Cmd.SendRaw("PRIVMSG NickServ :IDENTIFY " + network.Nick + " " + network.NickServPass); err != nil {
 			logger.Warn("Error sending NickServ identify", "network", network.Name, "error", err)
@@ -320,7 +324,7 @@ func handleJoin(c *girc.Client, e girc.Event, network *networks.Network, config 
 			FirstSeen:   time.Now().Unix(),
 			IsAdmin:     network.IsIdentHostAdmin(e.Source.Ident, e.Source.Host),
 			IsOwner:     network.IsIdentHostOwner(e.Source.Ident, e.Source.Host),
-			Ignored:     false, // Default to not ignored
+			Ignored:     network.IsNickIgnored(e.Source.Name),
 			AccessLevel: 0,
 			AiService:   "ollama",
 			GircUser:    c.LookupUser(e.Source.Name),
@@ -448,9 +452,26 @@ func handleKick(c *girc.Client, e girc.Event, network *networks.Network, config 
 }
 
 func handlePrivMsg(c *girc.Client, e girc.Event, network *networks.Network, config *settings.Config, q *queue.DualQueue) {
+	// Ignore ZNC buffer playback
+	if !network.ConnectedAt.IsZero() {
+		// Method 1: If server-time is supported, check if message is from before we connected
+		if !e.Timestamp.IsZero() && e.Timestamp.Before(network.ConnectedAt) {
+			logger.Debug("Ignoring ZNC buffer playback (server-time)", "network", network.NetworkName, "msg_time", e.Timestamp, "connected_at", network.ConnectedAt)
+			return
+		}
+		// Method 2: For networks without server-time (like EFNet), ignore commands in first 15 seconds
+		// ZNC buffer playback happens immediately on connect, longer grace period for networks with many channels
+		if e.Timestamp.IsZero() && time.Since(network.ConnectedAt) < 15*time.Second {
+			if strings.HasPrefix(e.Last(), config.AiBird.ActionTrigger) {
+				logger.Debug("Ignoring potential ZNC buffer command (startup grace period)", "network", network.NetworkName, "elapsed", time.Since(network.ConnectedAt))
+				return
+			}
+		}
+	}
+
 	// Check if this is a command (starts with trigger)
 	isCommand := strings.HasPrefix(e.Last(), config.AiBird.ActionTrigger)
-	
+
 	if !isCommand {
 		// Not a command - check if we should handle it as a chat message for participant system
 		participant.HandleChatMessage(c, e, network, config)
@@ -567,6 +588,35 @@ func dispatchCommand(irc state.State, q *queue.DualQueue) {
 	if helpArg, ok := irc.FindArgument("help", false).(bool); ok && helpArg {
 		helpMsg := help.FindHelp(irc)
 		irc.Send(girc.Fmt(helpMsg))
+		return
+	}
+
+	// Special handling for !ai with Ollama - needs queue and can_use check
+	if commands.ShouldQueueOllamaAi(irc) {
+		// Check can_use flag before queueing
+		if err := commands.CheckAiCanUse(irc); err != nil {
+			irc.SendError(err.Error())
+			return
+		}
+
+		queueItem := queue.QueueItem{
+			Item: queue.Item{
+				State: irc,
+				Function: func(s state.State, gpu meta.GPUType) {
+					commands.ProcessOllamaAiRequest(s, gpu)
+				},
+			},
+			Model: "ollama-ai", // Special identifier for Ollama requests
+			User:  irc.User,
+			GPU:   meta.GPU5090, // Default GPU, not really used for Ollama
+		}
+
+		msg, err := q.Enqueue(queueItem)
+		if err != nil {
+			irc.SendError(err.Error())
+		} else if msg != "" {
+			irc.Send(msg)
+		}
 		return
 	}
 

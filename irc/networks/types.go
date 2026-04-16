@@ -37,5 +37,6 @@ type (
 		Channels      []channels.Channel
 		AdminHosts    []Admins
 		SaveTimer     *time.Timer
+		ConnectedAt   time.Time // Track when bot connected to ignore ZNC buffer playback
 	}
 )

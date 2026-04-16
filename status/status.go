@@ -11,6 +11,7 @@ import (
 	"sync"
 	"time"
 
+	"aibird/logger"
 	"aibird/settings"
 	"aibird/shared/meta"
 )
@@ -26,15 +27,15 @@ type GPUInfo struct {
 }
 
 type DockerStatus struct {
-	Ollama      bool `json:"ollama"`
-	ComfyUI     bool `json:"comfyui"`
-	ComfyUI2070 bool `json:"comfyui_2070"`
+	Ollama  bool `json:"ollama"`
+	ComfyUI bool `json:"comfyui"`
 }
 
 type StatusResponse struct {
 	IsRunning    bool         `json:"steam_running"`
 	DockerStatus DockerStatus `json:"docker_status"`
 	GPUs         []GPUInfo    `json:"gpus,omitempty"`
+	CanUse       bool         `json:"can_use"`
 	Error        string       `json:"error,omitempty"`
 }
 
@@ -232,13 +233,50 @@ func (c *Client) IsComfyUIRunning() (bool, error) {
 	return status.DockerStatus.ComfyUI, nil
 }
 
-// IsComfyUI2070Running returns true if the ComfyUI-2070 container is running
-func (c *Client) IsComfyUI2070Running() (bool, error) {
+// CheckCanUse returns whether the system allows GPU usage.
+// This is a simpler check than CheckModelExecution - it only validates
+// can_use flag and basic service availability.
+func (c *Client) CheckCanUse() (bool, error) {
 	status, err := c.GetStatus()
 	if err != nil {
-		return false, err
+		return false, errors.New("AI rig is offline!!! Sorry pal")
 	}
-	return status.DockerStatus.ComfyUI2070, nil
+
+	if !status.CanUse {
+		return false, errors.New("sorry pal jewbird is doing secret ai experiments and requires all gpus")
+	}
+
+	return true, nil
+}
+
+// parseTemperature extracts the numeric temperature value from a string like "45 C" or "45°C"
+func parseTemperature(temp string) (int, error) {
+	// Remove common suffixes and whitespace
+	temp = strings.TrimSpace(temp)
+	temp = strings.TrimSuffix(temp, "°C")
+	temp = strings.TrimSuffix(temp, " C")
+	temp = strings.TrimSuffix(temp, "C")
+	temp = strings.TrimSpace(temp)
+
+	var tempVal int
+	_, err := fmt.Sscanf(temp, "%d", &tempVal)
+	return tempVal, err
+}
+
+// checkGPUTemperatures checks if any GPU is over the temperature threshold
+// Returns the GPU name and temperature if any GPU is too hot, empty string otherwise
+func checkGPUTemperatures(gpus []GPUInfo, threshold int) (string, int) {
+	for _, gpu := range gpus {
+		temp, err := parseTemperature(gpu.Temperature)
+		if err != nil {
+			continue
+		}
+		if temp > threshold {
+			shortName := strings.Replace(gpu.Name, "NVIDIA GeForce ", "", 1)
+			return shortName, temp
+		}
+	}
+	return "", 0
 }
 
 // formatGPUInfo formats a single GPU's information
@@ -264,7 +302,6 @@ func formatDockerStatus(docker DockerStatus) string {
 	statuses := []string{
 		format("Ollama", docker.Ollama),
 		format("ComfyUI", docker.ComfyUI),
-		format("ComfyUI-2070", docker.ComfyUI2070),
 	}
 	return strings.Join(statuses, " | ")
 }
@@ -287,11 +324,11 @@ func (c *Client) GetFormattedStatus() (string, error) {
 	} else if len(status.GPUs) > 0 {
 		steamStatus := "🟢 Available"
 		if status.IsRunning {
-			steamStatus = "🔴 In Use (2070 slow lane for you)"
+			steamStatus = "🔴 In Use (4090 lane for you)"
 		}
 		for _, gpu := range status.GPUs {
 			gpuLine := formatGPUInfo(gpu)
-			if strings.Contains(gpu.Name, "4090") {
+			if strings.Contains(gpu.Name, "5090") {
 				gpuLine = fmt.Sprintf("%s | Status: %s", gpuLine, steamStatus)
 			}
 			lines = append(lines, fmt.Sprintf(" • %s", gpuLine))
@@ -306,11 +343,11 @@ func (c *Client) GetFormattedStatus() (string, error) {
 // UserAccess defines the necessary methods for a user object to perform access checks.
 type UserAccess interface {
 	GetAccessLevel() int
-	CanUse4090() bool
+	CanUsePremiumGPU() bool
 }
 
 // CheckModelExecution performs various checks to see if a model can be executed.
-// It returns a boolean indicating if the high-performance port should be used, and an error if execution is not permitted.
+// It returns a boolean indicating if the 5090 (cuda:1) should be used, and an error if execution is not permitted.
 func (c *Client) CheckModelExecution(model string, meta *meta.AibirdMeta, user UserAccess, userNickName string) (bool, error) {
 	status, err := c.GetStatus()
 	if err != nil {
@@ -318,11 +355,30 @@ func (c *Client) CheckModelExecution(model string, meta *meta.AibirdMeta, user U
 	}
 
 	isSteamRunning := status.IsRunning
-	comfyUi4090Running := status.DockerStatus.ComfyUI
-	comfyUi2070Running := status.DockerStatus.ComfyUI2070
+	comfyUIRunning := status.DockerStatus.ComfyUI
+	canUse := status.CanUse
 
-	if !comfyUi2070Running && !comfyUi4090Running {
+	logger.Debug("CheckModelExecution",
+		"steam", isSteamRunning,
+		"comfyui", comfyUIRunning,
+		"canUse", canUse,
+		"userAccessLevel", user.GetAccessLevel(),
+		"canUsePremiumGPU", user.CanUsePremiumGPU(),
+	)
+
+	// Check if bot usage is allowed
+	if !canUse {
+		return false, errors.New("sorry pal jewbird is doing secret ai experiments and requires all gpus")
+	}
+
+	if !comfyUIRunning {
 		return false, errors.New("AI rig seems online but the comfyui generation is not running!!! Sorry pal")
+	}
+
+	// Check GPU temperatures - warn if any GPU is over 80°C
+	const tempThreshold = 80
+	if hotGPU, temp := checkGPUTemperatures(status.GPUs, tempThreshold); hotGPU != "" {
+		return false, fmt.Errorf("🌡️ GPU %s is running hot at %d°C! Please wait a moment and try again when it cools down", hotGPU, temp)
 	}
 
 	// Access level check
@@ -330,17 +386,14 @@ func (c *Client) CheckModelExecution(model string, meta *meta.AibirdMeta, user U
 		return false, fmt.Errorf("⛔️ Sorry, you need access level %d to use this command. Check !support for more info", meta.AccessLevel)
 	}
 
-	// Big model check
-	if meta.BigModel && (isSteamRunning || !comfyUi4090Running) {
-		return false, errors.New("no GPU for these big models, sorry pal, have to wait for jewbird to stop gayming")
+	// Use 5090 (cuda:1) for all generation, unless Steam is running
+	// When Steam is running, force 4090 (cuda:0) usage
+	if isSteamRunning {
+		logger.Debug("CheckModelExecution: Steam running, using 4090 (cuda:0)")
+		return false, nil
 	}
 
-	use4090Port := false
-	if !isSteamRunning && comfyUi4090Running {
-		if user.CanUse4090() || meta.BigModel {
-			use4090Port = true
-		}
-	}
-
-	return use4090Port, nil
+	// Default to 5090 for all users
+	logger.Debug("CheckModelExecution: Using 5090 (cuda:1)")
+	return true, nil
 }

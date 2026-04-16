@@ -25,13 +25,13 @@ func ParseAiVideo(irc state.State) bool {
 			aiEnhancedPrompt, _ = ollama.EnhancePrompt(message, irc.Config.Ollama)
 		}
 
-		if irc.User.CanUse4090() {
-			irc.Send(fmt.Sprintf("%s: Birdnest pal! Enjoy the 🔥rtx 4090🔥 processing '%s'... please wait.", irc.User.NickName, message))
+		if irc.User.CanUsePremiumGPU() {
+			irc.Send(fmt.Sprintf("%s: Birdnest pal! Enjoy the 🔥rtx %s🔥 processing '%s'... please wait.", irc.User.NickName, meta.GPU5090, message))
 		} else {
 			irc.Send(fmt.Sprintf("%s: Queued item '%s' has started processing... please wait.", irc.User.NickName, message))
 		}
 
-		response, err := comfyui.Process(irc, aiEnhancedPrompt, meta.GPU4090)
+		response, err := comfyui.Process(irc, aiEnhancedPrompt, meta.GPU5090)
 		if err != nil {
 			logger.Error("ComfyUI request failed", "error", err)
 			irc.SendError(err.Error())
@@ -79,8 +79,8 @@ func ParseAiVideoWithGPU(irc state.State, gpu meta.GPUType) bool {
 		}
 
 		// Send processing message before starting the actual processing
-		if irc.User.CanUse4090() {
-			irc.Send(fmt.Sprintf("%s: Birdnest pal! Enjoy the 🔥rtx 4090🔥 processing '%s'... please wait.", irc.User.NickName, message))
+		if irc.User.CanUsePremiumGPU() {
+			irc.Send(fmt.Sprintf("%s: Birdnest pal! Enjoy the 🔥rtx %s🔥 processing '%s'... please wait.", irc.User.NickName, gpu, message))
 		} else {
 			irc.Send(fmt.Sprintf("%s: Queued item '%s' has started processing... please wait.", irc.User.NickName, message))
 		}

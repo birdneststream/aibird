@@ -183,7 +183,7 @@ func FindChannelNameInEventParams(event girc.Event) string {
 	return ""
 }
 
-// MarkdownToIrc converts markdown to irc formatting
+// MarkdownToIrc converts markdown to IRC formatting
 func MarkdownToIrc(message string) string {
 	inCodeBlock := false
 	var result strings.Builder
@@ -202,8 +202,8 @@ func MarkdownToIrc(message string) string {
 			result.WriteString(line)
 		} else {
 			processed := line
-			for i, re := range compiledMarkdownReplacements {
-				processed = re.ReplaceAllString(processed, markdownReplacements[i][1])
+			for j, re := range compiledMarkdownReplacements {
+				processed = re.ReplaceAllString(processed, markdownReplacements[j][1])
 			}
 			result.WriteString(processed)
 		}
