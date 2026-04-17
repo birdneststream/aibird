@@ -28,11 +28,11 @@ type GPUInfo struct {
 }
 
 type DockerStatus struct {
-	ComfyUI bool `json:"comfyui"`
+	LLamacpp bool `json:"llamacpp"`
+	ComfyUI  bool `json:"comfyui"`
 }
 
 type StatusResponse struct {
-	IsRunning    bool         `json:"steam_running"`
 	DockerStatus DockerStatus `json:"docker_status"`
 	GPUs         []GPUInfo    `json:"gpus,omitempty"`
 	CanUse       bool         `json:"can_use"`
@@ -185,15 +185,6 @@ func (c *Client) AddVoice(voiceURL, voiceName, startTime, duration string) (stri
 	return response["message"], nil
 }
 
-// IsSteamRunning returns just the steam status
-func (c *Client) IsSteamRunning() (bool, error) {
-	status, err := c.GetStatus()
-	if err != nil {
-		return false, err
-	}
-	return status.IsRunning, nil
-}
-
 // GetGPUInfo returns just the GPU information
 func (c *Client) GetGPUInfo() ([]GPUInfo, error) {
 	status, err := c.GetStatus()
@@ -310,6 +301,7 @@ func formatDockerStatus(docker DockerStatus) string {
 	}
 
 	statuses := []string{
+		format("llama.cpp", docker.LLamacpp),
 		format("ComfyUI", docker.ComfyUI),
 	}
 	return strings.Join(statuses, " | ")
@@ -331,15 +323,8 @@ func (c *Client) GetFormattedStatus() (string, error) {
 	if status.Error != "" {
 		lines = append(lines, fmt.Sprintf("GPUs: ❌ Error: %s", status.Error))
 	} else if len(status.GPUs) > 0 {
-		steamStatus := "🟢 Available"
-		if status.IsRunning {
-			steamStatus = "🔴 In Use (4090 lane for you)"
-		}
 		for _, gpu := range status.GPUs {
 			gpuLine := formatGPUInfo(gpu)
-			if strings.Contains(gpu.Name, "5090") {
-				gpuLine = fmt.Sprintf("%s | Status: %s", gpuLine, steamStatus)
-			}
 			lines = append(lines, fmt.Sprintf(" • %s", gpuLine))
 		}
 	} else {
