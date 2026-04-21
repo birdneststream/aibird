@@ -2,6 +2,8 @@ package comfyui
 
 import (
 	"testing"
+
+	"aibird/settings"
 )
 
 func TestCleanPrompt(t *testing.T) {
@@ -201,6 +203,111 @@ func TestCleanPrompt(t *testing.T) {
 			result := CleanPrompt(tt.input)
 			if result != tt.expected {
 				t.Errorf("CleanPrompt(%q) = %q, want %q", tt.input, result, tt.expected)
+			}
+		})
+	}
+}
+
+func TestBadWordsCheck(t *testing.T) {
+	badWordsConfig := settings.ComfyUiConfig{
+		BadWords:       []string{"greta", "thunberg"},
+		BadWordsPrompt: "FBI Agent making an arrest.",
+	}
+
+	emptyConfig := settings.ComfyUiConfig{
+		BadWords: []string{},
+	}
+
+	tests := []struct {
+		name     string
+		message  string
+		config   settings.ComfyUiConfig
+		expected bool
+	}{
+		// Matches
+		{
+			name:     "exact match greta",
+			message:  "greta",
+			config:   badWordsConfig,
+			expected: true,
+		},
+		{
+			name:     "exact match thunberg",
+			message:  "thunberg",
+			config:   badWordsConfig,
+			expected: true,
+		},
+		{
+			name:     "full name",
+			message:  "greta thunberg",
+			config:   badWordsConfig,
+			expected: true,
+		},
+		{
+			name:     "case insensitive upper",
+			message:  "GRETA",
+			config:   badWordsConfig,
+			expected: true,
+		},
+		{
+			name:     "case insensitive mixed",
+			message:  "ThUnBeRg",
+			config:   badWordsConfig,
+			expected: true,
+		},
+		{
+			name:     "embedded in sentence",
+			message:  "a photo of greta at the beach",
+			config:   badWordsConfig,
+			expected: true,
+		},
+		{
+			name:     "embedded in longer text",
+			message:  "thunberg giving a speech",
+			config:   badWordsConfig,
+			expected: true,
+		},
+		{
+			name:     "substring in word",
+			message:  "nagreta",
+			config:   badWordsConfig,
+			expected: true,
+		},
+
+		// No matches
+		{
+			name:     "unrelated prompt",
+			message:  "a cat sitting on a tree",
+			config:   badWordsConfig,
+			expected: false,
+		},
+		{
+			name:     "empty message",
+			message:  "",
+			config:   badWordsConfig,
+			expected: false,
+		},
+		{
+			name:     "similar but not matching",
+			message:  "great thunder",
+			config:   badWordsConfig,
+			expected: false,
+		},
+
+		// Empty config
+		{
+			name:     "empty bad words list",
+			message:  "greta thunberg",
+			config:   emptyConfig,
+			expected: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := BadWordsCheck(tt.message, tt.config)
+			if result != tt.expected {
+				t.Errorf("BadWordsCheck(%q, config) = %v, want %v", tt.message, result, tt.expected)
 			}
 		})
 	}

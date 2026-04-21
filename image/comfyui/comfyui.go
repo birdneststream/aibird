@@ -19,10 +19,58 @@ import (
 	"aibird/text/glm"
 
 	"github.com/richinsley/comfy2go/client"
+	"github.com/richinsley/comfy2go/graphapi"
 	"github.com/schollz/progressbar/v3"
 )
 
 const boolType = "bool"
+
+// patchNilWidgetValues fixes a comfy2go issue where node properties mapped to
+// widget indices beyond the workflow's widgets_values array result in nil values.
+// This happens when the ComfyUI server updates a node definition with new parameters
+// that the saved workflow doesn't have widget values for yet.
+// ComfyUI rejects null/nil values for required parameters with a Python TypeError:
+// "TypeError: TextGenerate.execute() missing 1 required positional argument: 'sampling_mode'"
+func patchNilWidgetValues(graph *graphapi.Graph) {
+	for _, node := range graph.Nodes {
+		for propName, prop := range node.Properties {
+			if !prop.Serializable() || prop.GetValue() != nil {
+				continue
+			}
+
+			var defaultValue string
+			switch p := prop.(type) {
+			case *graphapi.ComboProperty:
+				if len(p.Values) == 0 {
+					logger.Warn("Cannot patch nil node parameter: combo has no values",
+						"node", node.Title, "parameter", propName)
+					continue
+				}
+				defaultValue = p.Values[0]
+			case *graphapi.StringProperty:
+				defaultValue = p.Default
+			case *graphapi.IntProperty:
+				defaultValue = strconv.FormatInt(p.Default, 10)
+			case *graphapi.FloatProperty:
+				defaultValue = strconv.FormatFloat(p.Default, 'f', -1, 64)
+			case *graphapi.BoolProperty:
+				defaultValue = strconv.FormatBool(p.Default)
+			default:
+				logger.Warn("Cannot patch nil node parameter",
+					"node", node.Title, "parameter", propName, "type", prop.TypeString())
+				continue
+			}
+
+			if err := prop.SetValue(defaultValue); err != nil {
+				logger.Error("Failed to patch nil node parameter",
+					"node", node.Title, "parameter", propName, "error", err)
+			} else {
+				logger.Debug("Patched nil node parameter",
+					"node", node.Title, "parameter", propName, "value", defaultValue)
+			}
+		}
+	}
+}
 
 func freeVram(clientAddr string, clientPort int) error {
 	url := fmt.Sprintf("http://%s:%d/free", clientAddr, clientPort)
@@ -81,11 +129,23 @@ func Process(irc state.State, aiEnhancedPrompt string, gpu meta.GPUType) (string
 		} else {
 			message = irc.Message()
 		}
+		if aiEnhancedPrompt != "" {
+			message = CleanPrompt(aiEnhancedPrompt)
+		}
 		if BadWordsCheck(message, comfyUiConfig) {
 			message = comfyUiConfig.BadWordsPrompt
 		}
-		if aiEnhancedPrompt != "" {
-			message = aiEnhancedPrompt
+
+		// Special case for ernie: construct the full prompt enhancement template in Go
+		// to bypass the erroring StringReplace ComfyUI node in the workflow.
+		// No manual quote escaping needed — comfy2go's json.Marshal handles JSON serialization.
+		// TODO: Consider making this generic via a prompt_template field in aibird_meta.
+		if model == "ernie" {
+			message = strings.ReplaceAll(
+				`<s>[SYSTEM_PROMPT]你是一个专业的文生图 Prompt 增强助手。你将收到用户的简短图片描述及目标生成分辨率，请据此扩写为一段内容丰富、细节充分的视觉描述，以帮助文生图模型生成高质量的图片。仅输出增强后的描述，不要包含任何解释或前缀。[/SYSTEM_PROMPT][INST]{"prompt": "{prompt}", "width": 1024, "height": 1024}[/INST]`,
+				"{prompt}",
+				message,
+			)
 		}
 
 		// Create a map to hold the widget values that need to be updated
@@ -330,6 +390,11 @@ func Process(irc state.State, aiEnhancedPrompt string, gpu meta.GPUType) (string
 		if err != nil {
 			return "", fmt.Errorf("error loading graph JSON: %w", err)
 		}
+
+		// Patch any nil widget values caused by comfy2go/node definition mismatch.
+		// When ComfyUI server adds new parameters, saved workflows may not have
+		// enough widget_values entries, causing nil values that ComfyUI rejects.
+		patchNilWidgetValues(graph)
 
 		// Get only the nodes in the "API" group
 		apiNodes := graph.GetNodesInGroup(graph.GetGroupWithTitle("API"))

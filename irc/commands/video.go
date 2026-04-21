@@ -34,10 +34,16 @@ func parseAiVideoInternal(irc state.State, gpu meta.GPUType) bool {
 			aiEnhancedPrompt, _ = llamacpp.EnhancePrompt(message, irc.Config.LlamaCpp)
 		}
 
+		// Use a safe display message to prevent leaking blocked prompts in IRC output
+		displayMessage := message
+		if comfyui.BadWordsCheck(message, irc.Config.ComfyUi) {
+			displayMessage = irc.Config.ComfyUi.BadWordsPrompt
+		}
+
 		if irc.User.CanUsePremiumGPU() {
-			irc.Send(fmt.Sprintf("%s: Birdnest pal! Enjoy the 🔥rtx %s🔥 processing '%s'... please wait.", irc.User.NickName, gpu, message))
+			irc.Send(fmt.Sprintf("%s: Birdnest pal! Enjoy the 🔥rtx %s🔥 processing '%s'... please wait.", irc.User.NickName, gpu, displayMessage))
 		} else {
-			irc.Send(fmt.Sprintf("%s: Queued item '%s' has started processing... please wait.", irc.User.NickName, message))
+			irc.Send(fmt.Sprintf("%s: Queued item '%s' has started processing... please wait.", irc.User.NickName, displayMessage))
 		}
 
 		response, err := comfyui.Process(irc, aiEnhancedPrompt, gpu)
@@ -56,16 +62,16 @@ func parseAiVideoInternal(irc state.State, gpu meta.GPUType) bool {
 			}
 
 			if aiEnhancedPrompt != "" {
-				fields = append(fields, request.Fields{Key: "message", Value: aiEnhancedPrompt})
+				fields = append(fields, request.Fields{Key: "message", Value: displayMessage})
 			}
 
-			upload, err := birdhole.BirdHole(response, message, fields, irc.Config.Birdhole)
+			upload, err := birdhole.BirdHole(response, displayMessage, fields, irc.Config.Birdhole)
 
 			if err != nil {
 				logger.Error("Birdhole error", "error", err)
 				irc.SendError(err.Error())
 			} else {
-				irc.ReplyTo(upload + " - " + irc.GetActionTrigger() + irc.Action() + " " + message)
+				irc.ReplyTo(upload + " - " + irc.GetActionTrigger() + irc.Action() + " " + displayMessage)
 				return true
 			}
 		}

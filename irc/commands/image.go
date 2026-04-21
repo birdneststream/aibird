@@ -202,11 +202,17 @@ func ParseAiImageWithGPU(irc state.State, gpu meta.GPUType) bool {
 			aiEnhancedPrompt, _ = llamacpp.EnhancePrompt(message, irc.Config.LlamaCpp)
 		}
 
+		// Use a safe display message to prevent leaking blocked prompts in IRC output
+		displayMessage := message
+		if comfyui.BadWordsCheck(message, irc.Config.ComfyUi) {
+			displayMessage = irc.Config.ComfyUi.BadWordsPrompt
+		}
+
 		// Send processing message before starting the actual processing
 		if irc.User.CanUsePremiumGPU() {
-			irc.Send(fmt.Sprintf("%s: Birdnest pal! Enjoy the 🔥rtx %s🔥 processing '%s'... please wait.", irc.User.NickName, gpu, message))
+			irc.Send(fmt.Sprintf("%s: Birdnest pal! Enjoy the 🔥rtx %s🔥 processing '%s'... please wait.", irc.User.NickName, gpu, displayMessage))
 		} else {
-			irc.Send(fmt.Sprintf("%s: Queued item '%s' has started processing... please wait.", irc.User.NickName, message))
+			irc.Send(fmt.Sprintf("%s: Queued item '%s' has started processing... please wait.", irc.User.NickName, displayMessage))
 		}
 
 		// Use the provided GPU parameter instead of hardcoded GPU4090
@@ -219,7 +225,7 @@ func ParseAiImageWithGPU(irc state.State, gpu meta.GPUType) bool {
 			// Special handling for aiscii command - convert to IRC art instead of uploading
 			logger.Debug("Checking aiscii action in GPU function", "action", irc.Action(), "isAiscii", irc.IsAction("aiscii"))
 			if strings.Contains(irc.Action(), "aiscii") {
-				return processAisciiCommand(irc, response, message)
+				return processAisciiCommand(irc, response, displayMessage)
 			}
 
 			fields := []request.Fields{
@@ -233,16 +239,16 @@ func ParseAiImageWithGPU(irc state.State, gpu meta.GPUType) bool {
 			}
 
 			if aiEnhancedPrompt != "" {
-				fields = append(fields, request.Fields{Key: "message", Value: aiEnhancedPrompt})
+				fields = append(fields, request.Fields{Key: "message", Value: displayMessage})
 			}
 
-			upload, err := birdhole.BirdHole(response, message, fields, irc.Config.Birdhole)
+			upload, err := birdhole.BirdHole(response, displayMessage, fields, irc.Config.Birdhole)
 
 			if err != nil {
 				logger.Error("Birdhole error", "error", err)
 				irc.SendError(err.Error())
 			} else {
-				irc.ReplyTo(upload + " - " + irc.GetActionTrigger() + irc.Action() + " " + message)
+				irc.ReplyTo(upload + " - " + irc.GetActionTrigger() + irc.Action() + " " + displayMessage)
 				return true
 			}
 		}
