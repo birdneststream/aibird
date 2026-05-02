@@ -230,13 +230,8 @@ func ParseAiImageWithGPU(irc state.State, gpu meta.GPUType) bool {
 
 			fields := []request.Fields{
 				{Key: "panorama", Value: strconv.FormatBool(irc.IsAction("panorama"))},
-				{Key: "tags", Value: irc.Action() + "," + irc.Network.NetworkName},
-				{Key: "meta_network", Value: irc.Network.NetworkName},
-				{Key: "meta_channel", Value: irc.Channel.Name},
-				{Key: "meta_user", Value: irc.User.NickName},
-				{Key: "meta_ident", Value: irc.User.Ident},
-				{Key: "meta_host", Value: irc.User.Host},
 			}
+			fields = append(fields, irc.BuildUploadFields()...)
 
 			if aiEnhancedPrompt != "" {
 				fields = append(fields, request.Fields{Key: "message", Value: displayMessage})

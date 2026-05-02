@@ -8,7 +8,6 @@ import (
 	"strconv"
 	"strings"
 
-	"aibird/http/request"
 	"aibird/http/uploaders/birdhole"
 	"aibird/image/comfyui"
 	"aibird/irc/commands/help"
@@ -58,14 +57,7 @@ func ProcessAndUploadAudio(irc state.State, message, response string, gpu meta.G
 		defer os.Remove(finalFile)
 	}
 
-	fields := []request.Fields{
-		{Key: "tags", Value: irc.Action() + "," + irc.Network.NetworkName},
-		{Key: "meta_network", Value: irc.Network.NetworkName},
-		{Key: "meta_channel", Value: irc.Channel.Name},
-		{Key: "meta_user", Value: irc.User.NickName},
-		{Key: "meta_ident", Value: irc.User.Ident},
-		{Key: "meta_host", Value: irc.User.Host},
-	}
+	fields := irc.BuildUploadFields()
 
 	upload, err := birdhole.BirdHole(finalFile, message, fields, irc.Config.Birdhole)
 	if err != nil {

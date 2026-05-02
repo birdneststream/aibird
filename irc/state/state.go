@@ -10,6 +10,7 @@ import (
 
 	"aibird/birdbase"
 	"aibird/helpers"
+	"aibird/http/request"
 	"aibird/irc/channels"
 	"aibird/irc/networks"
 	"aibird/irc/users"
@@ -420,5 +421,23 @@ func nagUserToGiveMoney(s State) {
 	// The new system shows donation prompts every 30 uses instead of at 50
 	if shouldNag {
 		s.Send("Hey there chat pal " + s.User.NickName + " thanks for using aibird! (" + strconv.Itoa(totalUses) + " uses) Please support if you can https://www.patreon.com/birdnestlive or !support for more.")
+	}
+}
+
+// BuildUploadFields creates standard metadata fields for file uploads.
+// extraTags are appended to the default action+network tags.
+func (s *State) BuildUploadFields(extraTags ...string) []request.Fields {
+	tags := s.Action() + "," + s.Network.NetworkName
+	for _, tag := range extraTags {
+		tags += "," + tag
+	}
+
+	return []request.Fields{
+		{Key: "tags", Value: tags},
+		{Key: "meta_network", Value: s.Network.NetworkName},
+		{Key: "meta_channel", Value: s.Channel.Name},
+		{Key: "meta_user", Value: s.User.NickName},
+		{Key: "meta_ident", Value: s.User.Ident},
+		{Key: "meta_host", Value: s.User.Host},
 	}
 }
