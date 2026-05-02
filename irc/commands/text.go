@@ -20,7 +20,24 @@ import (
 	"github.com/lrstanley/girc"
 )
 
-// Pre-compiled regexes for text processing (hot paths)
+// checkLlamaCppAvailable checks if llama.cpp is running. Returns true if
+// available (or if health check fails, assuming it's running). Returns false
+// and sends an error message if confirmed offline.
+func checkLlamaCppAvailable(irc state.State) bool {
+	isRunning, err := llamacpp.IsLlamaCppRunning(irc.Config.LlamaCpp.Url, irc.Config.LlamaCpp.Port)
+	if err != nil {
+		logger.Warn("Health check failed, proceeding with llama.cpp request anyway", "error", err)
+		return true // Assume it's running and let the actual request fail if not
+	}
+
+	if !isRunning {
+		irc.SendError("🧠 llama.cpp AI service is offline")
+		return false
+	}
+
+	return true
+}
+
 var (
 	reThinkingBlock   = regexp.MustCompile(`(?is)<think.*?</think >`)
 	reNewlines        = regexp.MustCompile(`\n+`)
@@ -158,15 +175,7 @@ func ParseAiText(irc state.State) bool {
 				return true
 			}
 
-			// Try to check llama.cpp status, but proceed anyway if health check fails
-			isLlamaCppRunning, err := llamacpp.IsLlamaCppRunning(irc.Config.LlamaCpp.Url, irc.Config.LlamaCpp.Port)
-			if err != nil {
-				logger.Warn("Health check failed, proceeding with llama.cpp request anyway", "error", err)
-				isLlamaCppRunning = true // Assume it's running and let the actual request fail if it's not
-			}
-
-			if !isLlamaCppRunning {
-				irc.SendError("🧠 llama.cpp AI service is offline")
+			if !checkLlamaCppAvailable(irc) {
 				return true
 			}
 
@@ -188,14 +197,7 @@ func ParseAiText(irc state.State) bool {
 				return true
 			}
 
-			isLlamaCppRunning, err := llamacpp.IsLlamaCppRunning(irc.Config.LlamaCpp.Url, irc.Config.LlamaCpp.Port)
-			if err != nil {
-				logger.Warn("Health check failed, proceeding with llama.cpp request anyway", "error", err)
-				isLlamaCppRunning = true
-			}
-
-			if !isLlamaCppRunning {
-				irc.SendError("🧠 llama.cpp AI service is offline")
+			if !checkLlamaCppAvailable(irc) {
 				return true
 			}
 
@@ -445,15 +447,7 @@ func CheckAiCanUse(irc state.State) error {
 // This is called by the queue processor, not directly by ParseAiText.
 // The ctx parameter allows cancellation on timeout or queue shutdown.
 func ProcessLlamaCppAiRequest(ctx context.Context, irc state.State, gpu meta.GPUType) {
-	// Try to check llama.cpp status, but proceed anyway if health check fails
-	isLlamaCppRunning, err := llamacpp.IsLlamaCppRunning(irc.Config.LlamaCpp.Url, irc.Config.LlamaCpp.Port)
-	if err != nil {
-		logger.Warn("Health check failed, proceeding with llama.cpp request anyway", "error", err)
-		isLlamaCppRunning = true // Assume it's running
-	}
-
-	if !isLlamaCppRunning {
-		irc.SendError("🧠 llama.cpp AI service is offline")
+	if !checkLlamaCppAvailable(irc) {
 		return
 	}
 
