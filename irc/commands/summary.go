@@ -25,9 +25,9 @@ func ParseSummary(irc state.State) {
 	}
 
 	if irc.Message() == "--help" {
-		irc.Send("Usage: !summary [hours] [persona] — Summarizes the last N hours of channel activity.")
-		irc.Send("Examples: !summary, !summary 6h, !summary 12h from the view of a pirate, !summary a grumpy cat")
-		irc.Send("Defaults: 24h, max: 168h (7 days). Persona: optional creative angle for the summary.")
+		irc.Send("Usage: !summary [hours] [--persona <angle>] — Summarizes the last N hours of channel activity.")
+		irc.Send("Examples: !summary, !summary 6h, !summary 12 --persona \"a western cowboy\"")
+		irc.Send("Defaults: 24h, max: 168h (7 days). --persona: optional creative angle for the summary.")
 		return
 	}
 
@@ -37,36 +37,24 @@ func ParseSummary(irc state.State) {
 		hours = 24
 	}
 
-	persona := ""
-
+	// Parse hours from message (first token if it's a number)
 	if irc.Message() != "" {
 		msg := strings.TrimSpace(irc.Message())
-
-		// Try to parse a leading number as hours (e.g., "6", "6h", "12h")
-		// Remaining text after hours is treated as the persona argument
-		hoursStr := msg
-		rest := ""
-
+		firstToken := msg
 		if idx := strings.IndexByte(msg, ' '); idx > 0 {
-			hoursStr = msg[:idx]
-			rest = strings.TrimSpace(msg[idx+1:])
+			firstToken = msg[:idx]
 		}
-
-		// Try parsing hours
-		cleaned := strings.TrimSuffix(hoursStr, "h")
+		cleaned := strings.TrimSuffix(firstToken, "h")
 		if parsed, err := strconv.Atoi(cleaned); err == nil && parsed > 0 {
 			if parsed > 168 {
 				parsed = 168
 			}
 			hours = parsed
-			persona = rest
-		} else {
-			// No valid hours prefix — entire message is the persona
-			persona = msg
 		}
 	}
 
-	// Sanitize persona: strip newlines and control characters to prevent prompt injection
+	// Parse --persona argument
+	persona, _ := irc.GetStringArg("persona", "")
 	persona = sanitizePersona(persona)
 
 	maxMessages := irc.Config.AiBird.SummaryMaxMessages

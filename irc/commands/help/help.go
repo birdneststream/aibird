@@ -123,10 +123,10 @@ func StandardHelp() []Help {
 			Help: "Summarizes recent channel activity using AI.",
 			Arguments: []Arguments{
 				{Argument: "<hours>", Help: "Number of hours to summarize (default: 24, max: 168).", Values: "e.g., 6, 12, 48"},
-				{Argument: "<persona>", Help: "Creative angle or persona for the summary.", Values: "e.g., 'from the view of a psychologist'"},
+				{Argument: "--persona", Help: "Creative angle or persona for the summary.", Values: "e.g., \"a western cowboy\""},
 			},
 			Queueable: false,
-			Example:   "summary",
+			Example:   "summary 6h --persona \"from the view of a psychologist\"",
 		},
 	}
 }
