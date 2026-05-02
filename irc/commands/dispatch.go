@@ -36,8 +36,7 @@ func IsQueueableFromHelp(action string, config settings.AiBird) bool {
 
 	// If not found in help system, check if it's a ComfyUI workflow
 	// All ComfyUI workflows are assumed to be queueable
-	workflows := comfyui.GetWorkFlowsSlice()
-	for _, workflow := range workflows {
+	for _, workflow := range comfyui.GetCachedWorkflows() {
 		if strings.EqualFold(action, workflow) {
 			logger.Debug("Found ComfyUI workflow", "action", action, "queueable", true)
 			return true // All ComfyUI workflows are queueable
@@ -110,16 +109,10 @@ func isImageCommand(action string, config settings.AiBird) bool {
 		}
 	}
 
-	// Only then check if it's a ComfyUI workflow with image/video type
-	workflows := comfyui.GetWorkFlowsSlice()
-	for _, workflow := range workflows {
-		if strings.EqualFold(action, workflow) {
-			workflowFile := "comfyuijson/" + workflow + ".json"
-			meta, err := comfyui.GetAibirdMeta(workflowFile)
-			if err == nil && meta != nil {
-				return meta.Type == "image"
-			}
-		}
+	// Check cached workflow metadata for image type
+	meta := comfyui.GetCachedMeta(action)
+	if meta != nil && meta.Type == "image" {
+		return true
 	}
 	return false
 }
@@ -133,16 +126,10 @@ func isVideoCommand(action string, config settings.AiBird) bool {
 		}
 	}
 
-	// Only then check if it's a ComfyUI workflow with image/video type
-	workflows := comfyui.GetWorkFlowsSlice()
-	for _, workflow := range workflows {
-		if strings.EqualFold(action, workflow) {
-			workflowFile := "comfyuijson/" + workflow + ".json"
-			meta, err := comfyui.GetAibirdMeta(workflowFile)
-			if err == nil && meta != nil {
-				return meta.Type == "video"
-			}
-		}
+	// Check cached workflow metadata for video type
+	meta := comfyui.GetCachedMeta(action)
+	if meta != nil && meta.Type == "video" {
+		return true
 	}
 	return false
 }
@@ -156,16 +143,10 @@ func isSoundCommand(action string, config settings.AiBird) bool {
 		}
 	}
 
-	// Only then check if it's a ComfyUI workflow with sound type
-	workflows := comfyui.GetWorkFlowsSlice()
-	for _, workflow := range workflows {
-		if strings.EqualFold(action, workflow) {
-			workflowFile := "comfyuijson/" + workflow + ".json"
-			meta, err := comfyui.GetAibirdMeta(workflowFile)
-			if err == nil && meta != nil {
-				return meta.Type == "sound"
-			}
-		}
+	// Check cached workflow metadata for sound type
+	meta := comfyui.GetCachedMeta(action)
+	if meta != nil && meta.Type == "sound" {
+		return true
 	}
 	return false
 }

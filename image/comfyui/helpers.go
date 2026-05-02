@@ -8,12 +8,104 @@ import (
 	"path/filepath"
 	"regexp"
 	"strings"
+	"sync"
 
 	"aibird/logger"
 	"aibird/settings"
 
 	"github.com/BurntSushi/toml"
 )
+
+// Workflow cache for performance — avoids repeated disk reads on every command dispatch.
+// Cache keys are normalized to lowercase for case-insensitive matching.
+var (
+	workflowCache   map[string]*AibirdMeta // key: lowercase workflow name (without .json extension)
+	workflowCacheMu sync.RWMutex
+	workflowCacheOk bool // true once cache has been populated
+)
+
+// GetCachedMeta returns cached workflow metadata, initializing the cache lazily on first call.
+// Thread-safe. Returns nil if the workflow is not found in the cache.
+// Lookup is case-insensitive (keys are stored lowercase).
+func GetCachedMeta(workflowName string) *AibirdMeta {
+	ensureWorkflowCache()
+	workflowCacheMu.RLock()
+	defer workflowCacheMu.RUnlock()
+	return workflowCache[strings.ToLower(workflowName)]
+}
+
+// GetCachedWorkflows returns the list of cached workflow names.
+func GetCachedWorkflows() []string {
+	ensureWorkflowCache()
+	workflowCacheMu.RLock()
+	defer workflowCacheMu.RUnlock()
+	names := make([]string, 0, len(workflowCache))
+	for name := range workflowCache {
+		names = append(names, name)
+	}
+	return names
+}
+
+// RefreshWorkflowCache re-reads all workflow files from disk and rebuilds the cache.
+// Thread-safe. Can be called at any time to pick up new/changed workflow files.
+func RefreshWorkflowCache() {
+	newCache := buildWorkflowCache() // I/O outside the lock
+
+	workflowCacheMu.Lock()
+	workflowCache = newCache
+	workflowCacheOk = true
+	workflowCacheMu.Unlock()
+	logger.Info("Workflow cache refreshed", "count", len(newCache))
+}
+
+// ensureWorkflowCache lazily initializes the workflow cache on first access.
+func ensureWorkflowCache() {
+	workflowCacheMu.RLock()
+	if workflowCacheOk {
+		workflowCacheMu.RUnlock()
+		return
+	}
+	workflowCacheMu.RUnlock()
+
+	// Build cache outside the lock (I/O), then swap under lock
+	newCache := buildWorkflowCache()
+
+	workflowCacheMu.Lock()
+	defer workflowCacheMu.Unlock()
+
+	// Double-check after acquiring write lock
+	if workflowCacheOk {
+		return
+	}
+
+	workflowCache = newCache
+	workflowCacheOk = true
+	logger.Info("Workflow cache initialized", "count", len(workflowCache))
+}
+
+// buildWorkflowCache reads all workflow files from disk and returns a name→meta map.
+// Keys are normalized to lowercase. Safe to call without holding the lock (only writes to local variable).
+func buildWorkflowCache() map[string]*AibirdMeta {
+	cache := make(map[string]*AibirdMeta)
+
+	files, err := filepath.Glob("comfyuijson/*.json")
+	if err != nil {
+		logger.Error("Failed to glob for workflow files during cache build", "error", err)
+		return cache
+	}
+
+	for _, file := range files {
+		name := strings.ToLower(strings.TrimSuffix(filepath.Base(file), ".json"))
+		meta, err := GetAibirdMeta(file)
+		if err != nil {
+			logger.Debug("Skipping workflow in cache", "file", name, "error", err)
+			continue
+		}
+		cache[name] = meta
+	}
+
+	return cache
+}
 
 func WorkflowExists(workflow string) bool {
 	_, err := os.Stat("comfyuijson/" + workflow + ".json")
