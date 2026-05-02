@@ -1,7 +1,9 @@
 package participant
 
 import (
+	"crypto/rand"
 	"fmt"
+	"math/big"
 	"strings"
 	"sync"
 	"time"
@@ -121,8 +123,12 @@ func (p *Participant) shouldRespond(memory *ConversationMemory, channel *channel
 
 	// Random chance based on calculated rate
 	if baseRate > 0 {
-		seed := time.Now().UnixNano() % 100
-		if float64(seed)/100.0 < baseRate {
+		n, err := rand.Int(rand.Reader, big.NewInt(100))
+		if err != nil {
+			logger.Warn("Failed to generate random number for participation check", "error", err)
+			return false
+		}
+		if float64(n.Int64())/100.0 < baseRate {
 			logger.Debug("Bot deciding to participate in conversation", "baseRate", baseRate, "message", e.Last())
 			return true
 		}
