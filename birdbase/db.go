@@ -29,6 +29,7 @@ func Init() {
 	}
 
 	InitMemory()
+	initMessageWorker()
 
 	ctx, cancel := context.WithCancel(context.Background())
 	maintenanceCancel = cancel
@@ -89,6 +90,13 @@ func Close() {
 	}
 
 	StopMemory()
+
+	// Flush and stop the message storage worker
+	if messageChan != nil {
+		close(messageChan)
+		// Give worker time to flush remaining messages
+		time.Sleep(500 * time.Millisecond)
+	}
 
 	if Data != nil {
 		Data.Cleanup()

@@ -96,15 +96,25 @@ func processResponse(irc state.State, response *GlmResponse) (string, error) {
 
 // SingleRequest makes a single GLM request without chat history (for headlines, etc.)
 func SingleRequest(prompt string, config settings.GlmConfig) (string, error) {
+	return SingleRequestWithSystem("", prompt, config)
+}
+
+// SingleRequestWithSystem makes a single GLM request with a system prompt and user prompt.
+// If systemPrompt is empty, only the user prompt is sent.
+func SingleRequestWithSystem(systemPrompt, userPrompt string, config settings.GlmConfig) (string, error) {
+	messages := []text.Message{}
+	if systemPrompt != "" {
+		messages = append(messages, text.Message{Role: "system", Content: systemPrompt})
+	}
+	messages = append(messages, text.Message{Role: "user", Content: userPrompt})
+
 	body := &GlmRequestBody{
 		Model:  config.DefaultModel,
 		Stream: false,
 		Thinking: &GlmThinking{
 			Type: "disabled",
 		},
-		Messages: []text.Message{
-			{Role: "user", Content: prompt},
-		},
+		Messages: messages,
 	}
 
 	httpRequest := buildHttpRequest(config, body)

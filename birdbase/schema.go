@@ -5,7 +5,7 @@ import (
 	"fmt"
 )
 
-const schemaVersion = 3
+const schemaVersion = 4
 
 // Specialized tables for different data types
 var schema = `
@@ -205,6 +205,22 @@ CREATE INDEX IF NOT EXISTS idx_servers_network ON servers(network_id);
 CREATE INDEX IF NOT EXISTS idx_admin_hosts_network ON admin_hosts(network_id);
 CREATE INDEX IF NOT EXISTS idx_ignored_nicks_network ON ignored_nicks(network_id);
 
+-- Channel message log for summary feature
+CREATE TABLE IF NOT EXISTS channel_messages (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    network_id INTEGER NOT NULL,
+    channel_name TEXT NOT NULL,
+    nickname TEXT NOT NULL,
+    event_type TEXT NOT NULL DEFAULT 'privmsg',
+    message TEXT NOT NULL DEFAULT '',
+    timestamp INTEGER NOT NULL,
+    FOREIGN KEY (network_id) REFERENCES networks(id) ON DELETE CASCADE
+);
+CREATE INDEX IF NOT EXISTS idx_channel_messages_lookup 
+    ON channel_messages(network_id, channel_name, timestamp);
+CREATE INDEX IF NOT EXISTS idx_channel_messages_timestamp 
+    ON channel_messages(timestamp);
+
 -- Schema version tracking
 CREATE TABLE IF NOT EXISTS schema_version (
     version INTEGER PRIMARY KEY,
@@ -243,6 +259,11 @@ func (s *SQLiteDB) initSchema() error {
 			if _, migErr := tx.Exec("UPDATE irc_users SET ai_service = 'llamacpp' WHERE ai_service = 'openrouter'"); migErr != nil {
 				return fmt.Errorf("failed to migrate ai_service from openrouter to llamacpp: %w", migErr)
 			}
+		}
+
+		// Migration 3→4: Add channel_messages table for summary feature
+		if currentVersion < 4 {
+			// Table is created by the schema string above, no additional migration needed
 		}
 
 		_, err = tx.Exec("INSERT INTO schema_version (version) VALUES (?)", schemaVersion)

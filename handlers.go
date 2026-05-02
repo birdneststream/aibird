@@ -147,6 +147,12 @@ func handleJoin(c *girc.Client, e girc.Event, network *networks.Network, config 
 		logger.Warn("Failed to track user joining channel", "error", err, "network", network.NetworkName, "nick", e.Source.Name, "channel", e.Params[0])
 	}
 
+	// Store JOIN event for summary feature
+	networkID := birdbase.ResolveNetworkID(network.NetworkName)
+	if networkID > 0 {
+		birdbase.StoreChannelMessage(networkID, e.Params[0], e.Source.Name, "join", "")
+	}
+
 	// Skip DelayedWhoTimer for performance during netsplits - user_channels are already tracked above
 	// irc := state.Init(c, e, network, config)
 	// if irc.Channel != nil {
@@ -166,6 +172,16 @@ func handlePart(c *girc.Client, e girc.Event, network *networks.Network) {
 	if err := birdbase.RemoveUserFromChannel(network.NetworkName, e.Source.Ident, e.Source.Host, e.Params[0]); err != nil {
 		logger.Warn("Failed to track user leaving channel", "error", err, "network", network.NetworkName, "nick", e.Source.Name, "channel", e.Params[0])
 	}
+
+	// Store PART event for summary feature
+	networkID := birdbase.ResolveNetworkID(network.NetworkName)
+	if networkID > 0 {
+		partMsg := ""
+		if len(e.Params) > 1 {
+			partMsg = e.Params[1]
+		}
+		birdbase.StoreChannelMessage(networkID, e.Params[0], e.Source.Name, "part", partMsg)
+	}
 }
 
 func handleQuit(c *girc.Client, e girc.Event, network *networks.Network) {
@@ -179,6 +195,20 @@ func handleQuit(c *girc.Client, e girc.Event, network *networks.Network) {
 	// Remove user from all channels on this network
 	if err := birdbase.RemoveUserFromAllChannels(network.NetworkName, e.Source.Ident, e.Source.Host); err != nil {
 		logger.Warn("Failed to track user quitting", "error", err, "network", network.NetworkName, "nick", e.Source.Name)
+	}
+
+	// Store QUIT event for summary feature — store against each channel the user was in
+	networkID := birdbase.ResolveNetworkID(network.NetworkName)
+	if networkID > 0 {
+		quitMsg := ""
+		if len(e.Params) > 0 {
+			quitMsg = e.Last()
+		}
+		for _, ch := range network.Channels {
+			if user, err := ch.GetUserWithNick(e.Source.Name); err == nil && user != nil {
+				birdbase.StoreChannelMessage(networkID, ch.Name, e.Source.Name, "quit", quitMsg)
+			}
+		}
 	}
 }
 
@@ -239,6 +269,16 @@ func handleKick(c *girc.Client, e girc.Event, network *networks.Network, config 
 	} else {
 		// Someone else was kicked - remove them from user_channels
 		logger.Debug("User kicked from channel", "channel", channelName, "kicked_nick", kickedNick, "kicker", e.Source.Name)
+
+		// Store KICK event for summary feature
+		networkID := birdbase.ResolveNetworkID(network.NetworkName)
+		if networkID > 0 {
+			kickReason := ""
+			if len(e.Params) > 2 {
+				kickReason = e.Params[2]
+			}
+			birdbase.StoreChannelMessage(networkID, channelName, kickedNick, "kick", e.Source.Name+" "+kickReason)
+		}
 
 		// We need to find the kicked user's ident/host to track properly
 		// Since KICK event doesn't provide ident/host, we'll look up the user in our network state

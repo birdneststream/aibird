@@ -170,6 +170,17 @@ func TextHelp() []Help {
 			Queueable: false,
 			Example:   "!glm-img a cute cat sitting on a windowsill --size=1024x1024",
 		},
+		{
+			Name: "summary",
+			Type: "text",
+			Help: "Summarizes recent channel activity using AI.",
+			Arguments: []Arguments{
+				{Argument: "<hours>", Help: "Number of hours to summarize (default: 24, max: 168).", Values: "e.g., 6, 12, 48"},
+				{Argument: "<persona>", Help: "Creative angle or persona for the summary.", Values: "e.g., 'from the view of a psychologist'"},
+			},
+			Queueable: false,
+			Example:   "summary",
+		},
 	}
 }
 

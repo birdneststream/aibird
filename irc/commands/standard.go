@@ -151,6 +151,8 @@ func ParseStandardWithQueue(irc state.State, q *queue.ProcessingQueue) {
 		ParseRecordCommand(irc)
 	case "leaderboard":
 		ParseLeaderboard(irc)
+	case "summary":
+		ParseSummary(irc)
 	}
 }
 

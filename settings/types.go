@@ -17,17 +17,20 @@ type (
 	}
 
 	AiBird struct {
-		AsciiRecordingUrl  string    `toml:"recordingUrl" validate:"omitempty,url"`
-		FloodThreshold     int       `toml:"floodThreshold" validate:"gte=0"`
-		FloodIgnoreMinutes int       `toml:"floodIgnoreMinutes" validate:"gte=0"`
-		ActionTrigger      string    `toml:"actionTrigger" validate:"required"`
-		DenyCommands       []string  `toml:"denyCommands"`
-		AiChatContextLimit int       `toml:"aiChatContextLimit" validate:"gte=0"`
-		Support            []Support `toml:"support"`
-		StatusUrl          string    `toml:"statusUrl" validate:"omitempty,url"`
-		StatusApiKey       string    `toml:"statusApiKey"`
-		Proxy              Proxy     `toml:"proxy"`
-		KickRetryDelay     int       `toml:"kickRetryDelay" validate:"gte=0"`
+		AsciiRecordingUrl    string    `toml:"recordingUrl" validate:"omitempty,url"`
+		FloodThreshold       int       `toml:"floodThreshold" validate:"gte=0"`
+		FloodIgnoreMinutes   int       `toml:"floodIgnoreMinutes" validate:"gte=0"`
+		ActionTrigger        string    `toml:"actionTrigger" validate:"required"`
+		DenyCommands         []string  `toml:"denyCommands"`
+		AiChatContextLimit   int       `toml:"aiChatContextLimit" validate:"gte=0"`
+		Support              []Support `toml:"support"`
+		StatusUrl            string    `toml:"statusUrl" validate:"omitempty,url"`
+		StatusApiKey         string    `toml:"statusApiKey"`
+		Proxy                Proxy     `toml:"proxy"`
+		KickRetryDelay       int       `toml:"kickRetryDelay" validate:"gte=0"`
+		SummaryRetentionDays int       `toml:"summaryRetentionDays" validate:"gte=0"`
+		SummaryMaxMessages   int       `toml:"summaryMaxMessages" validate:"gte=0"`
+		SummaryDefaultHours  int       `toml:"summaryDefaultHours" validate:"gte=0"`
 	}
 
 	Support struct {

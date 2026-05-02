@@ -69,6 +69,15 @@ func (s *SQLiteDB) Cleanup() error {
 		}
 	}
 
+	// Cleanup old channel messages
+	retentionDays := 7                                           // default
+	msgDeleted, err := s.cleanupOldMessagesLocked(retentionDays) // caller already holds lock
+	if err != nil {
+		logger.Error("Failed to cleanup old channel messages", "error", err)
+	} else if msgDeleted > 0 {
+		logger.Debug("Cleaned up old channel messages", "deleted", msgDeleted)
+	}
+
 	return nil
 }
 

@@ -42,6 +42,26 @@ func handlePrivMsg(c *girc.Client, e girc.Event, network *networks.Network, conf
 	isCommand := strings.HasPrefix(e.Last(), config.AiBird.ActionTrigger)
 
 	if !isCommand {
+		// Store non-command message for summary feature (skip bot's own messages and non-channel messages)
+		if e.Source.Name != network.Nick && len(e.Params) > 0 && strings.HasPrefix(e.Params[0], "#") {
+			networkID := birdbase.ResolveNetworkID(network.NetworkName)
+			if networkID > 0 {
+				msg := e.Last()
+				eventType := "privmsg"
+				// Detect CTCP ACTION (/me): \x01ACTION text\x01
+				if len(msg) > 8 && strings.HasPrefix(msg, "\x01ACTION ") && strings.HasSuffix(msg, "\x01") {
+					msg = strings.TrimPrefix(msg, "\x01ACTION ")
+					msg = strings.TrimSuffix(msg, "\x01")
+					eventType = "action"
+				} else if len(msg) > 0 && msg[0] == '\x01' {
+					// Other CTCP messages (VERSION, PING, etc.) — skip storage
+					eventType = ""
+				}
+				if eventType != "" {
+					birdbase.StoreChannelMessage(networkID, e.Params[0], e.Source.Name, eventType, msg)
+				}
+			}
+		}
 		// Not a command - check if we should handle it as a chat message for participant system
 		participant.HandleChatMessage(c, e, network, config)
 		return
