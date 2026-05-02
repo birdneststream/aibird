@@ -289,7 +289,22 @@ func (s *State) Verify() error { //nolint:gocyclo
 		return errors.New("not enough parameters in s.event.Params to proceed")
 	}
 
-	if s.User.Ignored || s.Network.IsNickIgnored(s.Event.Source.Name) {
+	// Network-level ignore list always takes effect (permanent, admin-controlled)
+	if s.Network.IsNickIgnored(s.Event.Source.Name) {
+		return errors.New("user is ignored via network ignore list")
+	}
+
+	// User-level flood ignore: check if the flood ban has expired and lift it
+	if s.User.Ignored {
+		ban := s.Network.Name + s.Channel.Name + s.User.Host + s.User.Ident + "flood_ban"
+		if !birdbase.FloodManager.IsFloodBanned(ban) {
+			s.User.Ignored = false
+			s.Network.Save()
+			logger.Info("User automatically un-ignored after flood timeout", "user", s.User.NickName, "network", s.Network.NetworkName)
+		}
+	}
+
+	if s.User.Ignored {
 		return errors.New("user is ignored")
 	}
 

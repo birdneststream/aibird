@@ -115,22 +115,27 @@ func (s *SQLiteDB) PutWithTTL(key string, value []byte, ttl time.Duration) error
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	var expiresAt sql.NullTime
 	if ttl > 0 {
-		expiresAt = sql.NullTime{
-			Time:  time.Now().Add(ttl),
-			Valid: true,
-		}
+		ttlSeconds := int64(ttl.Seconds())
+		_, err := s.db.Exec(`
+            INSERT INTO key_value_store (key_name, value_data, expires_at, updated_at)
+            VALUES (?, ?, datetime('now', '+' || ? || ' seconds'), datetime('now'))
+            ON CONFLICT(key_name) DO UPDATE SET
+                value_data = excluded.value_data,
+                expires_at = excluded.expires_at,
+                updated_at = datetime('now')
+        `, key, value, ttlSeconds)
+		return err
 	}
 
 	_, err := s.db.Exec(`
         INSERT INTO key_value_store (key_name, value_data, expires_at, updated_at)
-        VALUES (?, ?, ?, datetime('now'))
+        VALUES (?, ?, NULL, datetime('now'))
         ON CONFLICT(key_name) DO UPDATE SET
             value_data = excluded.value_data,
             expires_at = excluded.expires_at,
             updated_at = datetime('now')
-    `, key, value, expiresAt)
+    `, key, value)
 
 	return err
 }
@@ -1679,6 +1684,9 @@ func Close() {
 	if maintenanceCancel != nil {
 		maintenanceCancel()
 	}
+
+	// Stop in-memory cleanup goroutines
+	StopMemory()
 
 	// Final cleanup
 	if Data != nil {

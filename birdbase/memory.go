@@ -1,6 +1,7 @@
 package birdbase
 
 import (
+	"context"
 	"sync"
 	"time"
 )
@@ -9,6 +10,8 @@ import (
 var (
 	FloodManager *FloodProtection
 	RateLimiter  *RateLimitManager
+	memCtx       context.Context
+	memCancel    context.CancelFunc
 )
 
 // FloodProtection manages flood counters in memory
@@ -24,14 +27,14 @@ type FloodCounter struct {
 }
 
 // NewFloodProtection creates a new flood protection manager
-func NewFloodProtection() *FloodProtection {
+func NewFloodProtection(ctx context.Context) *FloodProtection {
 	fp := &FloodProtection{
 		counters: make(map[string]*FloodCounter),
 		bans:     make(map[string]time.Time),
 	}
 
-	// Start cleanup goroutine
-	go fp.cleanupLoop()
+	// Start cleanup goroutine with context cancellation
+	go fp.cleanupLoop(ctx)
 
 	return fp
 }
@@ -94,12 +97,17 @@ func (fp *FloodProtection) IsFloodBanned(key string) bool {
 }
 
 // cleanupLoop removes expired counters and bans
-func (fp *FloodProtection) cleanupLoop() {
+func (fp *FloodProtection) cleanupLoop(ctx context.Context) {
 	ticker := time.NewTicker(30 * time.Second)
 	defer ticker.Stop()
 
-	for range ticker.C {
-		fp.cleanup()
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+			fp.cleanup()
+		}
 	}
 }
 
@@ -130,13 +138,13 @@ type RateLimitManager struct {
 	limits map[string]time.Time
 }
 
-func NewRateLimitManager() *RateLimitManager {
+func NewRateLimitManager(ctx context.Context) *RateLimitManager {
 	rlm := &RateLimitManager{
 		limits: make(map[string]time.Time),
 	}
 
-	// Start cleanup goroutine
-	go rlm.cleanupLoop()
+	// Start cleanup goroutine with context cancellation
+	go rlm.cleanupLoop(ctx)
 
 	return rlm
 }
@@ -162,12 +170,17 @@ func (rlm *RateLimitManager) IsRateLimited(key string) bool {
 	return limitExpires.After(time.Now())
 }
 
-func (rlm *RateLimitManager) cleanupLoop() {
+func (rlm *RateLimitManager) cleanupLoop(ctx context.Context) {
 	ticker := time.NewTicker(5 * time.Minute)
 	defer ticker.Stop()
 
-	for range ticker.C {
-		rlm.cleanup()
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+			rlm.cleanup()
+		}
 	}
 }
 
@@ -183,8 +196,20 @@ func (rlm *RateLimitManager) cleanup() {
 	}
 }
 
-// Initialize in-memory structures
+// Initialize in-memory structures with context for graceful shutdown
 func InitMemory() {
-	FloodManager = NewFloodProtection()
-	RateLimiter = NewRateLimitManager()
+	// Cancel any existing context to prevent orphaned goroutines
+	if memCancel != nil {
+		memCancel()
+	}
+	memCtx, memCancel = context.WithCancel(context.Background())
+	FloodManager = NewFloodProtection(memCtx)
+	RateLimiter = NewRateLimitManager(memCtx)
+}
+
+// StopMemory cancels the context for cleanup goroutines
+func StopMemory() {
+	if memCancel != nil {
+		memCancel()
+	}
 }

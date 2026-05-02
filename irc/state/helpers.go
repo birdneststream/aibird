@@ -197,13 +197,9 @@ func (s *State) MessageFloodCheck() bool {
 		// Set temporary ignore duration using in-memory flood manager
 		birdbase.FloodManager.SetFloodBan(ban, time.Duration(floodIgnoreMinutes)*time.Minute)
 
-		// Schedule automatic un-ignore after the flood ignore time
-		go func() {
-			time.Sleep(time.Duration(floodIgnoreMinutes) * time.Minute)
-			s.User.Ignored = false
-			s.Network.Save()
-			logger.Info("User automatically un-ignored after flood timeout", "user", s.User.NickName, "network", s.Network.NetworkName)
-		}()
+		// Use flood manager's ban expiration to determine when to un-ignore
+		// The user will be un-ignored on their next command after the ban expires
+		// This avoids spawning uncontrolled goroutines
 
 		logger.Info("User ignored due to flood", "user", s.User.NickName, "network", s.Network.NetworkName, "duration", fmt.Sprintf("%dm", floodIgnoreMinutes))
 		return true

@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"net/url"
 	"strings"
+	"sync"
 	"time"
 
 	"aibird/irc/state"
@@ -17,6 +18,7 @@ import (
 )
 
 var (
+	headlinesMu        sync.RWMutex
 	headlinesCache     []string
 	headlinesCacheTime time.Time
 	processedHeadlines = make(map[string]bool)
@@ -33,9 +35,14 @@ type RedditResponse struct {
 }
 
 func fetchRedditHeadlines(proxy settings.Proxy) ([]string, error) {
+	headlinesMu.RLock()
 	if time.Since(headlinesCacheTime) < time.Hour {
-		return headlinesCache, nil
+		cached := make([]string, len(headlinesCache))
+		copy(cached, headlinesCache)
+		headlinesMu.RUnlock()
+		return cached, nil
 	}
+	headlinesMu.RUnlock()
 
 	req, err := http.NewRequest("GET", "https://old.reddit.com/r/worldnews/new.json", nil)
 	if err != nil {
@@ -91,9 +98,11 @@ func fetchRedditHeadlines(proxy settings.Proxy) ([]string, error) {
 		titles = append(titles, child.Data.Title)
 	}
 
+	headlinesMu.Lock()
 	headlinesCache = titles
 	headlinesCacheTime = time.Now()
-	processedHeadlines = make(map[string]bool) // Reset processed headlines when we fetch new ones
+	processedHeadlines = make(map[string]bool)
+	headlinesMu.Unlock()
 
 	return titles, nil
 }
@@ -152,6 +161,8 @@ func ParseIrcNews(irc state.State) {
 			return
 		}
 
+		var resetMsg string
+		headlinesMu.Lock()
 		var availableHeadlines []string
 		for _, h := range headlines {
 			if _, exists := processedHeadlines[h]; !exists {
@@ -162,12 +173,12 @@ func ParseIrcNews(irc state.State) {
 		if len(availableHeadlines) == 0 && len(headlines) > 0 {
 			// All headlines have been processed, reset the map
 			processedHeadlines = make(map[string]bool)
-			// and refill availableHeadlines
 			availableHeadlines = headlines
-			irc.Send("All headlines have been used, starting over.")
+			resetMsg = "All headlines have been used, starting over."
 		}
 
 		if len(availableHeadlines) == 0 {
+			headlinesMu.Unlock()
 			irc.Send("No headlines available to process.")
 			return
 		}
@@ -175,11 +186,17 @@ func ParseIrcNews(irc state.State) {
 		// Use crypto/rand for secure random number generation
 		randomIndex, err := rand.Int(rand.Reader, big.NewInt(int64(len(availableHeadlines))))
 		if err != nil {
+			headlinesMu.Unlock()
 			irc.Send("Error generating random headline")
 			return
 		}
 		randomHeadline := availableHeadlines[randomIndex.Int64()]
 		processedHeadlines[randomHeadline] = true
+		headlinesMu.Unlock()
+
+		if resetMsg != "" {
+			irc.Send(resetMsg)
+		}
 
 		prompt := fmt.Sprintf(`Rewrite the following real-world news headline into a single, creative, and humorous IRC-themed headline. The theme must be based on the culture and lore of the EFNet IRC network.
 

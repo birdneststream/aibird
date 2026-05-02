@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"math/big"
 	"strconv"
+	"sync"
 	"time"
 
 	"aibird/birdbase"
@@ -15,6 +16,16 @@ import (
 	"aibird/irc/users"
 	"aibird/logger"
 )
+
+// saveState manages debounced saves per network, safe for concurrent use.
+var saveState struct {
+	mu     sync.Mutex
+	timers map[string]*time.Timer
+}
+
+func init() {
+	saveState.timers = make(map[string]*time.Timer)
+}
 
 func (n *Network) String() string {
 	return fmt.Sprintf("{b}Enabled{b}%s, {b}NetworkName{b}: %s, {b}Nick{b}: %s, {b}User{b}: %s, {b}Name{b}: %s, {b}ModesAtOnce{b}: %d, {b}PingDelay{b}: %d, {b}Version{b}: %s, {b}Throttle{b}: %d, {b}Burst{b}: %d, {b}ActionTrigger{b}: %s, {b}Users{b}: %d, {b}Channels{b}: %d, {b}Servers{b}: %d, {b}AdminHosts{b}: %d",
@@ -164,27 +175,20 @@ func (n *Network) IsIdentHostOwner(ident, host string) bool {
 }
 
 func (n *Network) Save() {
-	if n.SaveTimer == nil {
-		n.SaveTimer = time.NewTimer(0)
-		// Drain initial timer
-		if !n.SaveTimer.Stop() {
-			<-n.SaveTimer.C
-		}
-	} else if !n.SaveTimer.Stop() {
-		select {
-		case <-n.SaveTimer.C:
-		default:
-		}
-	}
-	n.SaveTimer.Reset(3 * time.Second)
+	saveState.mu.Lock()
+	defer saveState.mu.Unlock()
 
-	go func() {
-		<-n.SaveTimer.C
-		// Use normalized database storage (no JSON fallback needed)
+	// Stop existing timer if present (time.AfterFunc.Stop prevents the callback from firing)
+	if timer, exists := saveState.timers[n.NetworkName]; exists {
+		timer.Stop()
+	}
+
+	// Use AfterFunc for atomic debounce — no goroutine leak, no timer channel race
+	saveState.timers[n.NetworkName] = time.AfterFunc(3*time.Second, func() {
 		if err := n.SaveNormalized(); err != nil {
 			logger.Error("Error saving network to normalized database", "network", n.NetworkName, "error", err)
 		}
-	}()
+	})
 }
 
 // SaveNormalized saves the network using the new normalized database schema

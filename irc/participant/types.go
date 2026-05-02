@@ -1,6 +1,7 @@
 package participant
 
 import (
+	"sync"
 	"time"
 )
 
@@ -19,6 +20,7 @@ type MessageContext struct {
 
 // ConversationMemory stores recent channel activity and user relationships
 type ConversationMemory struct {
+	mu               sync.RWMutex
 	NetworkName      string
 	ChannelName      string
 	RecentMessages   []ContextMessage

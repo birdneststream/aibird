@@ -3,6 +3,7 @@ package participant
 import (
 	"fmt"
 	"strings"
+	"sync"
 	"time"
 
 	"aibird/irc/channels"
@@ -16,6 +17,7 @@ import (
 // Participant manages the AI participant system
 type Participant struct {
 	config   *settings.Config
+	mu       sync.RWMutex                   // Protects memory and state maps
 	memory   map[string]*ConversationMemory // key: network:channel
 	state    map[string]*ParticipantState   // key: network:channel
 	schedule *Schedule
@@ -39,13 +41,13 @@ func (p *Participant) HandleChatMessage(c *girc.Client, e girc.Event, network *n
 		return
 	}
 
-	// Get or create memory for this channel
+	// Get or create memory for this channel (write lock for potential creation)
 	memory := p.getOrCreateMemory(network.NetworkName, channel.Name)
 
-	// Record this message in memory
+	// Record this message in memory (write lock)
 	p.recordMessage(memory, e.Source.Name, e.Last(), false)
 
-	// Check if we should respond
+	// Check if we should respond (read lock on memory for checks)
 	if p.shouldRespond(memory, channel, network, e) {
 		logger.Debug("Participant deciding to respond", "network", network.NetworkName, "channel", channel.Name, "trigger", e.Source.Name)
 
@@ -77,18 +79,16 @@ func (p *Participant) shouldRespond(memory *ConversationMemory, channel *channel
 	}
 
 	// For non-highlighted messages, check cooldown
-	if time.Since(memory.LastBotMessage) < 1*time.Second {
-		logger.Debug("Skipping response due to cooldown", "time_since_last", time.Since(memory.LastBotMessage))
+	memory.mu.RLock()
+	sinceLast := time.Since(memory.LastBotMessage)
+	memory.mu.RUnlock()
+	if sinceLast < 1*time.Second {
+		logger.Debug("Skipping response due to cooldown", "time_since_last", sinceLast)
 		return false
 	}
 
 	// Natural conversation participation based on personality and activity
 	personality := p.getChannelPersonality(channel)
-
-	// Higher chance to respond if:
-	// 1. Channel has been quiet (encourage conversation)
-	// 2. There's ongoing conversation (participate naturally)
-	// 3. Based on chatResponseRate setting
 
 	baseRate := channel.ChatResponseRate
 	if baseRate <= 0 {
@@ -96,32 +96,35 @@ func (p *Participant) shouldRespond(memory *ConversationMemory, channel *channel
 	}
 
 	// Increase response rate if channel has been quiet
-	if p.analyzeChannelActivity(memory) == "quiet" && memory.MessageCount > 0 {
-		baseRate *= 2.0 // Double rate for quiet channels
+	if p.analyzeChannelActivity(memory) == "quiet" {
+		memory.mu.RLock()
+		msgCount := memory.MessageCount
+		memory.mu.RUnlock()
+		if msgCount > 0 {
+			baseRate *= 2.0
+		}
 	}
 
 	// Increase rate if there's been recent back-and-forth conversation
 	recentMessages := p.getRecentNonBotMessages(memory, 3)
 	if len(recentMessages) >= 2 {
-		baseRate *= 1.5 // Increase rate during active conversations
+		baseRate *= 1.5
 	}
 
-	// Check if message seems directed at bot (questions, mentions partial name, etc)
+	// Check if message seems directed at bot
 	message := strings.ToLower(e.Last())
 	botNameParts := strings.ToLower(network.Nick)
 
-	// Higher rate for messages that seem directed at the bot
-	if strings.Contains(message, "?") || // Questions
-		strings.Contains(message, "bot") || // Generic bot references
-		(len(botNameParts) >= 3 && strings.Contains(message, botNameParts[:3])) || // Partial name match
-		strings.HasSuffix(message, "?") { // Ends with question
-		baseRate *= 2.0 // Double rate for potentially directed messages
+	if strings.Contains(message, "?") ||
+		strings.Contains(message, "bot") ||
+		(len(botNameParts) >= 3 && strings.Contains(message, botNameParts[:3])) ||
+		strings.HasSuffix(message, "?") {
+		baseRate *= 2.0
 		logger.Debug("Message seems directed at bot, increasing rate", "baseRate", baseRate)
 	}
 
 	// Random chance based on calculated rate
 	if baseRate > 0 {
-		// Use time-based pseudo-random for consistency
 		seed := time.Now().UnixNano() % 100
 		if float64(seed)/100.0 < baseRate {
 			logger.Debug("Bot deciding to participate in conversation", "baseRate", baseRate, "message", e.Last())
@@ -177,11 +180,21 @@ func (p *Participant) buildMessageContext(memory *ConversationMemory, channel *c
 func (p *Participant) getOrCreateMemory(networkName, channelName string) *ConversationMemory {
 	key := fmt.Sprintf("%s:%s", networkName, channelName)
 
+	p.mu.RLock()
 	if memory, exists := p.memory[key]; exists {
+		p.mu.RUnlock()
+		return memory
+	}
+	p.mu.RUnlock()
+
+	// Create new memory under write lock
+	p.mu.Lock()
+	// Double-check after acquiring write lock
+	if memory, exists := p.memory[key]; exists {
+		p.mu.Unlock()
 		return memory
 	}
 
-	// Create new memory
 	memory := &ConversationMemory{
 		NetworkName:      networkName,
 		ChannelName:      channelName,
@@ -193,12 +206,16 @@ func (p *Participant) getOrCreateMemory(networkName, channelName string) *Conver
 	}
 
 	p.memory[key] = memory
+	p.mu.Unlock()
 	return memory
 }
 
 // recordMessage adds a message to conversation memory
 func (p *Participant) recordMessage(memory *ConversationMemory, username, message string, isBot bool) {
 	now := time.Now()
+
+	memory.mu.Lock()
+	defer memory.mu.Unlock()
 
 	// Add to recent messages (keep last 50 for much better context)
 	contextMsg := ContextMessage{
@@ -262,7 +279,9 @@ func (p *Participant) getTimeOfDay() string {
 }
 
 func (p *Participant) analyzeChannelActivity(memory *ConversationMemory) string {
-	// Simple analysis based on recent message count
+	memory.mu.RLock()
+	defer memory.mu.RUnlock()
+
 	recentCount := 0
 	cutoff := time.Now().Add(-10 * time.Minute)
 
@@ -283,6 +302,9 @@ func (p *Participant) analyzeChannelActivity(memory *ConversationMemory) string 
 }
 
 func (p *Participant) getRecentMessages(memory *ConversationMemory, limit int) []string {
+	memory.mu.RLock()
+	defer memory.mu.RUnlock()
+
 	var messages []string
 	start := len(memory.RecentMessages) - limit
 	if start < 0 {
@@ -291,7 +313,7 @@ func (p *Participant) getRecentMessages(memory *ConversationMemory, limit int) [
 
 	for i := start; i < len(memory.RecentMessages); i++ {
 		msg := memory.RecentMessages[i]
-		if !msg.IsBot { // Don't include bot's own messages in context
+		if !msg.IsBot {
 			messages = append(messages, fmt.Sprintf("%s: %s", msg.Username, msg.Message))
 		}
 	}
@@ -300,10 +322,12 @@ func (p *Participant) getRecentMessages(memory *ConversationMemory, limit int) [
 }
 
 func (p *Participant) getRecentNonBotMessages(memory *ConversationMemory, limit int) []string {
+	memory.mu.RLock()
+	defer memory.mu.RUnlock()
+
 	var messages []string
 	count := 0
 
-	// Go backwards through recent messages to get the most recent non-bot messages
 	for i := len(memory.RecentMessages) - 1; i >= 0 && count < limit; i-- {
 		msg := memory.RecentMessages[i]
 		if !msg.IsBot {
@@ -316,6 +340,9 @@ func (p *Participant) getRecentNonBotMessages(memory *ConversationMemory, limit 
 }
 
 func (p *Participant) getUserRelation(memory *ConversationMemory, username string) string {
+	memory.mu.RLock()
+	defer memory.mu.RUnlock()
+
 	profile, exists := memory.UserProfiles[username]
 	if !exists {
 		return "stranger"
@@ -363,9 +390,11 @@ func InitParticipant(config *settings.Config) {
 
 // isUserInBurst checks if a user is sending messages rapidly (within 5 seconds)
 func (p *Participant) isUserInBurst(memory *ConversationMemory, username string) bool {
-	// Look at recent messages from this user
+	memory.mu.RLock()
+	defer memory.mu.RUnlock()
+
 	recentUserMessages := 0
-	cutoff := time.Now().Add(-5 * time.Second) // 5 second window
+	cutoff := time.Now().Add(-5 * time.Second)
 
 	for _, msg := range memory.RecentMessages {
 		if msg.Username == username && msg.Timestamp.After(cutoff) && !msg.IsBot {
@@ -373,7 +402,6 @@ func (p *Participant) isUserInBurst(memory *ConversationMemory, username string)
 		}
 	}
 
-	// Consider it a burst if user sent 2+ messages in 5 seconds
 	return recentUserMessages >= 2
 }
 
@@ -382,6 +410,7 @@ func (p *Participant) handleBurstResponse(c *girc.Client, e girc.Event, network 
 	username := e.Source.Name
 
 	// Cancel any existing timer for this user
+	memory.mu.Lock()
 	if timer, exists := memory.BurstTimers[username]; exists {
 		timer.Stop()
 	}
@@ -391,11 +420,13 @@ func (p *Participant) handleBurstResponse(c *girc.Client, e girc.Event, network 
 
 	// Create new timer
 	memory.BurstTimers[username] = time.AfterFunc(delay, func() {
-		// Check if response is still pending (not cancelled by another message)
-		if memory.PendingResponses[username] {
+		memory.mu.RLock()
+		pending := memory.PendingResponses[username]
+		memory.mu.RUnlock()
+
+		if pending {
 			logger.Debug("Burst delay expired, sending response", "user", username)
 
-			// Generate response with full context including all burst messages
 			ctx := p.buildMessageContext(memory, channel, network, e, "reactive")
 			response, err := GenerateParticipantMessage(ctx, p.config.Glm)
 			if err != nil {
@@ -410,10 +441,13 @@ func (p *Participant) handleBurstResponse(c *girc.Client, e girc.Event, network 
 			}
 
 			// Clean up
+			memory.mu.Lock()
 			delete(memory.PendingResponses, username)
 			delete(memory.BurstTimers, username)
+			memory.mu.Unlock()
 		}
 	})
+	memory.mu.Unlock()
 }
 
 // HandleChatMessage is the main entry point for processing chat messages
