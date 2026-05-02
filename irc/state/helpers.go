@@ -17,6 +17,9 @@ import (
 	"github.com/google/uuid"
 )
 
+// connectionGracePeriod is the time after connect before mode enforcement begins.
+const connectionGracePeriod = 30 * time.Second
+
 // GetModesFromChannel
 // Uses the state user and channel to get the modes for the user in the channel
 func (s *State) GetModesFromChannel() []string {
@@ -228,7 +231,7 @@ func (s *State) SyncUsersFromWho() {
 
 			// Only restore modes if preservation is enabled AND we're past the connection grace period
 			// Skip mode restoration during initial connection to avoid flooding when connecting through ZNC
-			if s.ShouldPreserveModes() && (s.Network.ConnectedAt.IsZero() || time.Since(s.Network.ConnectedAt) >= 30*time.Second) {
+			if s.ShouldPreserveModes() && (s.Network.ConnectedAt.IsZero() || time.Since(s.Network.ConnectedAt) >= connectionGracePeriod) {
 				applyOps := s.GetModesFromChannel()
 				if len(applyOps) > 0 {
 					s.Client.Cmd.SendRaw("MODE " + s.Channel.Name + " +" + strings.Join(applyOps, "") + " " + findUser.NickName)
@@ -447,7 +450,7 @@ func (s *State) RestoreUserModes() {
 	// Skip mode restoration during initial connection period (ZNC buffer playback)
 	// When connecting through ZNC, the bot receives WHO data but users already have their modes
 	// Wait 30 seconds after connection to allow ZNC state to stabilize
-	if !s.Network.ConnectedAt.IsZero() && time.Since(s.Network.ConnectedAt) < 30*time.Second {
+	if !s.Network.ConnectedAt.IsZero() && time.Since(s.Network.ConnectedAt) < connectionGracePeriod {
 		logger.Debug("Skipping mode restoration during connection grace period", "network", s.Network.NetworkName, "channel", s.Channel.Name, "elapsed", time.Since(s.Network.ConnectedAt))
 		return
 	}

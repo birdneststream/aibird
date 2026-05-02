@@ -9,7 +9,7 @@ import (
 )
 
 type (
-	Admins struct {
+	AdminHost struct {
 		Host  string
 		Ident string
 		Owner bool
@@ -35,7 +35,7 @@ type (
 		Users         []users.User
 		Servers       []servers.Server
 		Channels      []channels.Channel
-		AdminHosts    []Admins
+		AdminHosts    []AdminHost
 		ConnectedAt   time.Time // Track when bot connected to ignore ZNC buffer playback
 	}
 )

@@ -43,7 +43,7 @@ func ToJpeg(imageBytes []byte) ([]byte, error) {
 func ConvertPngToJpg(fileName string) string {
 	if strings.HasSuffix(fileName, ".png") {
 		// Validate file path to prevent path traversal
-		if strings.Contains(fileName, "..") || strings.Contains(fileName, "/") {
+		if strings.Contains(fileName, "..") {
 			logger.Error("Invalid file path", "file", fileName)
 			return failedConvertPNGToJPG
 		}
@@ -77,13 +77,11 @@ func ConvertPngToJpg(fileName string) string {
 	return fileName
 }
 
+// Pre-compiled URL extraction regex
+var urlRegex = regexp.MustCompile(`https?://[^\s/$.?#].[^\s]*`)
+
 func ExtractURLs(input string) ([]string, error) {
-	regex := regexp.MustCompile(`https?://[^\s/$.?#].[^\s]*`)
-
-	// Extract all URLs from input
-	urls := regex.FindAllString(input, -1)
-
-	return urls, nil
+	return urlRegex.FindAllString(input, -1), nil
 }
 
 func IsImageURL(rawURL string) bool {

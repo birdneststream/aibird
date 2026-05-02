@@ -6,6 +6,12 @@ import (
 	"time"
 )
 
+// cleanupIntervals for in-memory data structures
+const (
+	floodCleanupInterval     = 30 * time.Second
+	rateLimitCleanupInterval = 5 * time.Minute
+)
+
 // In-memory data structures for hot, short-lived data
 var (
 	FloodManager *FloodProtection
@@ -98,7 +104,7 @@ func (fp *FloodProtection) IsFloodBanned(key string) bool {
 
 // cleanupLoop removes expired counters and bans
 func (fp *FloodProtection) cleanupLoop(ctx context.Context) {
-	ticker := time.NewTicker(30 * time.Second)
+	ticker := time.NewTicker(floodCleanupInterval)
 	defer ticker.Stop()
 
 	for {
@@ -171,7 +177,7 @@ func (rlm *RateLimitManager) IsRateLimited(key string) bool {
 }
 
 func (rlm *RateLimitManager) cleanupLoop(ctx context.Context) {
-	ticker := time.NewTicker(5 * time.Minute)
+	ticker := time.NewTicker(rateLimitCleanupInterval)
 	defer ticker.Stop()
 
 	for {

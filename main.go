@@ -452,6 +452,9 @@ func handleKick(c *girc.Client, e girc.Event, network *networks.Network, config 
 }
 
 func handlePrivMsg(c *girc.Client, e girc.Event, network *networks.Network, config *settings.Config, q *queue.ProcessingQueue) {
+	// Grace period after connect to ignore ZNC buffer playback commands
+	const zncBufferGrace = 15 * time.Second
+
 	// Ignore ZNC buffer playback
 	if !network.ConnectedAt.IsZero() {
 		// Method 1: If server-time is supported, check if message is from before we connected
@@ -461,7 +464,7 @@ func handlePrivMsg(c *girc.Client, e girc.Event, network *networks.Network, conf
 		}
 		// Method 2: For networks without server-time (like EFNet), ignore commands in first 15 seconds
 		// ZNC buffer playback happens immediately on connect, longer grace period for networks with many channels
-		if e.Timestamp.IsZero() && time.Since(network.ConnectedAt) < 15*time.Second {
+		if e.Timestamp.IsZero() && time.Since(network.ConnectedAt) < zncBufferGrace {
 			if strings.HasPrefix(e.Last(), config.AiBird.ActionTrigger) {
 				logger.Debug("Ignoring potential ZNC buffer command (startup grace period)", "network", network.NetworkName, "elapsed", time.Since(network.ConnectedAt))
 				return

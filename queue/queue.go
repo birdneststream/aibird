@@ -19,12 +19,15 @@ type Queue struct {
 	processingItem  *QueueItem // currently processing item
 }
 
+// maxQueueSize is the maximum number of items allowed in the queue.
+const maxQueueSize = 10
+
 // Enqueue adds an element to the end of the queue
 func (q *Queue) Enqueue(element QueueItem) (string, error) {
 	q.mutex.Lock()
 	defer q.mutex.Unlock()
 
-	if q.hasElementsUnsafe(11) {
+	if q.hasElementsUnsafe(maxQueueSize + 1) {
 		return "", errors.New("the queue is currently full (limit is 10), please try again in a few minutes")
 	}
 

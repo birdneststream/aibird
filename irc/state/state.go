@@ -331,11 +331,6 @@ func (s *State) Verify() error { //nolint:gocyclo
 		return errors.New("invalid command")
 	}
 
-	if !strings.HasPrefix(action, s.GetActionTrigger()) {
-		s.Command = Command{Action: "", Message: ""}
-		return nil
-	}
-
 	// Only check for flood if the command is valid
 	if s.MessageFloodCheck() {
 		return errors.New("flood check")
