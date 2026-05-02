@@ -293,11 +293,10 @@ func handleAiResponse(irc state.State, response string) {
 
 	if hasTTS || voiceArg != "" {
 		originalMessage := irc.Message()
-		irc.Command.Action = "tts"
 
 		// Strip thinking content for TTS processing
 		ttsResponse := stripThinkingContent(response)
-		logger.Info("TTS content filtering applied", "original_length", len(response), "filtered_length", len(ttsResponse), "has_think_tags", strings.Contains(response, "<think>"))
+		logger.Info("TTS content filtering applied", "original_length", len(response), "filtered_length", len(ttsResponse), "has_think_tags", strings.Contains(response, "ignty"))
 
 		// Debug: Show first 200 chars of original response
 		preview := response
@@ -306,12 +305,12 @@ func handleAiResponse(irc state.State, response string) {
 		}
 		logger.Debug("Original response preview", "content", preview)
 
+		// Switch action to "tts" so ComfyUI.Process loads the TTS workflow.
+		// State is a value type — this mutation only affects our local copy.
+		irc.Command.Action = "tts"
 		irc.SetMessage(ttsResponse)
 
 		ProcessAndUploadAudio(irc, originalMessage, ttsResponse, meta.GPU4090)
-
-		irc.Command.Action = "ai"
-		irc.SetMessage(originalMessage)
 	} else {
 		irc.TextToBirdhole(response)
 	}
