@@ -24,6 +24,27 @@ import (
 // Pre-compiled regexes for hot paths
 var reSupernetsPizza = regexp.MustCompile(`(?i)pizza`)
 
+// Sentinel errors for Verify() failure modes.
+// These allow callers to programmatically distinguish why verification failed.
+var (
+	// ErrInsufficientAccess is returned when a PM user lacks the required access level.
+	ErrInsufficientAccess = errors.New("insufficient access level for PM usage")
+	// ErrNoModes is returned when a user on specific networks lacks any IRC modes.
+	ErrNoModes = errors.New("user has no modes on restricted network")
+	// ErrMissingParams is returned when channel or user state cannot be resolved.
+	ErrMissingParams = errors.New("missing channel or user parameters")
+	// ErrNetworkIgnored is returned when the user is on the network ignore list.
+	ErrNetworkIgnored = errors.New("user is ignored via network ignore list")
+	// ErrUserIgnored is returned when the user has been flood-ignored.
+	ErrUserIgnored = errors.New("user is flood-ignored")
+	// ErrNoTrigger is returned when the message doesn't start with the action trigger.
+	ErrNoTrigger = errors.New("no action trigger found")
+	// ErrInvalidCommand is returned when the command is not recognized.
+	ErrInvalidCommand = errors.New("invalid command")
+	// ErrFloodBlocked is returned when the user exceeds the flood threshold.
+	ErrFloodBlocked = errors.New("command blocked by flood protection")
+)
+
 func (s *State) String() string {
 	return girc.Fmt(fmt.Sprintf("{b}Channel{b}: %s, {b}User{b}: %s, {b}Command{b}: %s, {b}Arguments{b}: %s",
 		s.Channel,
@@ -271,7 +292,7 @@ func (s *State) Verify() error { //nolint:gocyclo
 
 		// Check if user has sufficient access level for PM usage
 		if channelUser != nil && channelUser.GetAccessLevel() < 2 {
-			return errors.New("Hey pal! You got to be at least a supporter to use PMs. Please support if you can https://www.patreon.com/birdnestlive or !support for more.")
+			return ErrInsufficientAccess
 		}
 
 		newChannel := &channels.Channel{
@@ -286,16 +307,16 @@ func (s *State) Verify() error { //nolint:gocyclo
 	}
 
 	if s.Network.NetworkName == "soyjak" && !s.User.HasAnyMode() {
-		return errors.New("no modes is not allowed on soyjak")
+		return ErrNoModes
 	}
 
 	if s.Channel == nil || s.User == nil || s.IsSelf() {
-		return errors.New("not enough parameters in s.event.Params to proceed")
+		return ErrMissingParams
 	}
 
 	// Network-level ignore list always takes effect (permanent, admin-controlled)
 	if s.Network.IsNickIgnored(s.Event.Source.Name) {
-		return errors.New("user is ignored via network ignore list")
+		return ErrNetworkIgnored
 	}
 
 	// User-level flood ignore: check if the flood ban has expired and lift it
@@ -309,14 +330,14 @@ func (s *State) Verify() error { //nolint:gocyclo
 	}
 
 	if s.User.Ignored {
-		return errors.New("user is ignored")
+		return ErrUserIgnored
 	}
 
 	s.User.Touch(s.Event.Last())
 	action := s.Event.Last()
 
 	if !strings.HasPrefix(action, s.GetActionTrigger()) {
-		return errors.New("no action trigger")
+		return ErrNoTrigger
 	}
 
 	// Extract command name for validation
@@ -328,12 +349,12 @@ func (s *State) Verify() error { //nolint:gocyclo
 	isValidCommand := s.ValidateCommand(cmdName)
 
 	if !isValidCommand {
-		return errors.New("invalid command")
+		return ErrInvalidCommand
 	}
 
 	// Only check for flood if the command is valid
 	if s.MessageFloodCheck() {
-		return errors.New("flood check")
+		return ErrFloodBlocked
 	}
 
 	if s.User.GetAccessLevel() < 2 {

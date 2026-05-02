@@ -1,6 +1,7 @@
 package state
 
 import (
+	"errors"
 	"testing"
 
 	"aibird/irc/channels"
@@ -325,5 +326,37 @@ func TestState_IsSelf(t *testing.T) {
 	s.Event.Source.Name = "otheruser"
 	if s.IsSelf() {
 		t.Error("Should not detect self for different user")
+	}
+}
+
+// TestVerify_SentinelErrors verifies that Verify returns the correct sentinel errors.
+func TestVerify_SentinelErrors(t *testing.T) {
+	tests := []struct {
+		name    string
+		state   State
+		wantErr error
+	}{
+		{
+			name: "ErrMissingParams - nil channel",
+			state: State{
+				Network: &networks.Network{NetworkName: "testnet", Nick: "bot"},
+				User:    &users.User{NickName: "user"},
+				Channel: nil,
+				Event:   girc.Event{Source: &girc.Source{Name: "user", Ident: "u", Host: "h"}},
+			},
+			wantErr: ErrMissingParams,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if tt.state.ValidateCommand == nil {
+				tt.state.ValidateCommand = func(string) bool { return false }
+			}
+			err := tt.state.Verify()
+			if !errors.Is(err, tt.wantErr) {
+				t.Errorf("Verify() error = %v, want %v", err, tt.wantErr)
+			}
+		})
 	}
 }
