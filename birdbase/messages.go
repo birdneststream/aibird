@@ -264,3 +264,135 @@ func (s *SQLiteDB) GetChannelMessages(networkID int64, channelName string, hours
 
 	return messages, rows.Err()
 }
+
+// SearchChannelMessages searches for messages containing a keyword in a channel.
+// Returns up to maxResults messages in chronological order.
+func SearchChannelMessages(networkID int64, channelName, keyword string, maxResults int) ([]ChannelMessage, error) {
+	return Data.SearchChannelMessages(networkID, channelName, keyword, maxResults)
+}
+
+func (s *SQLiteDB) SearchChannelMessages(networkID int64, channelName, keyword string, maxResults int) ([]ChannelMessage, error) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
+	if maxResults <= 0 {
+		maxResults = 10
+	}
+
+	rows, err := s.db.Query(`
+		SELECT nickname, event_type, message, timestamp FROM channel_messages
+		WHERE network_id = ? AND channel_name = ? AND message LIKE ? AND event_type IN ('privmsg', 'action')
+		ORDER BY timestamp DESC
+		LIMIT ?
+	`, networkID, strings.ToLower(channelName), "%"+keyword+"%", maxResults)
+	if err != nil {
+		return nil, fmt.Errorf("failed to search channel messages: %w", err)
+	}
+	defer rows.Close()
+
+	var messages []ChannelMessage
+	for rows.Next() {
+		var msg ChannelMessage
+		if err := rows.Scan(&msg.Nickname, &msg.EventType, &msg.Message, &msg.Timestamp); err != nil {
+			continue
+		}
+		messages = append(messages, msg)
+	}
+
+	// Reverse to chronological order
+	for i, j := 0, len(messages)-1; i < j; i, j = i+1, j-1 {
+		messages[i], messages[j] = messages[j], messages[i]
+	}
+
+	return messages, rows.Err()
+}
+
+// ChannelStats holds aggregated statistics for a channel.
+type ChannelStats struct {
+	TotalMessages int
+	TopChatters   []ChatterEntry
+	EventCounts   map[string]int
+}
+
+// ChatterEntry represents a single user's activity count.
+type ChatterEntry struct {
+	Nickname string
+	Count    int
+}
+
+// GetChannelStats returns activity statistics for a channel over the given hours.
+func GetChannelStats(networkID int64, channelName string, hours int) (*ChannelStats, error) {
+	return Data.GetChannelStats(networkID, channelName, hours)
+}
+
+func (s *SQLiteDB) GetChannelStats(networkID int64, channelName string, hours int) (*ChannelStats, error) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
+	if hours <= 0 {
+		hours = 24
+	}
+
+	cutoff := time.Now().Add(-time.Duration(hours) * time.Hour).Unix()
+	chName := strings.ToLower(channelName)
+
+	stats := &ChannelStats{
+		EventCounts: make(map[string]int),
+	}
+
+	// Total message count
+	err := s.db.QueryRow(`
+		SELECT COUNT(*) FROM channel_messages
+		WHERE network_id = ? AND channel_name = ? AND timestamp >= ?
+	`, networkID, chName, cutoff).Scan(&stats.TotalMessages)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get message count: %w", err)
+	}
+
+	if stats.TotalMessages == 0 {
+		return stats, nil
+	}
+
+	// Top chatters (privmsg + action only)
+	chatterRows, err := s.db.Query(`
+		SELECT nickname, COUNT(*) as cnt FROM channel_messages
+		WHERE network_id = ? AND channel_name = ? AND timestamp >= ? AND event_type IN ('privmsg', 'action')
+		GROUP BY nickname
+		ORDER BY cnt DESC
+		LIMIT 10
+	`, networkID, chName, cutoff)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get top chatters: %w", err)
+	}
+	defer chatterRows.Close()
+
+	for chatterRows.Next() {
+		var entry ChatterEntry
+		if err := chatterRows.Scan(&entry.Nickname, &entry.Count); err != nil {
+			continue
+		}
+		stats.TopChatters = append(stats.TopChatters, entry)
+	}
+
+	// Event type breakdown
+	eventRows, err := s.db.Query(`
+		SELECT event_type, COUNT(*) FROM channel_messages
+		WHERE network_id = ? AND channel_name = ? AND timestamp >= ?
+		GROUP BY event_type
+	`, networkID, chName, cutoff)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get event counts: %w", err)
+	}
+	defer eventRows.Close()
+
+	for eventRows.Next() {
+		var eventType string
+		var count int
+		if err := eventRows.Scan(&eventType, &count); err != nil {
+			continue
+		}
+		stats.EventCounts[eventType] = count
+	}
+
+	return stats, nil
+}

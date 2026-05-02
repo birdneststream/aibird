@@ -2,8 +2,6 @@ package commands
 
 import (
 	"fmt"
-	"strconv"
-	"strings"
 
 	"aibird/birdbase"
 	"aibird/irc/state"
@@ -18,7 +16,6 @@ func ParseSummary(irc state.State) {
 		return
 	}
 
-	// Check that GLM is configured
 	if irc.Config.Glm.ApiKey == "" {
 		irc.Send("Error: AI summary requires GLM to be configured.")
 		return
@@ -31,29 +28,7 @@ func ParseSummary(irc state.State) {
 		return
 	}
 
-	// Use config default hours if set, otherwise 24
-	hours := irc.Config.AiBird.SummaryDefaultHours
-	if hours <= 0 {
-		hours = 24
-	}
-
-	// Parse hours from message (first token if it's a number)
-	if irc.Message() != "" {
-		msg := strings.TrimSpace(irc.Message())
-		firstToken := msg
-		if idx := strings.IndexByte(msg, ' '); idx > 0 {
-			firstToken = msg[:idx]
-		}
-		cleaned := strings.TrimSuffix(firstToken, "h")
-		if parsed, err := strconv.Atoi(cleaned); err == nil && parsed > 0 {
-			if parsed > 168 {
-				parsed = 168
-			}
-			hours = parsed
-		}
-	}
-
-	// Parse --persona argument
+	hours := parseHoursFromMessage(irc.Message(), irc.Config.AiBird.SummaryDefaultHours, 168)
 	persona, _ := irc.GetStringArg("persona", "")
 	persona = sanitizePersona(persona)
 
@@ -80,25 +55,10 @@ func ParseSummary(irc state.State) {
 		return
 	}
 
-	go generateAndSendSummary(irc, messages, hours, persona)
+	go generateSummary(irc, messages, hours, persona)
 }
 
-// sanitizePersona strips newlines, carriage returns, and truncates to prevent prompt injection.
-func sanitizePersona(input string) string {
-	// Strip newlines and carriage returns
-	s := strings.ReplaceAll(input, "\n", " ")
-	s = strings.ReplaceAll(s, "\r", " ")
-	s = strings.TrimSpace(s)
-
-	// Truncate to reasonable length
-	if len(s) > 200 {
-		s = s[:200]
-	}
-
-	return s
-}
-
-func generateAndSendSummary(irc state.State, messages []birdbase.ChannelMessage, hours int, persona string) {
+func generateSummary(irc state.State, messages []birdbase.ChannelMessage, hours int, persona string) {
 	irc.Send(fmt.Sprintf("%s, generating summary of the last %dh (%d events)...", irc.User.NickName, hours, len(messages)))
 
 	systemPrompt, err := text.GetPrompt("summary.md")
@@ -108,35 +68,8 @@ func generateAndSendSummary(irc state.State, messages []birdbase.ChannelMessage,
 		return
 	}
 
-	var logBuilder strings.Builder
-	for _, msg := range messages {
-		switch msg.EventType {
-		case "privmsg":
-			logBuilder.WriteString(fmt.Sprintf("<%s> %s\n", msg.Nickname, msg.Message))
-		case "action":
-			logBuilder.WriteString(fmt.Sprintf("* %s %s\n", msg.Nickname, msg.Message))
-		case "join":
-			logBuilder.WriteString(fmt.Sprintf("--> %s joined\n", msg.Nickname))
-		case "part":
-			partMsg := ""
-			if msg.Message != "" {
-				partMsg = fmt.Sprintf(" (%s)", msg.Message)
-			}
-			logBuilder.WriteString(fmt.Sprintf("<-- %s left%s\n", msg.Nickname, partMsg))
-		case "quit":
-			quitMsg := ""
-			if msg.Message != "" {
-				quitMsg = fmt.Sprintf(" (%s)", msg.Message)
-			}
-			logBuilder.WriteString(fmt.Sprintf("<-- %s quit%s\n", msg.Nickname, quitMsg))
-		case "kick":
-			logBuilder.WriteString(fmt.Sprintf("<-- %s was kicked by %s\n", msg.Nickname, msg.Message))
-		}
-	}
+	userPrompt := formatEventLog(irc.Channel.Name, hours, messages)
 
-	userPrompt := fmt.Sprintf("Channel: %s | Time period: last %d hours\n\n%s", irc.Channel.Name, hours, logBuilder.String())
-
-	// Append persona if provided
 	if persona != "" {
 		userPrompt += fmt.Sprintf("\n\nPersona/Angle for this summary: %s", persona)
 	}

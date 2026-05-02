@@ -153,6 +153,14 @@ func ParseStandardWithQueue(irc state.State, q *queue.ProcessingQueue) {
 		ParseLeaderboard(irc)
 	case "summary":
 		ParseSummary(irc)
+	case "recall":
+		ParseRecall(irc)
+	case "top":
+		ParseTop(irc)
+	case "mood":
+		ParseMood(irc)
+	case "story":
+		ParseStory(irc)
 	}
 }
 

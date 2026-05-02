@@ -128,6 +128,47 @@ func StandardHelp() []Help {
 			Queueable: false,
 			Example:   "summary 6h --persona \"from the view of a psychologist\"",
 		},
+		{
+			Name: "recall",
+			Type: "standard",
+			Help: "Searches recent channel history for a keyword.",
+			Arguments: []Arguments{
+				{Argument: "<keyword>", Help: "Keyword or phrase to search for.", Values: ""},
+			},
+			Queueable: false,
+			Example:   "recall bird",
+		},
+		{
+			Name: "top",
+			Type: "standard",
+			Help: "Shows channel activity stats and top chatters.",
+			Arguments: []Arguments{
+				{Argument: "<hours>", Help: "Number of hours for stats (default: 24, max: 168).", Values: "e.g., 6, 24, 168"},
+			},
+			Queueable: false,
+			Example:   "top 6h",
+		},
+		{
+			Name: "mood",
+			Type: "standard",
+			Help: "Analyzes the current mood/vibe of the channel.",
+			Arguments: []Arguments{
+				{Argument: "<hours>", Help: "Number of hours to analyze (default: 24, max: 168).", Values: "e.g., 6, 24"},
+			},
+			Queueable: false,
+			Example:   "mood",
+		},
+		{
+			Name: "story",
+			Type: "standard",
+			Help: "Turns channel events into a short fictional story.",
+			Arguments: []Arguments{
+				{Argument: "<hours>", Help: "Number of hours of events (default: 24, max: 168).", Values: "e.g., 6, 24"},
+				{Argument: "--persona", Help: "Genre or style for the story.", Values: "e.g., \"fantasy\", \"film noir\""},
+			},
+			Queueable: false,
+			Example:   "story 6h --persona \"sci-fi\"",
+		},
 	}
 }
 
