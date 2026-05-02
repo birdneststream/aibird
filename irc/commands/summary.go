@@ -28,7 +28,11 @@ func ParseSummary(irc state.State) {
 		return
 	}
 
-	hours := parseHoursFromMessage(irc.Message(), irc.Config.AiBird.SummaryDefaultHours, 168)
+	defaultHours := irc.Config.AiBird.SummaryDefaultHours
+	if defaultHours <= 0 {
+		defaultHours = 24
+	}
+	hours := parseHoursFromMessage(irc.Message(), defaultHours, 168)
 	persona, _ := irc.GetStringArg("persona", "")
 	persona = sanitizePersona(persona)
 

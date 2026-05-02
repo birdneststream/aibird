@@ -169,6 +169,16 @@ func StandardHelp() []Help {
 			Queueable: false,
 			Example:   "story 6h --persona \"sci-fi\"",
 		},
+		{
+			Name: "vibe",
+			Type: "standard",
+			Help: "Generates a visual artwork capturing the channel's vibe using AI.",
+			Arguments: []Arguments{
+				{Argument: "<hours>", Help: "Number of hours to analyze (default: 6, max: 48).", Values: "e.g., 3, 6, 24"},
+			},
+			Queueable: false,
+			Example:   "vibe 6h",
+		},
 	}
 }
 

@@ -161,6 +161,8 @@ func ParseStandardWithQueue(irc state.State, q *queue.ProcessingQueue) {
 		ParseMood(irc)
 	case "story":
 		ParseStory(irc)
+	case "vibe":
+		ParseVibe(irc)
 	}
 }
 

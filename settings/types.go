@@ -31,6 +31,7 @@ type (
 		SummaryRetentionDays int       `toml:"summaryRetentionDays" validate:"gte=0"`
 		SummaryMaxMessages   int       `toml:"summaryMaxMessages" validate:"gte=0"`
 		SummaryDefaultHours  int       `toml:"summaryDefaultHours" validate:"gte=0"`
+		VibeMaxMessages      int       `toml:"vibeMaxMessages" validate:"gte=0"`
 	}
 
 	Support struct {
