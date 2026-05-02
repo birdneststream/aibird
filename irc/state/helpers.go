@@ -17,41 +17,6 @@ import (
 	"github.com/google/uuid"
 )
 
-func (s *State) CheckShouldVoiceUser() bool {
-	if s.User == nil {
-		return false
-	}
-
-	for _, userMode := range s.User.PreservedModes {
-		if userMode.Channel == s.Channel.Name {
-			for _, mode := range userMode.Modes {
-				if mode == "+" {
-					return true
-				}
-			}
-		}
-	}
-
-	return false
-}
-
-func (s *State) DelayedWhoTimer() {
-	if s.Channel.ActivityTimer != nil {
-
-		if !s.Channel.ActivityTimer.Stop() {
-			select {
-			case <-s.Channel.ActivityTimer.C:
-			default:
-			}
-		}
-	}
-	s.Channel.ActivityTimer = time.NewTimer(1 * time.Second)
-	go func() {
-		<-s.Channel.ActivityTimer.C
-		_ = s.Client.Cmd.SendRaw("WHO " + s.Channel.Name)
-	}()
-}
-
 // GetModesFromChannel
 // Uses the state user and channel to get the modes for the user in the channel
 func (s *State) GetModesFromChannel() []string {
@@ -206,38 +171,6 @@ func (s *State) MessageFloodCheck() bool {
 	}
 
 	return countInt > 1 // Return true if we have multiple messages
-}
-
-func (s *State) JoinFloodCheck() {
-	key := s.Network.Name + s.Channel.Name + "flood_check"
-	waitTime := 3 * time.Second
-
-	// If we have a lot of people rejoin on a netsplit we don't want to trigger this
-	// we can see if the bot already reconises them
-	if s.Client.LookupUser(s.Event.Source.Name) != nil {
-		return
-	}
-
-	// Increment join flood counter using in-memory flood manager
-	countInt := birdbase.FloodManager.IncrementFloodCounter(key, waitTime)
-
-	if countInt > 4 {
-		go s.RemoveFloodCheck()
-		// +i the channel
-		s.Client.Cmd.Mode(s.Channel.Name, "+i")
-		s.Client.Cmd.Mode(s.Channel.Name, "+m")
-	}
-}
-
-func (s *State) RemoveFloodCheck() {
-	time.Sleep(2 * time.Minute)
-
-	// Remove invite-only and moderated modes
-	s.Client.Cmd.Mode(s.Channel.Name, "-i")
-	s.Client.Cmd.Mode(s.Channel.Name, "-m")
-
-	// Note: We don't need to explicitly remove the flood check key
-	// as it will expire automatically from in-memory storage
 }
 
 func (s *State) GetActionTrigger() string {

@@ -166,28 +166,3 @@ func IsImageCommand(command string, config settings.AiBird) bool {
 	}
 	return false
 }
-
-// IsGenerativeCommand checks if a command generates content (for leaderboard tracking)
-func IsGenerativeCommand(action string, config settings.AiBird) bool {
-	// Text generation commands (ai, glm, etc.)
-	if IsTextCommand(action) {
-		return true
-	}
-
-	// Image generation commands (ComfyUI workflows)
-	if IsImageCommand(action, config) {
-		return true
-	}
-
-	// Sound generation commands (ComfyUI audio workflows)
-	if IsSoundCommand(action, config) {
-		return true
-	}
-
-	// Video generation commands (ComfyUI video workflows)
-	if IsVideoCommand(action, config) {
-		return true
-	}
-
-	return false
-}

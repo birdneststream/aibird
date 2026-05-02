@@ -1,7 +1,6 @@
 package logger
 
 import (
-	"context"
 	"log/slog"
 	"os"
 
@@ -91,11 +90,6 @@ func Error(msg string, args ...any) {
 // With returns a logger with additional context
 func With(args ...any) *slog.Logger {
 	return defaultLogger.With(args...)
-}
-
-// WithContext returns a logger with context
-func WithContext(ctx context.Context) *slog.Logger {
-	return defaultLogger.With()
 }
 
 // Fatal logs an error and exits the program

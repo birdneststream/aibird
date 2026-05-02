@@ -1700,8 +1700,3 @@ func Close() {
 		logger.Info("Database closed successfully")
 	}
 }
-
-// Merge is kept for compatibility (does nothing since SQLite doesn't need merging)
-func Merge() {
-	logger.Info("Merge operation not needed for SQLite")
-}

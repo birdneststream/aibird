@@ -13,12 +13,6 @@ import (
 	"github.com/lrstanley/girc"
 )
 
-func ParseAdmin(irc state.State) {
-	// For now, call the original function without queue access
-	// This will be updated when we have queue access
-	parseAdminCommands(irc, nil)
-}
-
 func ParseAdminWithQueue(irc state.State, q *queue.ProcessingQueue) {
 	parseAdminCommands(irc, q)
 }

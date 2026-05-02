@@ -80,43 +80,6 @@ func MakeUrlWithPort(url, port string) string {
 	return AppendSlashUrl(url + ":" + port)
 }
 
-func WrapText(input string, limit int) string {
-	var result strings.Builder
-	lines := strings.Split(input, "\n")
-
-	for i, line := range lines {
-		if strings.TrimSpace(line) == "" {
-			result.WriteString(line)
-		} else {
-			words := strings.Fields(line)
-			var currentLine strings.Builder
-			for _, word := range words {
-				// If the current line is empty, just add the word.
-				if currentLine.Len() == 0 {
-					currentLine.WriteString(word)
-				} else if currentLine.Len()+len(word)+1 <= limit {
-					// If the word fits, add a space and the word.
-					currentLine.WriteString(" ")
-					currentLine.WriteString(word)
-				} else {
-					// If the word does not fit, finalize the current line and start a new one.
-					result.WriteString(currentLine.String())
-					result.WriteString("\n")
-					currentLine.Reset()
-					currentLine.WriteString(word)
-				}
-			}
-			result.WriteString(currentLine.String())
-		}
-
-		if i < len(lines)-1 {
-			result.WriteString("\n")
-		}
-	}
-
-	return result.String()
-}
-
 func UnixTimeToHumanReadable(timestamp int64) string {
 	if timestamp == 0 {
 		return "never"
@@ -149,15 +112,6 @@ func GetModes(modes string) []string {
 		}
 	}
 	return foundModes
-}
-
-func ModeHas(modes []string, checkMode string) bool {
-	for _, mode := range modes {
-		if mode == checkMode {
-			return true
-		}
-	}
-	return false
 }
 
 func ModeMap(mode int32) string {

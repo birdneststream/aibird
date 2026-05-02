@@ -1,8 +1,6 @@
 package channels
 
 import (
-	"time"
-
 	"aibird/irc/users"
 )
 
@@ -19,7 +17,6 @@ type (
 		DenyCommands  []string `toml:"denyCommands"`
 		Users         []*users.User
 		TrimOutput    bool
-		ActivityTimer *time.Timer // Used in DelayedWhoTimer to prevent multiple who requests
 		// Participant system fields
 		ChatMode         bool    `toml:"chatMode"`         // Enable AI participant mode
 		CompanionMode    bool    `toml:"companionMode"`    // Enable companion personality
