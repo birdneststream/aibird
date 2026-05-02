@@ -20,6 +20,30 @@ import (
 	"github.com/lrstanley/girc"
 )
 
+// Pre-compiled regexes for text processing (hot paths)
+var (
+	reThinkingBlock   = regexp.MustCompile(`(?is)<think.*?</think >`)
+	reNewlines        = regexp.MustCompile(`\n+`)
+	reWhitespace      = regexp.MustCompile(`\s+`)
+	reBold            = regexp.MustCompile(`\*\*([^*]+)\*\*`)
+	reItalic          = regexp.MustCompile(`\*([^*]+)\*`)
+	reUnderlineBold   = regexp.MustCompile(`__([^_]+)__`)
+	reUnderlineItalic = regexp.MustCompile(`_([^_]+)_`)
+	reCodeBlock       = regexp.MustCompile("```[\\s\\S]*?```")
+	reInlineCode      = regexp.MustCompile("`([^`]+)`")
+	reHeaders         = regexp.MustCompile(`(?m)^#{1,6}\s*(.*)$`)
+	reLinks           = regexp.MustCompile(`\[([^\]]+)\]\([^)]+\)`)
+	reStrikethrough   = regexp.MustCompile(`~~([^~]+)~~`)
+	reBlockquotes     = regexp.MustCompile(`(?m)^>\s*(.*)$`)
+	reHorizontalRules = regexp.MustCompile(`(?m)^[-*]{3,}$`)
+	reEmoticons       = regexp.MustCompile(`[\x{1F600}-\x{1F64F}]`)
+	reSymbols         = regexp.MustCompile(`[\x{1F300}-\x{1F5FF}]`)
+	reTransport       = regexp.MustCompile(`[\x{1F680}-\x{1F6FF}]`)
+	reAddlEmoticons   = regexp.MustCompile(`[\x{1F910}-\x{1F96B}]`)
+	reAddlTransport   = regexp.MustCompile(`[\x{1F980}-\x{1F9E0}]`)
+	reFlags           = regexp.MustCompile(`[\x{1F1E6}-\x{1F1FF}]`)
+)
+
 func ParseAiText(irc state.State) bool {
 	if irc.IsAction("ai") {
 		if irc.GetBoolArg("info") {
@@ -293,9 +317,8 @@ func handleAiResponse(irc state.State, response string) {
 
 // stripThinkingContent removes <think>...</think> blocks, emojis, and markdown from AI responses for TTS processing
 func stripThinkingContent(text string) string {
-	// Remove <think>...</think> blocks (case insensitive, multiline with dotall)
-	re := regexp.MustCompile(`(?is)<think>.*?</think>`)
-	cleaned := re.ReplaceAllString(text, "")
+	// Remove <think...</think > blocks (case insensitive, multiline with dotall)
+	cleaned := reThinkingBlock.ReplaceAllString(text, "")
 
 	// Remove markdown formatting
 	cleaned = stripMarkdown(cleaned)
@@ -310,10 +333,10 @@ func stripThinkingContent(text string) string {
 	cleaned = strings.ReplaceAll(cleaned, `\"`, `"`)
 
 	// Remove all newlines for TTS (convert to spaces)
-	cleaned = regexp.MustCompile(`\n+`).ReplaceAllString(cleaned, " ")
+	cleaned = reNewlines.ReplaceAllString(cleaned, " ")
 
 	// Clean up multiple spaces
-	cleaned = regexp.MustCompile(`\s+`).ReplaceAllString(cleaned, " ")
+	cleaned = reWhitespace.ReplaceAllString(cleaned, " ")
 
 	return cleaned
 }
@@ -321,49 +344,41 @@ func stripThinkingContent(text string) string {
 // stripMarkdown removes common markdown formatting for cleaner TTS
 func stripMarkdown(text string) string {
 	// Remove bold/italic markers: **bold**, *italic*, __bold__, _italic_
-	text = regexp.MustCompile(`\*\*([^*]+)\*\*`).ReplaceAllString(text, "$1")
-	text = regexp.MustCompile(`\*([^*]+)\*`).ReplaceAllString(text, "$1")
-	text = regexp.MustCompile(`__([^_]+)__`).ReplaceAllString(text, "$1")
-	text = regexp.MustCompile(`_([^_]+)_`).ReplaceAllString(text, "$1")
+	text = reBold.ReplaceAllString(text, "$1")
+	text = reItalic.ReplaceAllString(text, "$1")
+	text = reUnderlineBold.ReplaceAllString(text, "$1")
+	text = reUnderlineItalic.ReplaceAllString(text, "$1")
 
 	// Remove code blocks: ```code``` and `code`
-	text = regexp.MustCompile("```[\\s\\S]*?```").ReplaceAllString(text, "")
-	text = regexp.MustCompile("`([^`]+)`").ReplaceAllString(text, "$1")
+	text = reCodeBlock.ReplaceAllString(text, "")
+	text = reInlineCode.ReplaceAllString(text, "$1")
 
 	// Remove headers: # ## ### etc.
-	text = regexp.MustCompile(`(?m)^#{1,6}\s*(.*)$`).ReplaceAllString(text, "$1")
+	text = reHeaders.ReplaceAllString(text, "$1")
 
 	// Remove links: [text](url) -> text
-	text = regexp.MustCompile(`\[([^\]]+)\]\([^)]+\)`).ReplaceAllString(text, "$1")
+	text = reLinks.ReplaceAllString(text, "$1")
 
 	// Remove strikethrough: ~~text~~
-	text = regexp.MustCompile(`~~([^~]+)~~`).ReplaceAllString(text, "$1")
+	text = reStrikethrough.ReplaceAllString(text, "$1")
 
 	// Remove blockquotes: > text
-	text = regexp.MustCompile(`(?m)^>\s*(.*)$`).ReplaceAllString(text, "$1")
+	text = reBlockquotes.ReplaceAllString(text, "$1")
 
 	// Remove horizontal rules: --- or ***
-	text = regexp.MustCompile(`(?m)^[-*]{3,}$`).ReplaceAllString(text, "")
+	text = reHorizontalRules.ReplaceAllString(text, "")
 
 	return text
 }
 
 // stripEmojis removes Unicode emoji characters for cleaner TTS
 func stripEmojis(text string) string {
-	// Remove emoji ranges (most common Unicode emoji blocks)
-	// Emoticons: U+1F600-U+1F64F
-	text = regexp.MustCompile(`[\x{1F600}-\x{1F64F}]`).ReplaceAllString(text, "")
-	// Miscellaneous Symbols: U+1F300-U+1F5FF
-	text = regexp.MustCompile(`[\x{1F300}-\x{1F5FF}]`).ReplaceAllString(text, "")
-	// Transport and Map: U+1F680-U+1F6FF
-	text = regexp.MustCompile(`[\x{1F680}-\x{1F6FF}]`).ReplaceAllString(text, "")
-	// Additional Emoticons: U+1F910-U+1F96B
-	text = regexp.MustCompile(`[\x{1F910}-\x{1F96B}]`).ReplaceAllString(text, "")
-	// Additional Transport and Map: U+1F980-U+1F9E0
-	text = regexp.MustCompile(`[\x{1F980}-\x{1F9E0}]`).ReplaceAllString(text, "")
-	// Symbols and Pictographs: U+1F1E6-U+1F1FF (flags)
-	text = regexp.MustCompile(`[\x{1F1E6}-\x{1F1FF}]`).ReplaceAllString(text, "")
-
+	text = reEmoticons.ReplaceAllString(text, "")
+	text = reSymbols.ReplaceAllString(text, "")
+	text = reTransport.ReplaceAllString(text, "")
+	text = reAddlEmoticons.ReplaceAllString(text, "")
+	text = reAddlTransport.ReplaceAllString(text, "")
+	text = reFlags.ReplaceAllString(text, "")
 	return text
 }
 

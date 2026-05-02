@@ -16,6 +16,9 @@ import (
 	"github.com/lrstanley/girc"
 )
 
+// Pre-compiled regex for birdhole URL validation
+var reBirdholeURL = regexp.MustCompile(`^https://hole\.birdnest\.live/derived/([a-zA-Z0-9]+)\.png/([a-zA-Z0-9]+)\.txt$`)
+
 func ParseStandard(irc state.State) {
 	// For backward compatibility, call the version with queue
 	ParseStandardWithQueue(irc, nil)
@@ -139,8 +142,7 @@ func ParsePlay(irc state.State) {
 	url := strings.TrimSpace(irc.Message())
 
 	// Validate URL pattern: must be https://hole.birdnest.live/derived/{id}.png/{id}.txt
-	urlPattern := regexp.MustCompile(`^https://hole\.birdnest\.live/derived/([a-zA-Z0-9]+)\.png/([a-zA-Z0-9]+)\.txt$`)
-	matches := urlPattern.FindStringSubmatch(url)
+	matches := reBirdholeURL.FindStringSubmatch(url)
 	if len(matches) != 3 || matches[1] != matches[2] {
 		irc.Send(girc.Fmt("❌ Invalid URL. Must be from https://hole.birdnest.live/derived/{id}.png/{id}.txt"))
 		return

@@ -20,6 +20,9 @@ import (
 	"golang.org/x/crypto/sha3"
 )
 
+// Pre-compiled regexes for hot paths
+var reSupernetsPizza = regexp.MustCompile(`(?i)pizza`)
+
 func (s *State) String() string {
 	return girc.Fmt(fmt.Sprintf("{b}Channel{b}: %s, {b}User{b}: %s, {b}Command{b}: %s, {b}Arguments{b}: %s",
 		s.Channel,
@@ -219,7 +222,7 @@ func (s *State) Send(message string) {
 	// Filter banned words for specific networks
 	if s.Network.NetworkName == "supernets" {
 		// Insert zero-width space to bypass word filters (case insensitive)
-		message = regexp.MustCompile(`(?i)pizza`).ReplaceAllString(message, "piz\u200Bza")
+		message = reSupernetsPizza.ReplaceAllString(message, "piz\u200Bza")
 	}
 
 	// for each new line break in response choices write to channel
