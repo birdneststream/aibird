@@ -29,3 +29,11 @@ comfyuiworkflows/
 .cursor
 docs/
 GEMINI.md
+
+# LLM planning files
+.llm/
+.opencode/
+PLAN.md
+
+# Legacy/old directories
+oldworkflows/
