@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"strconv"
 	"strings"
 
 	"aibird/asciistore"
@@ -227,24 +226,7 @@ func ParseAiImageWithGPU(irc state.State, gpu meta.GPUType) bool {
 				return processAisciiCommand(irc, response, displayMessage)
 			}
 
-			fields := []request.Fields{
-				{Key: "panorama", Value: strconv.FormatBool(irc.IsAction("panorama"))},
-			}
-			fields = append(fields, irc.BuildUploadFields()...)
-
-			if aiEnhancedPrompt != "" {
-				fields = append(fields, request.Fields{Key: "message", Value: displayMessage})
-			}
-
-			upload, err := birdhole.BirdHole(response, displayMessage, fields, irc.Config.Birdhole)
-
-			if err != nil {
-				logger.Error("Birdhole error", "error", err)
-				irc.SendError(err.Error())
-			} else {
-				irc.ReplyTo(upload + " - " + irc.GetActionTrigger() + irc.Action() + " " + displayMessage)
-				return true
-			}
+			return uploadAndReply(irc, response, displayMessage, aiEnhancedPrompt)
 		}
 	}
 
