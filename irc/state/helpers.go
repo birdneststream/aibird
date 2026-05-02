@@ -3,7 +3,6 @@ package state
 import (
 	"fmt"
 	"os"
-	"reflect"
 	"strconv"
 	"strings"
 	"time"
@@ -311,133 +310,393 @@ func (s *State) TextToBirdhole(message string) {
 	}
 }
 
-// UpdateUserBasedOnArgs This will update the user based on the arguments provided
+// updateUserField applies a single argument to a user field using explicit type-safe setters.
+// Returns true if the field was recognized (including immutable blocked fields).
+// Uses originalKey for display messages to preserve user-specified casing.
+func (s *State) updateUserField(user *users.User, originalKey string, value interface{}) bool {
+	key := strings.ToLower(originalKey)
+	switch key {
+	// Immutable fields — blocked
+	case "nickname", "ident", "host", "preservedmodes", "currentmodes", "gircuser":
+		s.SendWarning(fmt.Sprintf("Cannot change protected %s", helpers.CapitaliseFirst(originalKey)))
+		return true
+
+	// Bool fields
+	case "isadmin":
+		val, err := toBoolE(value)
+		if err != nil {
+			s.SendError(fmt.Sprintf("Error updating IsAdmin: %v", err))
+			return true
+		}
+		user.IsAdmin = val
+		s.SendSuccess(fmt.Sprintf("Updated IsAdmin to %t", user.IsAdmin))
+	case "isowner":
+		val, err := toBoolE(value)
+		if err != nil {
+			s.SendError(fmt.Sprintf("Error updating IsOwner: %v", err))
+			return true
+		}
+		user.IsOwner = val
+		s.SendSuccess(fmt.Sprintf("Updated IsOwner to %t", user.IsOwner))
+	case "ignored":
+		val, err := toBoolE(value)
+		if err != nil {
+			s.SendError(fmt.Sprintf("Error updating Ignored: %v", err))
+			return true
+		}
+		user.Ignored = val
+		s.SendSuccess(fmt.Sprintf("Updated Ignored to %t", user.Ignored))
+
+	// Int fields
+	case "accesslevel":
+		val, err := toIntE(value)
+		if err != nil {
+			s.SendError(fmt.Sprintf("Error updating AccessLevel: %v", err))
+			return true
+		}
+		user.AccessLevel = val
+		s.SendSuccess(fmt.Sprintf("Updated AccessLevel to %d", user.AccessLevel))
+	case "firstseen":
+		val, err := toInt64E(value)
+		if err != nil {
+			s.SendError(fmt.Sprintf("Error updating FirstSeen: %v", err))
+			return true
+		}
+		user.FirstSeen = val
+		s.SendSuccess(fmt.Sprintf("Updated FirstSeen to %d", user.FirstSeen))
+	case "latestactivity":
+		val, err := toInt64E(value)
+		if err != nil {
+			s.SendError(fmt.Sprintf("Error updating LatestActivity: %v", err))
+			return true
+		}
+		user.LatestActivity = val
+		s.SendSuccess(fmt.Sprintf("Updated LatestActivity to %d", user.LatestActivity))
+
+	// String fields
+	case "aiservice":
+		user.AiService = toString(value)
+		s.SendSuccess(fmt.Sprintf("Updated AiService to %s", user.AiService))
+	case "aimodel":
+		user.AiModel = toString(value)
+		s.SendSuccess(fmt.Sprintf("Updated AiModel to %s", user.AiModel))
+	case "aibaseprompt":
+		user.AiBasePrompt = toString(value)
+		s.SendSuccess(fmt.Sprintf("Updated AiBasePrompt to %s", user.AiBasePrompt))
+	case "aipersonality":
+		user.AiPersonality = toString(value)
+		s.SendSuccess(fmt.Sprintf("Updated AiPersonality to %s", user.AiPersonality))
+	case "latestchat":
+		user.LatestChat = toString(value)
+		s.SendSuccess(fmt.Sprintf("Updated LatestChat to %s", user.LatestChat))
+
+	default:
+		return false // Field not recognized
+	}
+	return true
+}
+
+// UpdateUserBasedOnArgs updates user fields based on the parsed arguments.
+// Uses explicit type-safe setters instead of reflection.
 func (s *State) UpdateUserBasedOnArgs(user *users.User) {
-	immutableKeys := map[string]bool{
-		"NickName":       true,
-		"Ident":          true,
-		"Host":           true,
-		"PreservedModes": true,
-		"CurrentModes":   true,
-	}
-
-	s.UpdateBasedOnArgs(user, immutableKeys)
-}
-
-func (s *State) UpdateChannelBasedOnArgs() {
-	immutableKeys := map[string]bool{
-		"Name":          true,
-		"Users":         true,
-		"ActivityTimer": true,
-	}
-
-	s.UpdateBasedOnArgs(s.Channel, immutableKeys)
-}
-
-func (s *State) UpdateNetworkBasedOnArgs() {
-	immutableKeys := map[string]bool{
-		"Name":        true,
-		"NetworkName": true,
-		"Nick":        true,
-		"Users":       true,
-		"Channels":    true,
-		"Servers":     true,
-		"ModesAtOnce": true,
-	}
-
-	s.UpdateBasedOnArgs(s.Network, immutableKeys)
-}
-
-// UpdateBasedOnArgs accepts Network, Channel and User to update their fields based on the arguments provided
-func (s *State) UpdateBasedOnArgs(obj interface{}, immutableKeys map[string]bool) { //nolint:gocyclo
-	args := s.GetArguments()
-
-	uValue := reflect.ValueOf(obj).Elem()
-
-	for _, arg := range args {
-		fieldName := helpers.CapitaliseFirst(arg.Key)
-		// Check if the field is immutable
-		if _, exists := immutableKeys[fieldName]; exists {
-			s.SendWarning(fmt.Sprintf("Cannot change protected %s", fieldName))
-			continue // Skip the update for this field
-		}
-
-		var fieldValueStr string
-
-		// Determine the type of arg.Value and convert to string if necessary
-		switch v := arg.Value.(type) {
-		case string:
-			fieldValueStr = v
-		case bool:
-			fieldValueStr = strconv.FormatBool(v)
-		case int, int8, int16, int32, int64:
-			fieldValueStr = fmt.Sprintf("%d", v)
-		case uint, uint8, uint16, uint32, uint64:
-			fieldValueStr = fmt.Sprintf("%d", v)
-		case float32, float64:
-			fieldValueStr = fmt.Sprintf("%f", v)
-		default:
-			s.SendWarning(fmt.Sprintf("Unsupported type for field %s: %T", fieldName, arg.Value))
-			continue
-		}
-
-		if fieldVal := uValue.FieldByName(fieldName); fieldVal.IsValid() {
-			var successMessage string
-			var boolErr, intErr, uintErr, floatErr error
-			var boolVal bool
-			var intVal int64
-			var uintVal uint64
-			var floatVal float64
-			switch fieldVal.Kind() {
-			case reflect.Bool:
-				boolVal, boolErr = strconv.ParseBool(fieldValueStr)
-				if boolErr == nil {
-					fieldVal.SetBool(boolVal)
-					successMessage = fmt.Sprintf("Updated %s to %t", fieldName, boolVal)
-				}
-			case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
-				intVal, intErr = strconv.ParseInt(fieldValueStr, 10, fieldVal.Type().Bits())
-				if intErr == nil {
-					fieldVal.SetInt(intVal)
-					successMessage = fmt.Sprintf("Updated %s to %d", fieldName, intVal)
-				}
-			case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
-				uintVal, uintErr = strconv.ParseUint(fieldValueStr, 10, fieldVal.Type().Bits())
-				if uintErr == nil {
-					fieldVal.SetUint(uintVal)
-					successMessage = fmt.Sprintf("Updated %s to %d", fieldName, uintVal)
-				}
-			case reflect.String:
-				fieldVal.SetString(fieldValueStr)
-				successMessage = fmt.Sprintf("Updated %s to %s", fieldName, fieldValueStr)
-			case reflect.Float32, reflect.Float64:
-				floatVal, floatErr = strconv.ParseFloat(fieldValueStr, fieldVal.Type().Bits())
-				if floatErr == nil {
-					fieldVal.SetFloat(floatVal)
-					successMessage = fmt.Sprintf("Updated %s to %f", fieldName, floatVal)
-				}
-			}
-
-			// Check for parsing errors
-			if boolErr != nil || intErr != nil || uintErr != nil || floatErr != nil {
-				var parseErr error
-				if boolErr != nil {
-					parseErr = boolErr
-				} else if intErr != nil {
-					parseErr = intErr
-				} else if uintErr != nil {
-					parseErr = uintErr
-				} else if floatErr != nil {
-					parseErr = floatErr
-				}
-				s.SendError(fmt.Sprintf("Error updating %s: %v", fieldName, parseErr))
-			} else if successMessage != "" {
-				s.SendSuccess(successMessage)
-			}
+	for _, arg := range s.GetArguments() {
+		if !s.updateUserField(user, arg.Key, arg.Value) {
+			s.SendWarning(fmt.Sprintf("Unknown field: %s", arg.Key))
 		}
 	}
-
 	s.Network.Save()
+}
+
+// updateChannelField applies a single argument to a channel field using explicit type-safe setters.
+// Returns true if the field was recognized (including immutable blocked fields).
+func (s *State) updateChannelField(originalKey string, value interface{}) bool {
+	key := strings.ToLower(originalKey)
+	switch key {
+	// Immutable fields — blocked
+	case "name", "users", "denycommands":
+		s.SendWarning(fmt.Sprintf("Cannot change protected %s", helpers.CapitaliseFirst(originalKey)))
+		return true
+
+	// Bool fields
+	case "ai":
+		val, err := toBoolE(value)
+		if err != nil {
+			s.SendError(fmt.Sprintf("Error updating Ai: %v", err))
+			return true
+		}
+		s.Channel.Ai = val
+		s.SendSuccess(fmt.Sprintf("Updated Ai to %t", s.Channel.Ai))
+	case "sd":
+		val, err := toBoolE(value)
+		if err != nil {
+			s.SendError(fmt.Sprintf("Error updating Sd: %v", err))
+			return true
+		}
+		s.Channel.Sd = val
+		s.SendSuccess(fmt.Sprintf("Updated Sd to %t", s.Channel.Sd))
+	case "imagedescribe":
+		val, err := toBoolE(value)
+		if err != nil {
+			s.SendError(fmt.Sprintf("Error updating ImageDescribe: %v", err))
+			return true
+		}
+		s.Channel.ImageDescribe = val
+		s.SendSuccess(fmt.Sprintf("Updated ImageDescribe to %t", s.Channel.ImageDescribe))
+	case "sound":
+		val, err := toBoolE(value)
+		if err != nil {
+			s.SendError(fmt.Sprintf("Error updating Sound: %v", err))
+			return true
+		}
+		s.Channel.Sound = val
+		s.SendSuccess(fmt.Sprintf("Updated Sound to %t", s.Channel.Sound))
+	case "video":
+		val, err := toBoolE(value)
+		if err != nil {
+			s.SendError(fmt.Sprintf("Error updating Video: %v", err))
+			return true
+		}
+		s.Channel.Video = val
+		s.SendSuccess(fmt.Sprintf("Updated Video to %t", s.Channel.Video))
+	case "trimoutput":
+		val, err := toBoolE(value)
+		if err != nil {
+			s.SendError(fmt.Sprintf("Error updating TrimOutput: %v", err))
+			return true
+		}
+		s.Channel.TrimOutput = val
+		s.SendSuccess(fmt.Sprintf("Updated TrimOutput to %t", s.Channel.TrimOutput))
+	case "preservemodes":
+		val, err := toBoolE(value)
+		if err != nil {
+			s.SendError(fmt.Sprintf("Error updating PreserveModes: %v", err))
+			return true
+		}
+		s.Channel.PreserveModes = val
+		s.SendSuccess(fmt.Sprintf("Updated PreserveModes to %t", s.Channel.PreserveModes))
+	case "chatmode":
+		val, err := toBoolE(value)
+		if err != nil {
+			s.SendError(fmt.Sprintf("Error updating ChatMode: %v", err))
+			return true
+		}
+		s.Channel.ChatMode = val
+		s.SendSuccess(fmt.Sprintf("Updated ChatMode to %t", s.Channel.ChatMode))
+	case "companionmode":
+		val, err := toBoolE(value)
+		if err != nil {
+			s.SendError(fmt.Sprintf("Error updating CompanionMode: %v", err))
+			return true
+		}
+		s.Channel.CompanionMode = val
+		s.SendSuccess(fmt.Sprintf("Updated CompanionMode to %t", s.Channel.CompanionMode))
+	case "sendarturl":
+		val, err := toBoolE(value)
+		if err != nil {
+			s.SendError(fmt.Sprintf("Error updating SendArtURL: %v", err))
+			return true
+		}
+		s.Channel.SendArtURL = val
+		s.SendSuccess(fmt.Sprintf("Updated SendArtURL to %t", s.Channel.SendArtURL))
+
+	// String fields
+	case "actiontrigger":
+		s.Channel.ActionTrigger = toString(value)
+		s.SendSuccess(fmt.Sprintf("Updated ActionTrigger to %s", s.Channel.ActionTrigger))
+	case "chatpersonality":
+		s.Channel.ChatPersonality = toString(value)
+		s.SendSuccess(fmt.Sprintf("Updated ChatPersonality to %s", s.Channel.ChatPersonality))
+
+	// Float fields
+	case "chatresponserate":
+		val, err := toFloat64E(value)
+		if err != nil {
+			s.SendError(fmt.Sprintf("Error updating ChatResponseRate: %v", err))
+			return true
+		}
+		s.Channel.ChatResponseRate = val
+		s.SendSuccess(fmt.Sprintf("Updated ChatResponseRate to %f", s.Channel.ChatResponseRate))
+
+	default:
+		return false
+	}
+	return true
+}
+
+// UpdateChannelBasedOnArgs updates channel fields based on the parsed arguments.
+func (s *State) UpdateChannelBasedOnArgs() {
+	for _, arg := range s.GetArguments() {
+		if !s.updateChannelField(arg.Key, arg.Value) {
+			s.SendWarning(fmt.Sprintf("Unknown field: %s", arg.Key))
+		}
+	}
+	s.Network.Save()
+}
+
+// updateNetworkField applies a single argument to a network field using explicit type-safe setters.
+// Returns true if the field was recognized (including immutable blocked fields).
+func (s *State) updateNetworkField(originalKey string, value interface{}) bool {
+	key := strings.ToLower(originalKey)
+	switch key {
+	// Immutable fields — blocked (includes sensitive and runtime fields)
+	case "name", "networkname", "nick", "users", "channels", "servers", "modesatonce",
+		"pass", "nickservpass", "connectedat", "ignorednicks", "adminhosts", "denycommands":
+		s.SendWarning(fmt.Sprintf("Cannot change protected %s", helpers.CapitaliseFirst(originalKey)))
+		return true
+
+	// Bool fields
+	case "enabled":
+		val, err := toBoolE(value)
+		if err != nil {
+			s.SendError(fmt.Sprintf("Error updating Enabled: %v", err))
+			return true
+		}
+		s.Network.Enabled = val
+		s.SendSuccess(fmt.Sprintf("Updated Enabled to %t", s.Network.Enabled))
+	case "preservemodes":
+		val, err := toBoolE(value)
+		if err != nil {
+			s.SendError(fmt.Sprintf("Error updating PreserveModes: %v", err))
+			return true
+		}
+		s.Network.PreserveModes = val
+		s.SendSuccess(fmt.Sprintf("Updated PreserveModes to %t", s.Network.PreserveModes))
+
+	// Int fields
+	case "pingdelay":
+		val, err := toIntE(value)
+		if err != nil {
+			s.SendError(fmt.Sprintf("Error updating PingDelay: %v", err))
+			return true
+		}
+		s.Network.PingDelay = val
+		s.SendSuccess(fmt.Sprintf("Updated PingDelay to %d", s.Network.PingDelay))
+	case "throttle":
+		val, err := toIntE(value)
+		if err != nil {
+			s.SendError(fmt.Sprintf("Error updating Throttle: %v", err))
+			return true
+		}
+		s.Network.Throttle = val
+		s.SendSuccess(fmt.Sprintf("Updated Throttle to %d", s.Network.Throttle))
+	case "burst":
+		val, err := toIntE(value)
+		if err != nil {
+			s.SendError(fmt.Sprintf("Error updating Burst: %v", err))
+			return true
+		}
+		s.Network.Burst = val
+		s.SendSuccess(fmt.Sprintf("Updated Burst to %d", s.Network.Burst))
+
+	// String fields
+	case "version":
+		s.Network.Version = toString(value)
+		s.SendSuccess(fmt.Sprintf("Updated Version to %s", s.Network.Version))
+	case "actiontrigger":
+		s.Network.ActionTrigger = toString(value)
+		s.SendSuccess(fmt.Sprintf("Updated ActionTrigger to %s", s.Network.ActionTrigger))
+	case "user":
+		s.Network.User = toString(value)
+		s.SendSuccess(fmt.Sprintf("Updated User to %s", s.Network.User))
+
+	default:
+		return false
+	}
+	return true
+}
+
+// UpdateNetworkBasedOnArgs updates network fields based on the parsed arguments.
+func (s *State) UpdateNetworkBasedOnArgs() {
+	for _, arg := range s.GetArguments() {
+		if !s.updateNetworkField(arg.Key, arg.Value) {
+			s.SendWarning(fmt.Sprintf("Unknown field: %s", arg.Key))
+		}
+	}
+	s.Network.Save()
+}
+
+// Type conversion helpers for argument values.
+// These handle the various types that ParseArguments produces (bool, int, string).
+// Error-returning variants (toBoolE, toIntE, toInt64E, toFloat64E) are used by
+// the field setters to report invalid input back to the IRC user.
+// Non-error variants (toString) are used for string fields where any value is valid.
+
+func toBoolE(v interface{}) (bool, error) {
+	switch val := v.(type) {
+	case bool:
+		return val, nil
+	case string:
+		return strconv.ParseBool(val)
+	case int:
+		return val != 0, nil
+	case int64:
+		return val != 0, nil
+	default:
+		return false, fmt.Errorf("cannot convert %T to bool", v)
+	}
+}
+
+func toIntE(v interface{}) (int, error) {
+	switch val := v.(type) {
+	case int:
+		return val, nil
+	case int64:
+		return int(val), nil
+	case string:
+		i, err := strconv.Atoi(val)
+		return i, err
+	case float64:
+		return int(val), nil
+	default:
+		return 0, fmt.Errorf("cannot convert %T to int", v)
+	}
+}
+
+func toInt64E(v interface{}) (int64, error) {
+	switch val := v.(type) {
+	case int64:
+		return val, nil
+	case int:
+		return int64(val), nil
+	case string:
+		i, err := strconv.ParseInt(val, 10, 64)
+		return i, err
+	case float64:
+		return int64(val), nil
+	default:
+		return 0, fmt.Errorf("cannot convert %T to int64", v)
+	}
+}
+
+func toFloat64E(v interface{}) (float64, error) {
+	switch val := v.(type) {
+	case float64:
+		return val, nil
+	case int:
+		return float64(val), nil
+	case int64:
+		return float64(val), nil
+	case string:
+		f, err := strconv.ParseFloat(val, 64)
+		return f, err
+	default:
+		return 0, fmt.Errorf("cannot convert %T to float64", v)
+	}
+}
+
+func toString(v interface{}) string {
+	switch val := v.(type) {
+	case string:
+		return val
+	case bool:
+		return strconv.FormatBool(val)
+	case int:
+		return strconv.Itoa(val)
+	case int64:
+		return strconv.FormatInt(val, 10)
+	default:
+		return fmt.Sprintf("%v", v)
+	}
 }
 
 // RestoreUserModes checks all users in the channel and restores any missing modes
