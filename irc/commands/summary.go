@@ -2,6 +2,8 @@ package commands
 
 import (
 	"fmt"
+	"strconv"
+	"strings"
 
 	"aibird/birdbase"
 	"aibird/irc/state"
@@ -32,9 +34,45 @@ func ParseSummary(irc state.State) {
 	if defaultHours <= 0 {
 		defaultHours = 24
 	}
-	hours := parseHoursFromMessage(irc.Message(), defaultHours, 168)
-	persona, _ := irc.GetStringArg("persona", "")
-	persona = sanitizePersona(persona)
+
+	hours := defaultHours
+	persona := ""
+
+	// Check for --persona flag
+	if flagPersona, ok := irc.GetStringArg("persona", ""); ok && flagPersona != "" {
+		persona = sanitizePersona(flagPersona)
+	}
+
+	if irc.Message() != "" {
+		msg := strings.TrimSpace(irc.Message())
+
+		// Try to parse a leading number as hours (e.g., "6", "6h", "12h")
+		// Remaining text after hours is treated as the persona argument (unless --persona was used)
+		hoursStr := msg
+		rest := ""
+
+		if idx := strings.IndexByte(msg, ' '); idx > 0 {
+			hoursStr = msg[:idx]
+			rest = strings.TrimSpace(msg[idx+1:])
+		}
+
+		cleaned := strings.TrimSuffix(hoursStr, "h")
+		if parsed, err := strconv.Atoi(cleaned); err == nil && parsed > 0 {
+			if parsed > 168 {
+				parsed = 168
+			}
+			hours = parsed
+			// If no --persona flag was set, use remaining text as freeform persona
+			if persona == "" {
+				persona = sanitizePersona(rest)
+			}
+		} else {
+			// No valid hours prefix — entire message is the persona (unless --persona was used)
+			if persona == "" {
+				persona = sanitizePersona(msg)
+			}
+		}
+	}
 
 	maxMessages := irc.Config.AiBird.SummaryMaxMessages
 	if maxMessages <= 0 {
