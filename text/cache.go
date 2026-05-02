@@ -9,53 +9,36 @@ import (
 
 func AppendChatCache(key, whoIsTalking, message string, contextLimit int) {
 	// Start with an empty cache
-	var cache []Message
-
-	// If a cache already exists, get it
-	cache = GetChatCache(key)
+	cache := GetChatCache(key)
 
 	// Append the new message
-	newMessage := Message{
+	cache = append(cache, birdbase.Message{
 		Role:    whoIsTalking,
 		Content: message,
-	}
-	cache = append(cache, newMessage)
+	})
 
 	// Truncate if the cache is too long
 	if len(cache) > contextLimit {
 		cache = cache[1:] // Remove the oldest message
 	}
 
-	// Convert to birdbase.Message for storage
-	birdbaseCache := make([]birdbase.Message, len(cache))
-	for i, msg := range cache {
-		birdbaseCache[i] = birdbase.Message{Role: msg.Role, Content: msg.Content}
-	}
-
-	// Write the updated cache back to the database using specialized method
-	err := birdbase.PutChatHistory(key, birdbaseCache)
+	// Write the updated cache back to the database
+	err := birdbase.PutChatHistory(key, cache)
 	if err != nil {
 		logger.Error("Failed to put appended chat cache", "key", key, "error", err)
 	}
 }
 
-func GetChatCache(key string) []Message {
-	birdbaseMessages, err := birdbase.GetChatHistory(key)
+func GetChatCache(key string) []birdbase.Message {
+	cache, err := birdbase.GetChatHistory(key)
 	if err != nil {
-		// Use errors.Is for robust error checking, specifically for the key not found case.
 		if err != sql.ErrNoRows {
 			logger.Error("Failed to get chat cache", "key", key, "error", err)
 		}
 		return nil
 	}
 
-	// Convert from birdbase.Message to text.Message
-	messages := make([]Message, len(birdbaseMessages))
-	for i, msg := range birdbaseMessages {
-		messages[i] = Message{Role: msg.Role, Content: msg.Content}
-	}
-
-	return messages
+	return cache
 }
 
 func DeleteChatCache(key string) bool {
@@ -78,14 +61,8 @@ func TruncateLastMessage(key string) {
 	// Remove the last message
 	cache = cache[:len(cache)-1]
 
-	// Convert to birdbase.Message for storage
-	birdbaseCache := make([]birdbase.Message, len(cache))
-	for i, msg := range cache {
-		birdbaseCache[i] = birdbase.Message{Role: msg.Role, Content: msg.Content}
-	}
-
-	// Write the updated cache back to the database using specialized method
-	err := birdbase.PutChatHistory(key, birdbaseCache)
+	// Write the updated cache back to the database
+	err := birdbase.PutChatHistory(key, cache)
 	if err != nil {
 		logger.Error("Failed to put truncated chat cache", "key", key, "error", err)
 	}

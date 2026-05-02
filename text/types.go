@@ -1,8 +1,7 @@
 package text
 
-type (
-	Message struct {
-		Role    string `json:"role"`
-		Content string `json:"content"`
-	}
-)
+import "aibird/birdbase"
+
+// Message is an alias for birdbase.Message to consolidate duplicate structs.
+// All code using text.Message transparently uses birdbase.Message.
+type Message = birdbase.Message
