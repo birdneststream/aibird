@@ -816,26 +816,27 @@ func (s *SQLiteDB) LoadNetworkUsers(networkName string) ([]UserData, error) {
 
 	for rows.Next() {
 		var userID int64
-		var user UserData
+		var scanned UserData
 		var modeType sql.NullString
 		var modesJSON []byte
 		var channelName sql.NullString
 
-		err = rows.Scan(&userID, &user.NickName, &user.Ident, &user.Host, &user.FirstSeen,
-			&user.LatestActivity, &user.LatestChat, &user.IsAdmin, &user.IsOwner, &user.Ignored,
-			&user.AccessLevel, &user.AiService, &user.AiModel, &user.AiBasePrompt, &user.AiPersonality,
+		err = rows.Scan(&userID, &scanned.NickName, &scanned.Ident, &scanned.Host, &scanned.FirstSeen,
+			&scanned.LatestActivity, &scanned.LatestChat, &scanned.IsAdmin, &scanned.IsOwner, &scanned.Ignored,
+			&scanned.AccessLevel, &scanned.AiService, &scanned.AiModel, &scanned.AiBasePrompt, &scanned.AiPersonality,
 			&modeType, &modesJSON, &channelName)
 		if err != nil {
 			return nil, err
 		}
 
-		user.NetworkID = int(networkID)
-
-		if existing, ok := userMap[userID]; ok {
-			user = *existing
-		} else {
-			user.ID = int(userID)
-			userMap[userID] = &user
+		// Get or create the map entry — always work via pointer to avoid
+		// value-copy confusion and unnecessary re-allocations.
+		ptr, exists := userMap[userID]
+		if !exists {
+			scanned.ID = int(userID)
+			scanned.NetworkID = int(networkID)
+			ptr = &scanned
+			userMap[userID] = ptr
 		}
 
 		if modeType.Valid && modesJSON != nil {
@@ -850,11 +851,10 @@ func (s *SQLiteDB) LoadNetworkUsers(networkName string) ([]UserData, error) {
 			}
 
 			if modeType.String == "preserved" {
-				user.PreservedModes = append(user.PreservedModes, modeData)
+				ptr.PreservedModes = append(ptr.PreservedModes, modeData)
 			} else {
-				user.CurrentModes = append(user.CurrentModes, modeData)
+				ptr.CurrentModes = append(ptr.CurrentModes, modeData)
 			}
-			userMap[userID] = &user
 		}
 	}
 
