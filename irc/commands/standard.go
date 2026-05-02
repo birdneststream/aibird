@@ -102,7 +102,28 @@ func ParseStandardWithQueue(irc state.State, q *queue.ProcessingQueue) {
 		}
 		irc.Send(girc.Fmt(formattedStatus))
 		if q != nil {
-			irc.Send(ShowQueueStatus(irc, q))
+			status := q.GetDetailedStatus()
+			processingAction := q.Queue.GetProcessingAction()
+
+			var messages []string
+
+			if processingAction != "" {
+				if status.QueueLength > 0 {
+					messages = append(messages, fmt.Sprintf("🟢 GPU: Processing (%s) | 🟡 %d queued (%s)", processingAction, status.QueueLength, strings.Join(status.QueueItems, ", ")))
+				} else {
+					messages = append(messages, fmt.Sprintf("🟢 GPU: Processing (%s)", processingAction))
+				}
+			} else if status.QueueLength > 0 {
+				messages = append(messages, fmt.Sprintf("🟡 GPU: %d queued (%s)", status.QueueLength, strings.Join(status.QueueItems, ", ")))
+			} else {
+				messages = append(messages, "⚪ GPU: Queue empty")
+			}
+
+			if status.QueueLength == 0 && processingAction == "" {
+				irc.Send("Queue Status: Queue is empty")
+			} else {
+				irc.Send(fmt.Sprintf("Queue Status: %s", strings.Join(messages, " | ")))
+			}
 		}
 
 	case "support":

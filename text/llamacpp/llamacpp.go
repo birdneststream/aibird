@@ -3,7 +3,6 @@ package llamacpp
 import (
 	"errors"
 	"net/http"
-	"regexp"
 	"strings"
 	"time"
 
@@ -121,68 +120,6 @@ func EnhancePrompt(message string, config settings.LlamaCppConfig) (string, erro
 	userPrompt := "Expand out the following prompt, include details such as camera movements and describe it as a movie scene:" + message
 
 	return SingleRequest(userPrompt, systemPrompt, config)
-}
-
-// GenerateArtFilename generates a short, creative filename for digital artwork.
-func GenerateArtFilename(prompt string, config settings.LlamaCppConfig) (string, error) {
-	systemPrompt := "Generate a short, creative filename for digital artwork. Rules: 1) Use only letters, numbers, and hyphens 2) Maximum 20 characters 3) Describe the main subject/theme 4) No file extensions 5) Return ONLY the filename, nothing else"
-	userPrompt := "Create filename for art prompt: " + prompt
-
-	response, err := SingleRequest(userPrompt, systemPrompt, config)
-	if err != nil {
-		return "", err
-	}
-
-	// Safety fallback: remove thinking/reasoning patterns in case the model
-	// outputs them despite reasoning-format separation (e.g. for single-shot requests)
-	patterns := []string{
-		`(?is)<think\b[^>]*>.*?</think\>`,
-		`(?i)\*thinks?\*.*?\*`,
-		`(?i)\*thinking\*.*?\*`,
-		`(?i)let me think.*?(?:\n|$)`,
-	}
-
-	cleaned := response
-	for _, pattern := range patterns {
-		re := regexp.MustCompile(`(?s)` + pattern)
-		cleaned = re.ReplaceAllString(cleaned, "")
-	}
-
-	// Clean up multiple whitespace and return first non-empty line
-	lines := strings.Split(strings.TrimSpace(cleaned), "\n")
-	for _, line := range lines {
-		line = strings.TrimSpace(line)
-		if line != "" && len(line) <= 30 {
-			return line, nil
-		}
-	}
-
-	// If nothing good found, return cleaned version truncated
-	result := strings.TrimSpace(cleaned)
-	if len(result) > 30 {
-		result = result[:30]
-	}
-	return result, nil
-}
-
-// SdPrompt enhances a prompt for Stable Diffusion image generation.
-func SdPrompt(message string, config settings.LlamaCppConfig) (string, error) {
-	systemPrompt, err := text.GetPrompt("sd.md")
-	if err != nil {
-		return "", err
-	}
-	userPrompt := "Enhance the following prompt: " + message
-
-	prompt, err := SingleRequest(userPrompt, systemPrompt, config)
-	if err != nil {
-		return "", err
-	}
-
-	// Normalise punctuation
-	prompt = strings.ReplaceAll(prompt, ",", ", ")
-	prompt = strings.ReplaceAll(prompt, "_", " ")
-
-	return prompt, nil
 }
 
 // GenerateLyrics generates song lyrics based on the given topic.
