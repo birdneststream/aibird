@@ -16,20 +16,16 @@ import (
 
 // Participant manages the AI participant system
 type Participant struct {
-	config   *settings.Config
-	mu       sync.RWMutex                   // Protects memory and state maps
-	memory   map[string]*ConversationMemory // key: network:channel
-	state    map[string]*ParticipantState   // key: network:channel
-	schedule *Schedule
+	config *settings.Config
+	mu     sync.RWMutex                   // Protects memory map
+	memory map[string]*ConversationMemory // key: network:channel
 }
 
 // NewParticipant creates a new participant system
 func NewParticipant(config *settings.Config) *Participant {
 	return &Participant{
-		config:   config,
-		memory:   make(map[string]*ConversationMemory),
-		state:    make(map[string]*ParticipantState),
-		schedule: loadSchedule(config),
+		config: config,
+		memory: make(map[string]*ConversationMemory),
 	}
 }
 
@@ -353,30 +349,6 @@ func (p *Participant) getUserRelation(memory *ConversationMemory, username strin
 
 func (p *Participant) isHighlighted(message, botNick string) bool {
 	return strings.Contains(strings.ToLower(message), strings.ToLower(botNick))
-}
-
-// loadSchedule creates a default schedule - will be enhanced later
-func loadSchedule(config *settings.Config) *Schedule {
-	return &Schedule{
-		Timezone:    "America/New_York",
-		ActiveHours: "08:00-23:00",
-		WeeklySchedule: map[string]DaySchedule{
-			"monday":    {Active: true, Hours: "08:00-23:00"},
-			"tuesday":   {Active: true, Hours: "08:00-23:00"},
-			"wednesday": {Active: true, Hours: "08:00-23:00"},
-			"thursday":  {Active: true, Hours: "08:00-23:00"},
-			"friday":    {Active: true, Hours: "08:00-23:00"},
-			"saturday":  {Active: true, Hours: "09:00-24:00"},
-			"sunday":    {Active: true, Hours: "09:00-23:00"},
-		},
-		SleepPattern: SleepPattern{
-			TransitionMinutes:   30,
-			WakeGreeting:        true,
-			SleepGreeting:       true,
-			GreetingWindow:      30,
-			GreetingProbability: 0.7,
-		},
-	}
 }
 
 // Global participant instance - will be initialized in main.go

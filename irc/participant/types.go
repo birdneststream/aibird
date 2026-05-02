@@ -7,7 +7,7 @@ import (
 
 // MessageContext holds context information for generating responses
 type MessageContext struct {
-	Type              string   // "wake_greeting", "sleep_message", "spontaneous", "check_in", "activity_response", "reactive"
+	Type              string   // "reactive", etc.
 	TimeOfDay         string   // "morning", "afternoon", "evening", "night"
 	ChannelActivity   string   // "quiet", "active", "very_active"
 	RecentMessages    []string // Last few messages for context
@@ -49,41 +49,6 @@ type UserProfile struct {
 	Topics       []string // Topics they've discussed
 	MessageCount int      // Total messages seen from this user
 	IsActive     bool     // Recently active user
-}
-
-// Schedule represents the bot's activity schedule
-type Schedule struct {
-	Timezone       string
-	ActiveHours    string // "08:00-23:00"
-	WeeklySchedule map[string]DaySchedule
-	SleepPattern   SleepPattern
-}
-
-// DaySchedule represents schedule for a specific day
-type DaySchedule struct {
-	Active bool
-	Hours  string
-}
-
-// SleepPattern controls sleep/wake behavior
-type SleepPattern struct {
-	TransitionMinutes   int     // Minutes for gradual sleep/wake
-	WakeGreeting        bool    // Send morning greetings
-	SleepGreeting       bool    // Send goodnight messages
-	GreetingWindow      int     // Minutes after wake to potentially greet
-	GreetingProbability float64 // Chance to send greeting
-}
-
-// ParticipantState tracks the current state of the participant system
-type ParticipantState struct {
-	NetworkName            string
-	ChannelName            string
-	IsActive               bool // Currently active based on schedule
-	LastSpontaneousMessage time.Time
-	LastWakeGreeting       time.Time
-	LastSleepGreeting      time.Time
-	DailySpontaneousCount  int
-	SleepState             string // "awake", "drowsy", "asleep", "waking"
 }
 
 // PersonalityConfig defines personality traits and prompts
