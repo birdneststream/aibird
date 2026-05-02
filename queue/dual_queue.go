@@ -125,14 +125,7 @@ func (pq *ProcessingQueue) IsCurrentlyProcessing() bool {
 }
 
 // Admin control methods
-func (pq *ProcessingQueue) ClearAllQueues() {
-	pq.Mutex.Lock()
-	defer pq.Mutex.Unlock()
-
-	pq.Queue.Clear()
-	logger.Info("Queue cleared by admin")
-}
-
+// ClearQueue removes all items from the queue.
 func (pq *ProcessingQueue) ClearQueue() {
 	pq.Mutex.Lock()
 	defer pq.Mutex.Unlock()

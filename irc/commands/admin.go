@@ -163,7 +163,7 @@ func parseAdminCommands(irc state.State, q *queue.ProcessingQueue) {
 
 			// Single queue now - all clears affect the same queue
 			irc.Send("🔄 Clearing queue...")
-			q.ClearAllQueues()
+			q.ClearQueue()
 			irc.Send("✅ Queue cleared")
 			return
 		case "removecurrent":
