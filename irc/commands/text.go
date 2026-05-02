@@ -65,10 +65,10 @@ func ParseAiText(irc state.State) bool {
 	if irc.IsAction("ai") {
 		if irc.GetBoolArg("info") {
 			irc.ReplyTo(girc.Fmt(fmt.Sprintf("🧠 AI service: %s 🧠 AI model: %s 🧠 Base prompt: %s 🧠 Personality: %s",
-				defaultIfEmpty(irc.User.GetAiService(), "llamacpp"),
-				defaultIfEmpty(irc.User.GetAiModel(), "default"),
-				defaultIfEmpty(irc.User.GetBasePrompt(), "will use personality"),
-				defaultIfEmpty(irc.User.GetPersonality(), "ai"))))
+				displayDefault(irc.User.GetAiService(), "llamacpp"),
+				displayDefault(irc.User.GetAiModel(), "default"),
+				displayDefault(irc.User.GetBasePrompt(), "will use personality"),
+				displayDefault(irc.User.GetPersonality(), "ai"))))
 			return true
 		}
 
