@@ -207,12 +207,13 @@ func (c *Channel) ForgetMode(user *users.User, mode string) {
 
 	for i, userModes := range user.CurrentModes {
 		if userModes.Channel == c.Name {
-			// Mode for this channel found, remove it
 			for j, userMode := range userModes.Modes {
 				if userMode == mode {
 					user.CurrentModes[i].Modes = append(user.CurrentModes[i].Modes[:j], user.CurrentModes[i].Modes[j+1:]...)
+					break
 				}
 			}
+			break
 		}
 	}
 
@@ -223,12 +224,13 @@ func (c *Channel) ForgetMode(user *users.User, mode string) {
 
 	for i, userModes := range user.PreservedModes {
 		if userModes.Channel == c.Name {
-			// Mode for this channel found, remove it
 			for j, userMode := range userModes.Modes {
 				if userMode == mode {
 					user.PreservedModes[i].Modes = append(user.PreservedModes[i].Modes[:j], user.PreservedModes[i].Modes[j+1:]...)
+					break
 				}
 			}
+			break
 		}
 	}
 
