@@ -74,26 +74,6 @@ type SleepPattern struct {
 	GreetingProbability float64 // Chance to send greeting
 }
 
-// ActivityTrigger defines conditions for activity-based responses
-type ActivityTrigger struct {
-	Type        string  // "join", "part", "quiet_channel", "topic_change"
-	MinDelay    int     // Minimum minutes before responding
-	MaxDelay    int     // Maximum delay variation
-	Probability float64 // Chance to respond to this trigger
-	Enabled     bool
-}
-
-// SpontaneousConfig controls proactive messaging
-type SpontaneousConfig struct {
-	Enabled        bool
-	MinInterval    int     // Minimum minutes between spontaneous messages
-	MaxInterval    int     // Maximum minutes
-	Probability    float64 // Base chance per interval
-	ActivityBased  bool    // Wait for some activity before sending
-	MaxDailyCount  int     // Maximum spontaneous messages per day
-	QuietThreshold int     // Minutes of silence before considering channel "quiet"
-}
-
 // ParticipantState tracks the current state of the participant system
 type ParticipantState struct {
 	NetworkName            string
@@ -112,17 +92,4 @@ type PersonalityConfig struct {
 	SystemPrompt  string
 	Chattiness    float64 // 0.0-1.0, affects response probability
 	CompanionMode bool    // Special behaviors for companion relationships
-}
-
-// ParticipantConfig holds all configuration for the participant system
-type ParticipantConfig struct {
-	Enabled          bool
-	Model            string
-	MaxTokens        int
-	Temperature      float64
-	ContextMessages  int
-	Personalities    map[string]PersonalityConfig
-	Schedule         Schedule
-	Spontaneous      SpontaneousConfig
-	ActivityTriggers map[string]ActivityTrigger
 }

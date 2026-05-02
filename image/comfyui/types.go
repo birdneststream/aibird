@@ -1,19 +1,5 @@
 package comfyui
 
-type (
-	Config struct {
-		Enabled        bool
-		Url            string
-		Port           string
-		Port1          string
-		Port2          string
-		BadWords       []string
-		BadWordsPrompt string
-		MaxQueueSize   int
-		RewritePrompt  bool
-	}
-)
-
 // AibirdMeta defines the structure for the aibird_meta TOML file.
 type AibirdMeta struct {
 	Name         string                    `toml:"name"`
