@@ -1,175 +1,148 @@
-# golangci-lint configuration file
-# Documentation: https://golangci-lint.run/usage/configuration/
-
+version: "2"
 run:
-  timeout: 5m
   issues-exit-code: 1
   tests: true
-
 output:
   formats:
-    - format: colored-line-number
+    text:
       path: stdout
-
-issues:
-  exclude-dirs:
-    - vendor
-    - bin
-    - coverage
-  uniq-by-line: true
-  exclude-use-default: false
-  max-issues-per-linter: 0
-  max-same-issues: 0
-  new-from-rev: "" # Show all issues, not just new ones
-  exclude-rules:
-    # Exclude certain linters from certain files
-    - path: _test\.go
-      linters:
-        - gosec
-        - goconst
-        - gocyclo
-    
-    # Ignore complexity in main.go (it's often the entry point)
-    - path: main\.go
-      linters:
-        - gocyclo
-        - gocritic
-    
-    # Allow long functions in command files (they often have many cases)
-    - path: irc/commands/
-      linters:
-        - gocyclo
-        - gocritic
-    
-    # Common false positives
-    - text: "Error return value of.*is not checked"
-      linters:
-        - errcheck
-    - text: "exported.*should have comment.*or be unexported"
-      linters:
-        - revive
-    - text: "ST1003:"
-      linters:
-        - stylecheck
-
-linters-settings:
-  revive:
-    min-confidence: 0
-    rules:
-      - name: exported
-        disabled: true # Too noisy for now
-      - name: package-comments
-        disabled: true # Not enforcing package comments
-  
-  staticcheck:
-    checks: ["all"]
-  
-  gosec:
-    severity: medium
-    confidence: medium
-    excludes:
-      - G204  # Subprocess launched with variable (common in CLI apps)
-      - G104  # Audit errors not checked (too noisy)
-  
-  misspell:
-    locale: US
-    ignore-words:
-      - aibird
-      - comfyui
-      - birdbase
-      - birdhole
-  
-  gofmt:
-    simplify: true
-  
-  goimports:
-    local-prefixes: aibird
-  
-  unused:
-    check-exported: false
-  
-  govet:
-    enable-all: true
-    disable:
-      - fieldalignment # Too strict for this project
-    settings:
-      printf:
-        funcs:
-          - (github.com/golangci/golangci-lint/pkg/logutils.Log).Infof
-          - (github.com/golangci/golangci-lint/pkg/logutils.Log).Errorf
-          - (github.com/golangci/golangci-lint/pkg/logutils.Log).Warnf
-  
-  
-  gocritic:
-    enabled-tags:
-      - diagnostic
-      - experimental
-      - opinionated
-      - performance
-      - style
-    disabled-checks:
-      - dupImport # https://github.com/go-critic/go-critic/issues/845
-      - ifElseChain
-      - octalLiteral
-      - whyNoLint
-  
-  gocyclo:
-    min-complexity: 15
-  
-  errcheck:
-    check-type-assertions: true
-    check-blank: true
-  
-  goconst:
-    min-len: 2
-    min-occurrences: 3
-  
-  funlen:
-    lines: 100
-    statements: 50
-  
-  nestif:
-    min-complexity: 4
-
 linters:
   enable:
-    # Essential linters (used in 'make lint')
-    - revive      # Fast, configurable, extensible, flexible, and beautiful linter for Go
-    - govet       # Vet examines Go source code and reports suspicious constructs
-    - ineffassign # Detects when assignments to existing variables are not used
-    - misspell    # Finds commonly misspelled English words in comments
-    - gofmt       # Gofmt checks whether code was gofmt-ed
-    - goimports   # In addition to fixing imports, goimports also formats your code in the same style as gofmt
-    - gosec       # Inspects source code for security problems
-    - staticcheck # It's a set of rules from staticcheck
-    - unused      # Checks Go code for unused constants, variables, functions and types
-    - typecheck   # Like the front-end of a Go compiler, parses and type-checks Go code
-    
-    # Additional useful linters
-    - errcheck    # Errcheck is a program for checking for unchecked errors in go programs
-    - goconst     # Finds repeated strings that could be replaced by a constant
-    - gocritic    # The most opinionated Go source code linter
-    - gocyclo     # Computes and checks the cyclomatic complexity of functions
-    - bodyclose   # Checks whether HTTP response body is closed successfully
-    - rowserrcheck # Checks whether Err of rows is checked successfully
-    - sqlclosecheck # Checks that sql.Rows and sql.Stmt are closed
-
+    - bodyclose
+    - goconst
+    - gocritic
+    - gocyclo
+    - gosec
+    - misspell
+    - revive
+    - rowserrcheck
+    - sqlclosecheck
   disable:
-    # Disabled because they're too strict/noisy for this project
-    - gochecknoglobals # Checks that no global variables exist
-    - gochecknoinits   # Checks that no init functions are present
-    - exhaustruct      # Checks if all structure fields are initialized
-    - varnamelen       # Checks that the length of a variable's name matches its scope
-    - wsl              # Whitespace Linter
-    - nlreturn         # Requires a newline before return
-    - lll              # Reports long lines
-    - gofumpt          # Gofumpt checks whether code was gofumpt-ed (stricter than gofmt)
-    - gci              # Gci control golang package import order and make it always deterministic
-    - wrapcheck        # Checks that errors returned from external packages are wrapped
-    - dupl             # Tool for code clone detection
-    - cyclop           # Checks function and package cyclomatic complexity
-    - funlen           # Tool for detection of long functions
-    - maintidx         # Maintainability index of each function
-    - nestif           # Reports deeply nested if statements
-    - gocognit         # Computes and checks the cognitive complexity of functions
-
+    - cyclop
+    - dupl
+    - exhaustruct
+    - funlen
+    - gochecknoglobals
+    - gochecknoinits
+    - gocognit
+    - lll
+    - maintidx
+    - nestif
+    - nlreturn
+    - varnamelen
+    - wrapcheck
+    - wsl
+  settings:
+    errcheck:
+      check-type-assertions: true
+      check-blank: true
+    funlen:
+      lines: 100
+      statements: 50
+    goconst:
+      min-len: 2
+      min-occurrences: 3
+    gocritic:
+      disabled-checks:
+        - dupImport
+        - ifElseChain
+        - octalLiteral
+        - whyNoLint
+      enabled-tags:
+        - diagnostic
+        - experimental
+        - opinionated
+        - performance
+        - style
+    gocyclo:
+      min-complexity: 15
+    gosec:
+      excludes:
+        - G204
+        - G104
+      severity: medium
+      confidence: medium
+    govet:
+      disable:
+        - fieldalignment
+      enable-all: true
+      settings:
+        printf:
+          funcs:
+            - (github.com/golangci/golangci-lint/pkg/logutils.Log).Infof
+            - (github.com/golangci/golangci-lint/pkg/logutils.Log).Errorf
+            - (github.com/golangci/golangci-lint/pkg/logutils.Log).Warnf
+    misspell:
+      locale: US
+      ignore-rules:
+        - aibird
+        - comfyui
+        - birdbase
+        - birdhole
+    nestif:
+      min-complexity: 4
+    revive:
+      rules:
+        - name: exported
+          disabled: true
+        - name: package-comments
+          disabled: true
+    staticcheck:
+      checks:
+        - all
+  exclusions:
+    generated: lax
+    rules:
+      - linters:
+          - goconst
+          - gocyclo
+          - gosec
+        path: _test\.go
+      - linters:
+          - gocritic
+          - gocyclo
+        path: main\.go
+      - linters:
+          - gocritic
+          - gocyclo
+        path: irc/commands/
+      - linters:
+          - errcheck
+        text: Error return value of.*is not checked
+      - linters:
+          - revive
+        text: exported.*should have comment.*or be unexported
+      - linters:
+          - staticcheck
+        text: 'ST1003:'
+    paths:
+      - vendor
+      - bin
+      - coverage
+      - third_party$
+      - builtin$
+      - examples$
+issues:
+  max-issues-per-linter: 0
+  max-same-issues: 0
+  uniq-by-line: true
+  new-from-rev: ""
+formatters:
+  enable:
+    - gofmt
+    - goimports
+  settings:
+    gofmt:
+      simplify: true
+    goimports:
+      local-prefixes:
+        - aibird
+  exclusions:
+    generated: lax
+    paths:
+      - vendor
+      - bin
+      - coverage
+      - third_party$
+      - builtin$
+      - examples$

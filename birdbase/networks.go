@@ -67,26 +67,12 @@ func (s *SQLiteDB) SaveNetwork(networkName string, network *NetworkData) error {
 			}
 		}
 
-		var serverHosts []string
+		var serverHosts []interface{}
 		for _, server := range network.Servers {
 			serverHosts = append(serverHosts, server.Host)
 		}
 
-		placeholders := make([]string, len(serverHosts))
-		args := make([]interface{}, len(serverHosts)+1)
-		args[0] = networkID
-		for i, host := range serverHosts {
-			placeholders[i] = "?"
-			args[i+1] = host
-		}
-
-		deleteQuery := fmt.Sprintf(`
-			DELETE FROM servers 
-			WHERE network_id = ? AND host NOT IN (%s)
-		`, strings.Join(placeholders, ","))
-
-		_, err = tx.Exec(deleteQuery, args...)
-		if err != nil {
+		if err := syncSimpleCollection(tx, "servers", "host", "network_id", networkID, serverHosts); err != nil {
 			return err
 		}
 	} else {
@@ -174,21 +160,12 @@ func (s *SQLiteDB) SaveNetwork(networkName string, network *NetworkData) error {
 					}
 				}
 
-				placeholders := make([]string, len(channel.DenyCommands))
-				args := make([]interface{}, len(channel.DenyCommands)+1)
-				args[0] = channelID
-				for i, cmd := range channel.DenyCommands {
-					placeholders[i] = "?"
-					args[i+1] = cmd
+				var chanCmds []interface{}
+				for _, cmd := range channel.DenyCommands {
+					chanCmds = append(chanCmds, cmd)
 				}
 
-				deleteQuery := fmt.Sprintf(`
-					DELETE FROM denied_commands 
-					WHERE channel_id = ? AND command NOT IN (%s)
-				`, strings.Join(placeholders, ","))
-
-				_, err = tx.Exec(deleteQuery, args...)
-				if err != nil {
+				if err := syncSimpleCollection(tx, "denied_commands", "command", "channel_id", channelID, chanCmds); err != nil {
 					return err
 				}
 			} else {
@@ -199,21 +176,12 @@ func (s *SQLiteDB) SaveNetwork(networkName string, network *NetworkData) error {
 			}
 		}
 
-		placeholders := make([]string, len(network.Channels))
-		args := make([]interface{}, len(network.Channels)+1)
-		args[0] = networkID
-		for i, channel := range network.Channels {
-			placeholders[i] = "?"
-			args[i+1] = channel.Name
+		var channelNames []interface{}
+		for _, channel := range network.Channels {
+			channelNames = append(channelNames, channel.Name)
 		}
 
-		deleteQuery := fmt.Sprintf(`
-			DELETE FROM channels 
-			WHERE network_id = ? AND name NOT IN (%s)
-		`, strings.Join(placeholders, ","))
-
-		_, err = tx.Exec(deleteQuery, args...)
-		if err != nil {
+		if err := syncSimpleCollection(tx, "channels", "name", "network_id", networkID, channelNames); err != nil {
 			return err
 		}
 	} else {
@@ -235,21 +203,11 @@ func (s *SQLiteDB) SaveNetwork(networkName string, network *NetworkData) error {
 			}
 		}
 
-		placeholders := make([]string, len(network.IgnoredNicks))
-		args := make([]interface{}, len(network.IgnoredNicks)+1)
-		args[0] = networkID
-		for i, nick := range network.IgnoredNicks {
-			placeholders[i] = "?"
-			args[i+1] = nick
+		var nicks []interface{}
+		for _, nick := range network.IgnoredNicks {
+			nicks = append(nicks, nick)
 		}
-
-		deleteQuery := fmt.Sprintf(`
-			DELETE FROM ignored_nicks 
-			WHERE network_id = ? AND nickname NOT IN (%s)
-		`, strings.Join(placeholders, ","))
-
-		_, err = tx.Exec(deleteQuery, args...)
-		if err != nil {
+		if err := syncSimpleCollection(tx, "ignored_nicks", "nickname", "network_id", networkID, nicks); err != nil {
 			return err
 		}
 	} else {
@@ -271,21 +229,11 @@ func (s *SQLiteDB) SaveNetwork(networkName string, network *NetworkData) error {
 			}
 		}
 
-		placeholders := make([]string, len(network.DenyCommands))
-		args := make([]interface{}, len(network.DenyCommands)+1)
-		args[0] = networkID
-		for i, cmd := range network.DenyCommands {
-			placeholders[i] = "?"
-			args[i+1] = cmd
+		var cmds []interface{}
+		for _, cmd := range network.DenyCommands {
+			cmds = append(cmds, cmd)
 		}
-
-		deleteQuery := fmt.Sprintf(`
-			DELETE FROM denied_commands 
-			WHERE network_id = ? AND command NOT IN (%s)
-		`, strings.Join(placeholders, ","))
-
-		_, err = tx.Exec(deleteQuery, args...)
-		if err != nil {
+		if err := syncSimpleCollection(tx, "denied_commands", "command", "network_id", networkID, cmds); err != nil {
 			return err
 		}
 	} else {
@@ -1004,5 +952,36 @@ func (s *SQLiteDB) UpdateUserActivity(networkName, ident, host string, activity 
 			AND ident = ? AND host = ?
 	`, activity, latestChat, networkName, ident, host)
 
+	return err
+}
+
+// syncSimpleCollection deletes stale rows from table: it keeps only rows where
+// parentIDCol matches parentID AND keyCol is in keepValues. If keepValues is empty,
+// all rows matching parentID are deleted. The caller is responsible for upserting
+// items before calling this.
+//
+// NOTE: table, keyCol, and parentIDCol MUST be compile-time string literals — they
+// are interpolated directly into SQL via fmt.Sprintf and are NOT parameterized.
+// keepValues are safely bound via "?" placeholders.
+func syncSimpleCollection(tx *sql.Tx, table, keyCol, parentIDCol string, parentID int64, keepValues []interface{}) error {
+	if len(keepValues) > 0 {
+		placeholders := make([]string, len(keepValues))
+		args := make([]interface{}, len(keepValues)+1)
+		args[0] = parentID
+		for i, val := range keepValues {
+			placeholders[i] = "?"
+			args[i+1] = val
+		}
+
+		deleteQuery := fmt.Sprintf(
+			"DELETE FROM %s WHERE %s = ? AND %s NOT IN (%s)",
+			table, parentIDCol, keyCol, strings.Join(placeholders, ","),
+		)
+
+		_, err := tx.Exec(deleteQuery, args...)
+		return err
+	}
+
+	_, err := tx.Exec(fmt.Sprintf("DELETE FROM %s WHERE %s = ?", table, parentIDCol), parentID)
 	return err
 }
