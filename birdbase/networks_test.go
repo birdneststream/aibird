@@ -503,3 +503,120 @@ func TestDeleteChannel(t *testing.T) {
 		}
 	}
 }
+
+// TestLoadNetworkUsers_MultipleModes verifies that a user with preserved and
+// current modes across multiple channels round-trips correctly through
+// SaveNetworkUsers → LoadNetworkUsers. This is a regression test for a
+// previous value-copy bug where modes could be silently lost when the same
+// user appeared in multiple LEFT JOIN rows.
+func TestLoadNetworkUsers_MultipleModes(t *testing.T) {
+	db := helperNewTestDB(t)
+	defer db.db.Close()
+
+	// Create a network with two channels
+	network := &NetworkData{
+		Enabled: true, Nick: "bot", User: "bot", Name: "Bot",
+		Channels: []ChannelData{
+			{Name: "#chan1", PreserveModes: true},
+			{Name: "#chan2", PreserveModes: true},
+		},
+	}
+	if err := db.SaveNetwork("modetest", network); err != nil {
+		t.Fatalf("SaveNetwork: %v", err)
+	}
+
+	users := []UserData{
+		{
+			NickName: "alice", Ident: "~alice", Host: "host.alice",
+			FirstSeen: 1000, LatestActivity: 2000, AiService: "llamacpp",
+			PreservedModes: []UserModeData{
+				{Channel: "#chan1", Modes: []string{"o", "v"}},
+				{Channel: "#chan2", Modes: []string{"v"}},
+			},
+			CurrentModes: []UserModeData{
+				{Channel: "#chan1", Modes: []string{"o"}},
+				{Channel: "#chan2", Modes: []string{"v"}},
+			},
+		},
+		{
+			NickName: "bob", Ident: "~bob", Host: "host.bob",
+			FirstSeen: 3000, LatestActivity: 4000, AiService: "llamacpp",
+			// bob has no modes at all
+			PreservedModes: nil,
+			CurrentModes:   nil,
+		},
+		{
+			NickName: "carol", Ident: "~carol", Host: "host.carol",
+			FirstSeen: 5000, LatestActivity: 6000, AiService: "glm",
+			PreservedModes: []UserModeData{
+				{Channel: "#chan1", Modes: []string{"v"}},
+			},
+			CurrentModes: []UserModeData{
+				{Channel: "#chan1", Modes: []string{"v"}},
+			},
+		},
+	}
+
+	if err := db.SaveNetworkUsers("modetest", users); err != nil {
+		t.Fatalf("SaveNetworkUsers: %v", err)
+	}
+
+	loaded, err := db.LoadNetworkUsers("modetest")
+	if err != nil {
+		t.Fatalf("LoadNetworkUsers: %v", err)
+	}
+
+	// Build a lookup map by ident for easier assertions
+	got := make(map[string]*UserData)
+	for i := range loaded {
+		got[loaded[i].Ident] = &loaded[i]
+	}
+
+	// Alice should have all modes preserved
+	alice, ok := got["~alice"]
+	if !ok {
+		t.Fatal("alice not found in loaded users")
+	}
+	if len(alice.PreservedModes) != 2 {
+		t.Errorf("alice PreservedModes: got %d entries, want 2", len(alice.PreservedModes))
+	}
+	if len(alice.CurrentModes) != 2 {
+		t.Errorf("alice CurrentModes: got %d entries, want 2", len(alice.CurrentModes))
+	}
+	assertHasMode := func(modes []UserModeData, channel string, expected []string) {
+		t.Helper()
+		for _, m := range modes {
+			if m.Channel == channel {
+				if len(m.Modes) != len(expected) {
+					t.Errorf("modes for %s: got %v, want %v", channel, m.Modes, expected)
+				}
+				return
+			}
+		}
+		t.Errorf("no modes found for channel %s", channel)
+	}
+	assertHasMode(alice.PreservedModes, "#chan1", []string{"o", "v"})
+	assertHasMode(alice.PreservedModes, "#chan2", []string{"v"})
+	assertHasMode(alice.CurrentModes, "#chan1", []string{"o"})
+	assertHasMode(alice.CurrentModes, "#chan2", []string{"v"})
+
+	// Bob should have zero modes
+	bob, ok := got["~bob"]
+	if !ok {
+		t.Fatal("bob not found in loaded users")
+	}
+	if len(bob.PreservedModes) != 0 {
+		t.Errorf("bob PreservedModes: got %d, want 0", len(bob.PreservedModes))
+	}
+	if len(bob.CurrentModes) != 0 {
+		t.Errorf("bob CurrentModes: got %d, want 0", len(bob.CurrentModes))
+	}
+
+	// Carol should have single mode
+	carol, ok := got["~carol"]
+	if !ok {
+		t.Fatal("carol not found in loaded users")
+	}
+	assertHasMode(carol.PreservedModes, "#chan1", []string{"v"})
+	assertHasMode(carol.CurrentModes, "#chan1", []string{"v"})
+}
