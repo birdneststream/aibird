@@ -125,6 +125,16 @@ func (s *State) CompareUserModes() { //nolint:gocyclo
 
 }
 
+// MessageFloodCheck implements the second tier of flood protection.
+// Called from Verify() before command execution. Uses ident+host-based keys
+// (survives nick changes) and silently ignores the user on threshold breach.
+// This is the persistent ignore layer — separate from checkFlood in main.go
+// which kicks the user from the channel.
+//
+// Returns true to block the command if:
+// - User is already flood-banned (ban check), or
+// - User sent 2+ messages in the 3-second window (rate limiting), or
+// - User exceeded the configured flood threshold (ignore + ban)
 func (s *State) MessageFloodCheck() bool {
 	if s.User.IsOwner {
 		return false
@@ -170,7 +180,9 @@ func (s *State) MessageFloodCheck() bool {
 		return true
 	}
 
-	return countInt > 1 // Return true if we have multiple messages
+	// Rate-limit: block if user sent 2+ messages in the 3-second window,
+	// even if threshold not yet breached. This prevents rapid-fire commands.
+	return countInt > 1
 }
 
 func (s *State) GetActionTrigger() string {

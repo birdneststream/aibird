@@ -530,7 +530,11 @@ func handlePrivMsg(c *girc.Client, e girc.Event, network *networks.Network, conf
 	}
 }
 
-// checkFlood checks for user flooding and bans them if necessary.
+// checkFlood implements the first tier of flood protection.
+// Called for valid commands only, after Verify() passes.
+// Uses nick-based keys and kicks the user from the channel on threshold breach.
+// This is the visible punishment layer — separate from MessageFloodCheck which
+// silently ignores the user via User.Ignored.
 func checkFlood(irc state.State) {
 	if irc.Channel == nil {
 		return
