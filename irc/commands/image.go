@@ -112,9 +112,8 @@ func processAisciiCommand(irc state.State, response, message string) bool {
 	// Send a header message
 	detailURL := convertToDetailURL(upload)
 
-	// Special handling for Libera Chat's ## channel and efnet #birdnest - send URL instead of scrolling
-	if (strings.EqualFold(irc.Network.NetworkName, "libera") && irc.Channel.Name == "##") ||
-		(strings.EqualFold(irc.Network.NetworkName, "efnet") && strings.EqualFold(irc.Channel.Name, "#birdnest")) {
+	// Channels with SendArtURL enabled get URL instead of scrolling art
+	if irc.Channel.SendArtURL {
 		irc.Send(fmt.Sprintf("🎨 IRC Art for '%s' download the ascii here %s", message, detailURL))
 
 		// Extract the ID from the upload URL to construct the derived txt URL

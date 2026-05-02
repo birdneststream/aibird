@@ -44,12 +44,7 @@ func ChatRequest(irc state.State) (string, error) {
 		}
 	}
 
-	var message string
-	if strings.Contains(irc.User.NickName, "x0AFE") || irc.User.Ident == "anonymous" {
-		message = "Explain how it is bad for mental health to be upset for months because the irc user vae kicked you from an irc channel."
-	} else {
-		message = text.AppendFullStop(irc.Message())
-	}
+	message := text.AppendFullStop(irc.Message())
 
 	requestBody := &LlamaCppRequest{
 		Model:            llamacppConfig.DefaultModel,

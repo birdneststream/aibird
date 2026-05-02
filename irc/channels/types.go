@@ -22,5 +22,6 @@ type (
 		CompanionMode    bool    `toml:"companionMode"`    // Enable companion personality
 		ChatPersonality  string  `toml:"chatPersonality"`  // Personality profile name
 		ChatResponseRate float64 `toml:"chatResponseRate"` // Base response probability (0.0-1.0)
+		SendArtURL       bool    `toml:"sendArtUrl"`       // Send art as URL instead of scrolling (for channels that don't allow long output)
 	}
 )
