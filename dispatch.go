@@ -104,9 +104,9 @@ func dispatchCommand(irc state.State, q *queue.ProcessingQueue) {
 			go commands.ParseAdminWithQueue(irc, q)
 		case commands.IsOwnerCommand(irc.Action()):
 			go commands.ParseOwner(irc)
-		case commands.IsSoundCommand(irc.Action(), irc.Config.AiBird):
+		case commands.IsSoundCommand(irc.Action()):
 			go commands.ParseAiSound(irc)
-		case commands.IsVideoCommand(irc.Action(), irc.Config.AiBird):
+		case commands.IsVideoCommand(irc.Action()):
 			go commands.ParseAiVideo(irc)
 		default:
 			logger.Warn("Command was valid but no parser was found", "command", irc.Action())

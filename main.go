@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"aibird/birdbase"
+	"aibird/irc/commands"
 	"aibird/irc/networks"
 	"aibird/irc/participant"
 	"aibird/logger"
@@ -30,6 +31,9 @@ func main() {
 	}
 
 	logger.Init(config.Logging)
+
+	// Initialize command registry for O(1) lookups
+	commands.InitRegistry(config.AiBird)
 
 	// Initialize database
 	birdbase.Init()

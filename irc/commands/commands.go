@@ -1,168 +1,209 @@
 package commands
 
 import (
+	"sort"
 	"strings"
+	"sync"
 
 	"aibird/irc/commands/help"
+	"aibird/logger"
 	"aibird/settings"
 )
 
-// GetAllCommands returns a slice of all available command names across all command types
-// It can optionally filter by channel capabilities (ai, sd, sound, video)
-func GetAllCommands(config settings.AiBird, enableAi, enableSd, enableSound, enableVideo bool, isAdmin, isOwner bool) []string {
-	var commands []string
+// CommandEntry holds metadata about a single command for O(1) lookups.
+type CommandEntry struct {
+	Name      string // Original case from help definition
+	Type      string // "standard", "admin", "owner", "image", "video", "sound", "text"
+	Queueable bool
+}
 
-	// Add standard commands (always available)
-	for _, cmd := range help.StandardHelp() {
-		commands = append(commands, cmd.Name)
+// CommandRegistry provides O(1) command lookups by name and type.
+// Built once via InitRegistry() from all help categories.
+type CommandRegistry struct {
+	byLower map[string]*CommandEntry // lowercase name → entry
+}
+
+var (
+	cachedRegistry *CommandRegistry
+	registryOnce   sync.Once
+	registryMu     sync.RWMutex
+)
+
+// InitRegistry builds and caches the command registry. Call at startup with
+// the actual config to include ComfyUI workflow commands. Safe to call multiple
+// times — each call replaces the previous registry.
+func InitRegistry(config settings.AiBird) {
+	r := &CommandRegistry{
+		byLower: make(map[string]*CommandEntry),
 	}
 
-	// Add image commands if SD is enabled
-	if enableSd {
-		for _, cmd := range help.ImageHelp(config) {
-			commands = append(commands, cmd.Name)
-		}
-	}
-
-	// Add video commands if Video is enabled
-	if enableVideo {
-		for _, cmd := range help.VideoHelp(config) {
-			commands = append(commands, cmd.Name)
-		}
-	}
-
-	// Add text commands if AI is enabled
-	if enableAi {
-		for _, cmd := range help.TextHelp() {
-			commands = append(commands, cmd.Name)
-		}
-	}
-
-	// Add sound commands if sound is enabled
-	if enableSound {
-		for _, cmd := range help.SoundHelp(config) {
-			commands = append(commands, cmd.Name)
-		}
-	}
-
-	// Add admin commands if user is admin
-	if isAdmin {
-		for _, cmd := range help.AdminHelp() {
-			commands = append(commands, cmd.Name)
-		}
-	}
-
-	// Add owner commands if user is owner
-	if isOwner {
-		for _, cmd := range help.OwnerHelp() {
-			if cmd.Name != "" { // Skip empty command names
-				commands = append(commands, cmd.Name)
+	addAll := func(cmds []help.Help, cmdType string) {
+		for i := range cmds {
+			if cmds[i].Name == "" {
+				continue
+			}
+			key := strings.ToLower(cmds[i].Name)
+			if existing, exists := r.byLower[key]; exists {
+				logger.Warn("Command registry collision",
+					"command", cmds[i].Name,
+					"existing_type", existing.Type,
+					"new_type", cmdType)
+			}
+			r.byLower[key] = &CommandEntry{
+				Name:      cmds[i].Name,
+				Type:      cmdType,
+				Queueable: cmds[i].Queueable,
 			}
 		}
 	}
 
-	return commands
+	addAll(help.StandardHelp(), "standard")
+	addAll(help.AdminHelp(), "admin")
+	addAll(help.OwnerHelp(), "owner")
+	addAll(help.TextHelp(), "text")
+	addAll(help.ImageHelp(config), "image")
+	addAll(help.VideoHelp(config), "video")
+	addAll(help.SoundHelp(config), "sound")
+
+	registryMu.Lock()
+	cachedRegistry = r
+	registryMu.Unlock()
 }
 
-// GetAllCommandsUnfiltered returns all commands regardless of channel capabilities
-// This is useful for admin purposes or when you don't have channel context
-func GetAllCommandsUnfiltered(config settings.AiBird) []string {
-	return GetAllCommands(config, true, true, true, true, true, true)
+// getRegistry returns the cached registry, building a zero-config one if needed.
+// Thread-safe via sync.Once for the lazy init path.
+func getRegistry() *CommandRegistry {
+	registryOnce.Do(func() {
+		if cachedRegistry == nil {
+			InitRegistry(settings.AiBird{})
+		}
+	})
+	registryMu.RLock()
+	r := cachedRegistry
+	registryMu.RUnlock()
+	return r
 }
 
-// IsValidCommand checks if a command is in the list of valid commands
-// This ignores channel settings and returns true if the command exists anywhere
-func IsValidCommand(command string, config settings.AiBird) bool {
-	commands := GetAllCommandsUnfiltered(config)
+// lookup finds a command entry by name (case-insensitive).
+func (r *CommandRegistry) lookup(command string) *CommandEntry {
+	return r.byLower[strings.ToLower(command)]
+}
 
-	for _, cmd := range commands {
-		if cmd == command {
-			return true
+// GetAllCommands returns a sorted slice of available command names filtered by capabilities.
+func GetAllCommands(enableAi, enableSd, enableSound, enableVideo bool, isAdmin, isOwner bool) []string {
+	r := getRegistry()
+	var result []string
+	for _, entry := range r.byLower {
+		switch entry.Type {
+		case "standard":
+			result = append(result, entry.Name)
+		case "admin":
+			if isAdmin {
+				result = append(result, entry.Name)
+			}
+		case "owner":
+			if isOwner {
+				result = append(result, entry.Name)
+			}
+		case "text":
+			if enableAi {
+				result = append(result, entry.Name)
+			}
+		case "image":
+			if enableSd {
+				result = append(result, entry.Name)
+			}
+		case "video":
+			if enableVideo {
+				result = append(result, entry.Name)
+			}
+		case "sound":
+			if enableSound {
+				result = append(result, entry.Name)
+			}
 		}
 	}
-
-	return false
+	sort.Strings(result)
+	return result
 }
 
-// IsValidCommandForChannel checks if a command is valid for a specific channel with its capabilities
-func IsValidCommandForChannel(command string, config settings.AiBird, enableAi, enableSd, enableSound, enableVideo bool, isAdmin, isOwner bool) bool {
-	commands := GetAllCommands(config, enableAi, enableSd, enableSound, enableVideo, isAdmin, isOwner)
+// GetAllCommandsUnfiltered returns all commands regardless of channel capabilities.
+func GetAllCommandsUnfiltered() []string {
+	return GetAllCommands(true, true, true, true, true, true)
+}
 
-	for _, cmd := range commands {
-		if cmd == command {
-			return true
-		}
+// IsValidCommand checks if a command exists in the registry.
+// Case-sensitive: uses exact name match against help definitions.
+func IsValidCommand(command string) bool {
+	entry := getRegistry().lookup(command)
+	return entry != nil && entry.Name == command
+}
+
+// IsValidCommandForChannel checks if a command is valid for a specific channel.
+// Case-sensitive exact match, filtered by channel capabilities.
+func IsValidCommandForChannel(command string, enableAi, enableSd, enableSound, enableVideo bool, isAdmin, isOwner bool) bool {
+	entry := getRegistry().lookup(command)
+	if entry == nil || entry.Name != command {
+		return false
 	}
-
-	return false
+	switch entry.Type {
+	case "standard":
+		return true
+	case "admin":
+		return isAdmin
+	case "owner":
+		return isOwner
+	case "text":
+		return enableAi
+	case "image":
+		return enableSd
+	case "video":
+		return enableVideo
+	case "sound":
+		return enableSound
+	default:
+		return false
+	}
 }
 
-// IsStandardCommand checks if a command is in the list of standard commands
+// IsStandardCommand checks if a command is in the list of standard commands (case-sensitive).
 func IsStandardCommand(command string) bool {
-	for _, cmd := range help.StandardHelp() {
-		if cmd.Name == command {
-			return true
-		}
-	}
-	return false
+	entry := getRegistry().lookup(command)
+	return entry != nil && entry.Type == "standard" && entry.Name == command
 }
 
-// IsAdminCommand checks if a command is in the list of admin commands
+// IsAdminCommand checks if a command is in the list of admin commands (case-sensitive).
 func IsAdminCommand(command string) bool {
-	for _, cmd := range help.AdminHelp() {
-		if cmd.Name == command {
-			return true
-		}
-	}
-	return false
+	entry := getRegistry().lookup(command)
+	return entry != nil && entry.Type == "admin" && entry.Name == command
 }
 
-// IsOwnerCommand checks if a command is in the list of owner commands
+// IsOwnerCommand checks if a command is in the list of owner commands (case-sensitive).
 func IsOwnerCommand(command string) bool {
-	for _, cmd := range help.OwnerHelp() {
-		if cmd.Name == command {
-			return true
-		}
-	}
-	return false
+	entry := getRegistry().lookup(command)
+	return entry != nil && entry.Type == "owner" && entry.Name == command
 }
 
-// IsSoundCommand checks if a command is in the list of sound commands
-func IsSoundCommand(command string, config settings.AiBird) bool {
-	for _, cmd := range help.SoundHelp(config) {
-		if cmd.Name == command {
-			return true
-		}
-	}
-	return false
+// IsSoundCommand checks if a command is in the list of sound commands (case-insensitive).
+func IsSoundCommand(command string) bool {
+	entry := getRegistry().lookup(command)
+	return entry != nil && entry.Type == "sound"
 }
 
-// IsVideoCommand checks if a command is in the list of video commands
-func IsVideoCommand(command string, config settings.AiBird) bool {
-	for _, cmd := range help.VideoHelp(config) {
-		if cmd.Name == command {
-			return true
-		}
-	}
-	return false
+// IsVideoCommand checks if a command is in the list of video commands (case-insensitive).
+func IsVideoCommand(command string) bool {
+	entry := getRegistry().lookup(command)
+	return entry != nil && entry.Type == "video"
 }
 
-// IsTextCommand checks if a command is a text command (from help.TextHelp)
+// IsTextCommand checks if a command is a text command (case-insensitive).
 func IsTextCommand(action string) bool {
-	for _, cmd := range help.TextHelp() {
-		if strings.EqualFold(action, cmd.Name) {
-			return true
-		}
-	}
-	return false
+	entry := getRegistry().lookup(action)
+	return entry != nil && entry.Type == "text"
 }
 
-// IsImageCommand checks if a command is an image generation command
-func IsImageCommand(command string, config settings.AiBird) bool {
-	for _, cmd := range help.ImageHelp(config) {
-		if strings.EqualFold(command, cmd.Name) {
-			return true
-		}
-	}
-	return false
+// IsImageCommand checks if a command is an image generation command (case-insensitive).
+func IsImageCommand(command string) bool {
+	entry := getRegistry().lookup(command)
+	return entry != nil && entry.Type == "image"
 }

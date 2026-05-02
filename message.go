@@ -60,12 +60,11 @@ func handlePrivMsg(c *girc.Client, e girc.Event, network *networks.Network, conf
 	irc.ValidateCommand = func(cmdName string) bool {
 		if irc.Channel == nil {
 			// Private Message
-			return commands.IsValidCommand(cmdName, config.AiBird)
+			return commands.IsValidCommand(cmdName)
 		}
 		// Channel Message
 		return commands.IsValidCommandForChannel(
 			cmdName,
-			config.AiBird,
 			irc.Channel.Ai,
 			irc.Channel.Sd,
 			irc.Channel.Sound,

@@ -3,25 +3,19 @@ package commands
 import (
 	"testing"
 
-	"aibird/settings"
+	"aibird/logger"
 )
 
-// minimalTestConfig returns a minimal config for command validation tests.
-// It doesn't have ComfyUI workflows, so image/sound/video commands come from
-// the hardcoded help lists only.
-func minimalTestConfig() settings.AiBird {
-	return settings.AiBird{
-		ActionTrigger: "!",
-	}
+func TestMain(m *testing.M) {
+	logger.Init(logger.Config{Level: logger.LevelWarn, Format: "text"})
+	m.Run()
 }
 
 // TestIsValidCommand_KnownStandardCommands verifies standard commands are recognized.
 func TestIsValidCommand_KnownStandardCommands(t *testing.T) {
-	config := minimalTestConfig()
-
 	standardCmds := []string{"hello", "status", "help", "seen", "support", "models", "leaderboard"}
 	for _, cmd := range standardCmds {
-		if !IsValidCommand(cmd, config) {
+		if !IsValidCommand(cmd) {
 			t.Errorf("IsValidCommand(%q) should be true for standard command", cmd)
 		}
 	}
@@ -29,23 +23,19 @@ func TestIsValidCommand_KnownStandardCommands(t *testing.T) {
 
 // TestIsValidCommand_CaseSensitive verifies command matching is case-sensitive.
 func TestIsValidCommand_CaseSensitive(t *testing.T) {
-	config := minimalTestConfig()
-
-	if IsValidCommand("Hello", config) {
+	if IsValidCommand("Hello") {
 		t.Error("IsValidCommand should be case-sensitive: 'Hello' should not match 'hello'")
 	}
-	if IsValidCommand("STATUS", config) {
+	if IsValidCommand("STATUS") {
 		t.Error("IsValidCommand should be case-sensitive: 'STATUS' should not match 'status'")
 	}
 }
 
 // TestIsValidCommand_UnknownCommand verifies unknown commands return false.
 func TestIsValidCommand_UnknownCommand(t *testing.T) {
-	config := minimalTestConfig()
-
 	unknownCmds := []string{"foo", "bar", "nonexistent", ""}
 	for _, cmd := range unknownCmds {
-		if IsValidCommand(cmd, config) {
+		if IsValidCommand(cmd) {
 			t.Errorf("IsValidCommand(%q) should be false for unknown command", cmd)
 		}
 	}
@@ -183,56 +173,47 @@ func TestIsTextCommand_CaseInsensitive(t *testing.T) {
 
 // TestIsValidCommandForChannel_AiDisabled verifies AI commands filtered when AI is off.
 func TestIsValidCommandForChannel_AiDisabled(t *testing.T) {
-	config := minimalTestConfig()
-
 	// AI commands should not be valid when AI is disabled
-	if IsValidCommandForChannel("ai", config, false, true, true, true, false, false) {
+	if IsValidCommandForChannel("ai", false, true, true, true, false, false) {
 		t.Error("'ai' command should not be valid when AI is disabled")
 	}
 
 	// AI commands should be valid when AI is enabled
-	if !IsValidCommandForChannel("ai", config, true, true, true, true, false, false) {
+	if !IsValidCommandForChannel("ai", true, true, true, true, false, false) {
 		t.Error("'ai' command should be valid when AI is enabled")
 	}
 }
 
 // TestIsValidCommandForChannel_StandardAlwaysAvailable verifies standard commands are always available.
 func TestIsValidCommandForChannel_StandardAlwaysAvailable(t *testing.T) {
-	config := minimalTestConfig()
-
 	// Standard commands should work regardless of feature flags
-	if !IsValidCommandForChannel("hello", config, false, false, false, false, false, false) {
+	if !IsValidCommandForChannel("hello", false, false, false, false, false, false) {
 		t.Error("'hello' should always be valid")
 	}
-	if !IsValidCommandForChannel("status", config, false, false, false, false, false, false) {
+	if !IsValidCommandForChannel("status", false, false, false, false, false, false) {
 		t.Error("'status' should always be valid")
 	}
 }
 
 // TestIsValidCommandForChannel_AdminCommands verifies admin commands require admin flag.
 func TestIsValidCommandForChannel_AdminCommands(t *testing.T) {
-	config := minimalTestConfig()
-
 	// Admin commands should not be valid for non-admin
-	if IsValidCommandForChannel("op", config, true, true, true, true, false, false) {
+	if IsValidCommandForChannel("op", true, true, true, true, false, false) {
 		t.Error("'op' should not be valid for non-admin user")
 	}
 
 	// Admin commands should be valid for admin
-	if !IsValidCommandForChannel("op", config, true, true, true, true, true, false) {
+	if !IsValidCommandForChannel("op", true, true, true, true, true, false) {
 		t.Error("'op' should be valid for admin user")
 	}
 }
 
 // TestGetAllCommands_ReturnsKnownCommands verifies GetAllCommands returns at least standard commands.
 func TestGetAllCommands_ReturnsKnownCommands(t *testing.T) {
-	config := minimalTestConfig()
+	cmds := GetAllCommands(true, true, true, true, false, false)
 
-	commands := GetAllCommands(config, true, true, true, true, false, false)
-
-	// Should contain at least the standard commands
 	cmdMap := make(map[string]bool)
-	for _, cmd := range commands {
+	for _, cmd := range cmds {
 		cmdMap[cmd] = true
 	}
 
@@ -245,13 +226,10 @@ func TestGetAllCommands_ReturnsKnownCommands(t *testing.T) {
 
 // TestGetAllCommandsUnfiltered_ReturnsAll verifies unfiltered returns everything.
 func TestGetAllCommandsUnfiltered_ReturnsAll(t *testing.T) {
-	config := minimalTestConfig()
+	cmds := GetAllCommandsUnfiltered()
 
-	commands := GetAllCommandsUnfiltered(config)
-
-	// Should contain commands from all categories
 	cmdMap := make(map[string]bool)
-	for _, cmd := range commands {
+	for _, cmd := range cmds {
 		cmdMap[cmd] = true
 	}
 
@@ -270,5 +248,38 @@ func TestGetAllCommandsUnfiltered_ReturnsAll(t *testing.T) {
 	// Text (unfiltered includes AI)
 	if !cmdMap["ai"] {
 		t.Error("Should contain text command 'ai'")
+	}
+}
+
+// TestIsQueueableFromHelp verifies queueable flag from registry.
+func TestIsQueueableFromHelp(t *testing.T) {
+	tests := []struct {
+		action string
+		want   bool
+	}{
+		{"ai", true},       // text command, queueable
+		{"glm", false},     // text command, not queueable
+		{"hello", false},   // standard command, not queueable
+		{"user", false},    // admin command, not queueable
+		{"debug", false},   // owner command, not queueable
+		{"unknown", false}, // not in registry
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.action, func(t *testing.T) {
+			if got := IsQueueableFromHelp(tt.action); got != tt.want {
+				t.Errorf("IsQueueableFromHelp(%q) = %v, want %v", tt.action, got, tt.want)
+			}
+		})
+	}
+}
+
+// TestGetAllCommands_Sorted verifies GetAllCommands returns sorted output.
+func TestGetAllCommands_Sorted(t *testing.T) {
+	cmds := GetAllCommands(true, true, true, true, false, false)
+	for i := 1; i < len(cmds); i++ {
+		if cmds[i] < cmds[i-1] {
+			t.Errorf("GetAllCommands not sorted: %q > %q at index %d", cmds[i-1], cmds[i], i)
+		}
 	}
 }

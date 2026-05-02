@@ -5,45 +5,30 @@ import (
 	"strings"
 
 	"aibird/image/comfyui"
-	"aibird/irc/commands/help"
 	"aibird/irc/state"
 	"aibird/logger"
-	"aibird/settings"
 	"aibird/shared/meta"
 )
 
-// IsQueueableFromHelp checks if a command is queueable using the help system
-func IsQueueableFromHelp(action string, config settings.AiBird) bool {
-	// Check all help categories for the command
-	allHelp := []help.Help{}
-
-	// Add all help categories
-	allHelp = append(allHelp, help.StandardHelp()...)
-	allHelp = append(allHelp, help.ImageHelp(config)...)
-	allHelp = append(allHelp, help.VideoHelp(config)...)
-	allHelp = append(allHelp, help.TextHelp()...)
-	allHelp = append(allHelp, help.SoundHelp(config)...)
-	allHelp = append(allHelp, help.AdminHelp()...)
-	allHelp = append(allHelp, help.OwnerHelp()...)
-
-	// Look for the command in the help system
-	for _, cmd := range allHelp {
-		if strings.EqualFold(action, cmd.Name) {
-			logger.Debug("Found command in help system", "action", action, "queueable", cmd.Queueable)
-			return cmd.Queueable
-		}
+// IsQueueableFromHelp checks if a command is queueable using the command registry.
+func IsQueueableFromHelp(action string) bool {
+	// O(1) registry lookup
+	entry := getRegistry().lookup(action)
+	if entry != nil {
+		logger.Debug("Found command in registry", "action", action, "queueable", entry.Queueable)
+		return entry.Queueable
 	}
 
-	// If not found in help system, check if it's a ComfyUI workflow
+	// If not found in registry, check if it's a ComfyUI workflow
 	// All ComfyUI workflows are assumed to be queueable
 	for _, workflow := range comfyui.GetCachedWorkflows() {
 		if strings.EqualFold(action, workflow) {
 			logger.Debug("Found ComfyUI workflow", "action", action, "queueable", true)
-			return true // All ComfyUI workflows are queueable
+			return true
 		}
 	}
 
-	logger.Debug("Command not found in help system or workflows", "action", action, "queueable", false)
+	logger.Debug("Command not found in registry or workflows", "action", action, "queueable", false)
 	return false
 }
 
@@ -57,9 +42,7 @@ func IsQueueableCommand(s state.State) bool {
 
 	logger.Debug("IsQueueableCommand: checking action", "action", action)
 
-	// Use the help system to determine if command is queueable
-	config := s.Config.AiBird
-	isQueueable := IsQueueableFromHelp(action, config)
+	isQueueable := IsQueueableFromHelp(action)
 
 	logger.Debug("IsQueueableCommand: result", "action", action, "queueable", isQueueable)
 	return isQueueable
@@ -74,42 +57,32 @@ func RunQueueableCommand(ctx context.Context, s state.State, gpu meta.GPUType) {
 	logger.Debug("Routing queue command", "action", s.Action(), "actionLower", actionLower)
 
 	// Route based on the command action to existing handlers
-	// Prioritize text commands over image commands since they are more specific
 	switch {
 	case IsTextCommand(actionLower):
 		logger.Debug("Command categorized as text", "action", s.Action())
-		// Use existing ParseAiText which already has upload functionality
 		ParseAiText(s)
-	case isImageCommand(actionLower, s.Config.AiBird):
+	case isImageCommand(actionLower):
 		logger.Debug("Command categorized as image", "action", s.Action())
-		// Use existing ParseAiImageWithGPU which accepts GPU parameter
 		ParseAiImageWithGPU(s, gpu)
-	case isVideoCommand(actionLower, s.Config.AiBird):
+	case isVideoCommand(actionLower):
 		logger.Debug("Command categorized as video", "action", s.Action())
-		// Use existing ParseAiVideoWithGPU which accepts GPU parameter
 		ParseAiVideoWithGPU(s, gpu)
-	case isSoundCommand(actionLower, s.Config.AiBird):
+	case isSoundCommand(actionLower):
 		logger.Debug("Command categorized as sound", "action", s.Action())
-		// Use existing ParseAiSoundWithGPU which accepts GPU parameter
 		ParseAiSoundWithGPU(s, gpu)
 	default:
 		logger.Debug("Command categorized as default (image)", "action", s.Action())
-		// Fallback for custom workflows - use image handler with GPU
 		ParseAiImageWithGPU(s, gpu)
 	}
 }
 
-// Helper functions to categorize commands based on help system
-func isImageCommand(action string, config settings.AiBird) bool {
-	// Get image commands from help system FIRST
-	imageHelp := help.ImageHelp(config)
-	for _, cmd := range imageHelp {
-		if strings.EqualFold(action, cmd.Name) {
-			return true
-		}
-	}
+// Helper functions to categorize commands based on registry and workflow metadata
 
-	// Check cached workflow metadata for image type
+func isImageCommand(action string) bool {
+	entry := getRegistry().lookup(action)
+	if entry != nil && entry.Type == "image" {
+		return true
+	}
 	meta := comfyui.GetCachedMeta(action)
 	if meta != nil && meta.Type == "image" {
 		return true
@@ -117,16 +90,11 @@ func isImageCommand(action string, config settings.AiBird) bool {
 	return false
 }
 
-func isVideoCommand(action string, config settings.AiBird) bool {
-	// Get video commands from help system FIRST
-	videoHelp := help.VideoHelp(config)
-	for _, cmd := range videoHelp {
-		if strings.EqualFold(action, cmd.Name) {
-			return true
-		}
+func isVideoCommand(action string) bool {
+	entry := getRegistry().lookup(action)
+	if entry != nil && entry.Type == "video" {
+		return true
 	}
-
-	// Check cached workflow metadata for video type
 	meta := comfyui.GetCachedMeta(action)
 	if meta != nil && meta.Type == "video" {
 		return true
@@ -134,16 +102,11 @@ func isVideoCommand(action string, config settings.AiBird) bool {
 	return false
 }
 
-func isSoundCommand(action string, config settings.AiBird) bool {
-	// Get sound commands from help system FIRST
-	soundHelp := help.SoundHelp(config)
-	for _, cmd := range soundHelp {
-		if strings.EqualFold(action, cmd.Name) {
-			return true
-		}
+func isSoundCommand(action string) bool {
+	entry := getRegistry().lookup(action)
+	if entry != nil && entry.Type == "sound" {
+		return true
 	}
-
-	// Check cached workflow metadata for sound type
 	meta := comfyui.GetCachedMeta(action)
 	if meta != nil && meta.Type == "sound" {
 		return true
