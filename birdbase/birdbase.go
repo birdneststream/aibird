@@ -50,8 +50,9 @@ func Init() {
 
 // NewSQLiteDB creates a new SQLite database
 func NewSQLiteDB(dbPath string) (*SQLiteDB, error) {
-	// Open with optimized settings
-	db, err := sql.Open("sqlite3", dbPath+"?_journal_mode=WAL&_synchronous=NORMAL&_cache_size=-64000&_temp_store=memory")
+	// Open with optimized settings: WAL journal, normal sync, 64MB cache, memory temp store,
+	// foreign keys enabled, 5s busy timeout for concurrent access
+	db, err := sql.Open("sqlite3", dbPath+"?_journal_mode=WAL&_synchronous=NORMAL&_cache_size=-64000&_temp_store=memory&_foreign_keys=1&_busy_timeout=5000")
 	if err != nil {
 		return nil, err
 	}
@@ -1351,7 +1352,7 @@ func (s *SQLiteDB) saveUsersToDatabase(tx *sql.Tx, networkID int64, users []User
 	for i, user := range deduplicatedUsers {
 		logger.Debug("Upserting user", "network_id", networkID, "index", i, "nickname", user.NickName, "ident", user.Ident, "host", user.Host)
 
-		// Use INSERT OR REPLACE based on unique constraint (network_id, ident, host)
+		// Use ON CONFLICT to upsert based on unique constraint (network_id, ident, host)
 		var userID int64
 		err := tx.QueryRow(`
 			INSERT INTO irc_users (network_id, nickname, ident, host, first_seen, latest_activity,
@@ -1460,70 +1461,74 @@ func (s *SQLiteDB) LoadNetworkUsers(networkName string) ([]UserData, error) {
 		return nil, err
 	}
 
-	// Load users
+	// Load users with modes in a single JOIN query (eliminates N+1 per-user mode queries)
 	rows, err := s.db.Query(`
-		SELECT id, nickname, ident, host, first_seen, latest_activity, latest_chat,
-			is_admin, is_owner, ignored, access_level, ai_service, ai_model,
-			ai_base_prompt, ai_personality
-		FROM irc_users WHERE network_id = ?
+		SELECT u.id, u.nickname, u.ident, u.host, u.first_seen, u.latest_activity, u.latest_chat,
+			u.is_admin, u.is_owner, u.ignored, u.access_level, u.ai_service, u.ai_model,
+			u.ai_base_prompt, u.ai_personality,
+			um.mode_type, um.modes, c.name as channel_name
+		FROM irc_users u
+		LEFT JOIN user_modes um ON um.user_id = u.id
+		LEFT JOIN channels c ON um.channel_id = c.id
+		WHERE u.network_id = ?
+		ORDER BY u.id, um.mode_type
 	`, networkID)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
 
-	var users []UserData
+	userMap := make(map[int64]*UserData)
+
 	for rows.Next() {
+		var userID int64
 		var user UserData
-		err = rows.Scan(&user.ID, &user.NickName, &user.Ident, &user.Host, &user.FirstSeen,
+		var modeType sql.NullString
+		var modesJSON []byte
+		var channelName sql.NullString
+
+		err = rows.Scan(&userID, &user.NickName, &user.Ident, &user.Host, &user.FirstSeen,
 			&user.LatestActivity, &user.LatestChat, &user.IsAdmin, &user.IsOwner, &user.Ignored,
-			&user.AccessLevel, &user.AiService, &user.AiModel, &user.AiBasePrompt, &user.AiPersonality)
+			&user.AccessLevel, &user.AiService, &user.AiModel, &user.AiBasePrompt, &user.AiPersonality,
+			&modeType, &modesJSON, &channelName)
 		if err != nil {
 			return nil, err
 		}
+
 		user.NetworkID = int(networkID)
 
-		// Load user modes with proper channel names
-		modeRows, modeErr := s.db.Query(`
-			SELECT um.mode_type, um.modes, c.name as channel_name
-			FROM user_modes um
-			JOIN channels c ON um.channel_id = c.id
-			WHERE um.user_id = ?
-		`, user.ID)
-		if modeErr != nil {
-			return nil, modeErr
+		// Accumulate modes onto existing user, or create new user entry
+		if existing, ok := userMap[userID]; ok {
+			user = *existing
+		} else {
+			user.ID = int(userID)
+			userMap[userID] = &user
 		}
 
-		for modeRows.Next() {
-			var modeType string
-			var modesJSON []byte
-			var channelName string
-			err = modeRows.Scan(&modeType, &modesJSON, &channelName)
-			if err != nil {
-				modeRows.Close()
-				return nil, err
-			}
-
+		// Process mode row if present (LEFT JOIN may produce NULLs)
+		if modeType.Valid && modesJSON != nil {
 			var modes []string
 			if jsonErr := json.Unmarshal(modesJSON, &modes); jsonErr != nil {
-				modeRows.Close()
 				return nil, jsonErr
 			}
 
 			modeData := UserModeData{
-				Channel: channelName,
+				Channel: channelName.String,
 				Modes:   modes,
 			}
 
-			if modeType == "preserved" {
+			if modeType.String == "preserved" {
 				user.PreservedModes = append(user.PreservedModes, modeData)
 			} else {
 				user.CurrentModes = append(user.CurrentModes, modeData)
 			}
+			userMap[userID] = &user
 		}
-		modeRows.Close()
+	}
 
-		users = append(users, user)
+	users := make([]UserData, 0, len(userMap))
+	for _, user := range userMap {
+		users = append(users, *user)
 	}
 
 	return users, nil
