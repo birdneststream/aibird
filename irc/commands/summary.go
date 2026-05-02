@@ -1,6 +1,7 @@
 package commands
 
 import (
+	"context"
 	"fmt"
 	"strconv"
 	"strings"
@@ -8,18 +9,19 @@ import (
 	"aibird/birdbase"
 	"aibird/irc/state"
 	"aibird/logger"
+	"aibird/queue"
+	"aibird/shared/meta"
 	"aibird/text"
-	"aibird/text/glm"
 )
 
-func ParseSummary(irc state.State) {
+func ParseSummary(irc state.State, q *queue.ProcessingQueue) {
 	if irc.Channel == nil {
 		irc.Send("Error: summary can only be used in a channel.")
 		return
 	}
 
-	if irc.Config.Glm.ApiKey == "" {
-		irc.Send("Error: AI summary requires GLM to be configured.")
+	if !hasTextProviderConfig(irc.Config) {
+		irc.Send("Error: no AI provider available. Configure LlamaCpp or GLM.")
 		return
 	}
 
@@ -97,7 +99,25 @@ func ParseSummary(irc state.State) {
 		return
 	}
 
-	go generateSummary(irc, messages, hours, persona)
+	// Queue the AI generation — LlamaCpp uses the GPU and must be serialized
+	queueItem := queue.QueueItem{
+		Item: queue.Item{
+			State: irc,
+			Function: func(ctx context.Context, s state.State, gpu meta.GPUType) {
+				generateSummary(s, messages, hours, persona)
+			},
+		},
+		Model: "summary",
+		User:  irc.User,
+		GPU:   meta.GPU4090,
+	}
+
+	msg, err := q.Enqueue(queueItem)
+	if err != nil {
+		irc.SendError(err.Error())
+	} else if msg != "" {
+		irc.Send(msg)
+	}
 }
 
 func generateSummary(irc state.State, messages []birdbase.ChannelMessage, hours int, persona string) {
@@ -116,7 +136,7 @@ func generateSummary(irc state.State, messages []birdbase.ChannelMessage, hours 
 		userPrompt += fmt.Sprintf("\n\nPersona/Angle for this summary: %s", persona)
 	}
 
-	answer, err := glm.SingleRequestWithSystem(systemPrompt, userPrompt, irc.Config.Glm)
+	answer, err := singleRequestWithFallback(systemPrompt, userPrompt, irc.Config)
 	if err != nil {
 		logger.Error("Failed to generate summary", "error", err)
 		irc.Send("Error: failed to generate summary. Please try again later.")

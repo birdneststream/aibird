@@ -1,6 +1,7 @@
 package commands
 
 import (
+	"context"
 	"crypto/rand"
 	"encoding/json"
 	"fmt"
@@ -13,8 +14,9 @@ import (
 	"time"
 
 	"aibird/irc/state"
+	"aibird/queue"
 	"aibird/settings"
-	"aibird/text/glm"
+	"aibird/shared/meta"
 )
 
 var (
@@ -107,24 +109,54 @@ func fetchRedditHeadlines(proxy settings.Proxy) ([]string, error) {
 	return titles, nil
 }
 
+// callAIAndSend sends a "please wait" message and calls the AI with the given prompt.
+// Used by commands that were queued (the AI call runs inside the queue processor).
 func callAIAndSend(irc state.State, prompt string, message string) {
 	irc.Send(fmt.Sprintf("%s, %s", irc.User.NickName, message))
 
-	if irc.Config.Glm.ApiKey == "" {
-		irc.Send("Error: GLM API key is not configured.")
+	if !hasTextProviderConfig(irc.Config) {
+		irc.Send("Error: no AI provider available. Configure LlamaCpp or GLM.")
 		return
 	}
 
-	answer, err := glm.SingleRequest(prompt, irc.Config.Glm)
+	answer, err := singleRequestWithFallback("", prompt, irc.Config)
 	if err != nil {
-		irc.Send("Error getting summary from AI: " + err.Error())
+		irc.Send("Error getting AI response: " + err.Error())
 		return
 	}
 
 	irc.Send(answer)
 }
 
-func ParseHeadlines(irc state.State) {
+// queueAIAndSend enqueues an AI text generation request through the GPU queue.
+// The Reddit fetch or other prep work should be done before calling this.
+func queueAIAndSend(irc state.State, q *queue.ProcessingQueue, prompt string, message string, model string) {
+	if q == nil {
+		callAIAndSend(irc, prompt, message)
+		return
+	}
+
+	queueItem := queue.QueueItem{
+		Item: queue.Item{
+			State: irc,
+			Function: func(ctx context.Context, s state.State, gpu meta.GPUType) {
+				callAIAndSend(s, prompt, message)
+			},
+		},
+		Model: model,
+		User:  irc.User,
+		GPU:   meta.GPU4090,
+	}
+
+	msg, err := q.Enqueue(queueItem)
+	if err != nil {
+		irc.SendError(err.Error())
+	} else if msg != "" {
+		irc.Send(msg)
+	}
+}
+
+func ParseHeadlines(irc state.State, q *queue.ProcessingQueue) {
 	go func() {
 		headlines, err := fetchRedditHeadlines(irc.Config.AiBird.Proxy)
 		if err != nil {
@@ -149,11 +181,11 @@ func ParseHeadlines(irc state.State) {
 		prompt := fmt.Sprintf("As a man who is skeptical and think the satanists control everything, summarize the following headlines into a single, concise paragraph blaming the satanists and the illuminati:\n\n%s", allTitles)
 		message := "fetching a summary of the latest headlines..."
 
-		callAIAndSend(irc, prompt, message)
+		queueAIAndSend(irc, q, prompt, message, "headlies")
 	}()
 }
 
-func ParseIrcNews(irc state.State) {
+func ParseIrcNews(irc state.State, q *queue.ProcessingQueue) {
 	go func() {
 		headlines, err := fetchRedditHeadlines(irc.Config.AiBird.Proxy)
 		if err != nil {
@@ -229,6 +261,6 @@ Here are the rules for the rewrite:
 Headline to rewrite: %s`, randomHeadline)
 		message := "Getting the latest IRC news..."
 
-		callAIAndSend(irc, prompt, message)
+		queueAIAndSend(irc, q, prompt, message, "ircnews")
 	}()
 }

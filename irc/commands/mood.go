@@ -1,24 +1,26 @@
 package commands
 
 import (
+	"context"
 	"fmt"
 	"strings"
 
 	"aibird/birdbase"
 	"aibird/irc/state"
 	"aibird/logger"
+	"aibird/queue"
+	"aibird/shared/meta"
 	"aibird/text"
-	"aibird/text/glm"
 )
 
-func ParseMood(irc state.State) {
+func ParseMood(irc state.State, q *queue.ProcessingQueue) {
 	if irc.Channel == nil {
 		irc.Send("Error: mood can only be used in a channel.")
 		return
 	}
 
-	if irc.Config.Glm.ApiKey == "" {
-		irc.Send("Error: AI mood requires GLM to be configured.")
+	if !hasTextProviderConfig(irc.Config) {
+		irc.Send("Error: no AI provider available. Configure LlamaCpp or GLM.")
 		return
 	}
 
@@ -51,7 +53,25 @@ func ParseMood(irc state.State) {
 		return
 	}
 
-	go generateMood(irc, messages, hours)
+	// Queue the AI generation — LlamaCpp uses the GPU and must be serialized
+	queueItem := queue.QueueItem{
+		Item: queue.Item{
+			State: irc,
+			Function: func(ctx context.Context, s state.State, gpu meta.GPUType) {
+				generateMood(s, messages, hours)
+			},
+		},
+		Model: "mood",
+		User:  irc.User,
+		GPU:   meta.GPU4090,
+	}
+
+	msg, err := q.Enqueue(queueItem)
+	if err != nil {
+		irc.SendError(err.Error())
+	} else if msg != "" {
+		irc.Send(msg)
+	}
 }
 
 func generateMood(irc state.State, messages []birdbase.ChannelMessage, hours int) {
@@ -66,7 +86,7 @@ func generateMood(irc state.State, messages []birdbase.ChannelMessage, hours int
 
 	userPrompt := formatEventLog(irc.Channel.Name, hours, messages)
 
-	answer, err := glm.SingleRequestWithSystem(systemPrompt, userPrompt, irc.Config.Glm)
+	answer, err := singleRequestWithFallback(systemPrompt, userPrompt, irc.Config)
 	if err != nil {
 		logger.Error("Failed to generate mood", "error", err)
 		irc.Send("Error: failed to analyze the mood. Please try again later.")

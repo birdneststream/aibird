@@ -6,7 +6,6 @@ import (
 	"strings"
 	"time"
 
-	"aibird/birdbase"
 	"aibird/helpers"
 	"aibird/http/request"
 	"aibird/irc/state"
@@ -56,10 +55,7 @@ func ChatRequest(irc state.State) (string, error) {
 	}
 
 	// Get the chat history from the cache if it exists
-	var chatHistory []text.Message
-	if birdbase.Has(irc.UserAiChatCacheKey()) {
-		chatHistory = text.GetChatCache(irc.UserAiChatCacheKey())
-	}
+	chatHistory := text.GetChatCache(irc.UserAiChatCacheKey())
 
 	// Append the new user message to the cache before making the request
 	text.AppendChatCache(irc.UserAiChatCacheKey(), "user", message, irc.Config.AiBird.AiChatContextLimit)

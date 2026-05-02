@@ -142,9 +142,9 @@ func ParseStandardWithQueue(irc state.State, q *queue.ProcessingQueue) {
 		}
 		return
 	case "headlies":
-		ParseHeadlines(irc)
+		ParseHeadlines(irc, q)
 	case "ircnews":
-		ParseIrcNews(irc)
+		ParseIrcNews(irc, q)
 	case "play":
 		ParsePlay(irc)
 	case "record":
@@ -152,17 +152,17 @@ func ParseStandardWithQueue(irc state.State, q *queue.ProcessingQueue) {
 	case "leaderboard":
 		ParseLeaderboard(irc)
 	case "summary":
-		ParseSummary(irc)
+		ParseSummary(irc, q)
 	case "recall":
 		ParseRecall(irc)
 	case "top":
 		ParseTop(irc)
 	case "mood":
-		ParseMood(irc)
+		ParseMood(irc, q)
 	case "story":
-		ParseStory(irc)
+		ParseStory(irc, q)
 	case "vibe":
-		ParseVibe(irc)
+		ParseVibe(irc, q)
 	}
 }
 

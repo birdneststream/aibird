@@ -1,22 +1,23 @@
 package commands
 
 import (
+	"context"
 	"fmt"
 
 	"aibird/birdbase"
 	"aibird/image/comfyui"
 	"aibird/irc/state"
 	"aibird/logger"
+	"aibird/queue"
+	"aibird/shared/meta"
 	"aibird/text"
-	"aibird/text/glm"
-
-	meta "aibird/shared/meta"
 )
 
 // ParseVibe generates a visual representation of the channel's current vibe.
-// It uses GLM to analyze recent conversation and produce a Z-Image prompt,
-// then sends that prompt through the ComfyUI zimage workflow.
-func ParseVibe(irc state.State) {
+// It uses the AI provider (LlamaCpp with GLM fallback) to analyze recent
+// conversation and produce a Z-Image prompt, then sends that prompt through
+// the ComfyUI zimage workflow.
+func ParseVibe(irc state.State, q *queue.ProcessingQueue) {
 	if irc.Channel == nil {
 		irc.Send("Error: vibe can only be used in a channel.")
 		return
@@ -27,8 +28,8 @@ func ParseVibe(irc state.State) {
 		return
 	}
 
-	if irc.Config.Glm.ApiKey == "" {
-		irc.Send("Error: !vibe requires GLM to be configured.")
+	if !hasTextProviderConfig(irc.Config) {
+		irc.Send("Error: no AI provider available. Configure LlamaCpp or GLM.")
 		return
 	}
 
@@ -72,11 +73,29 @@ func ParseVibe(irc state.State) {
 		return
 	}
 
-	go generateVibe(irc, messages, hours)
+	// Queue the entire vibe pipeline — both AI text gen and ComfyUI image gen use the GPU
+	queueItem := queue.QueueItem{
+		Item: queue.Item{
+			State: irc,
+			Function: func(ctx context.Context, s state.State, gpu meta.GPUType) {
+				generateVibe(s, messages, hours)
+			},
+		},
+		Model: "vibe",
+		User:  irc.User,
+		GPU:   meta.GPU4090,
+	}
+
+	msg, err := q.Enqueue(queueItem)
+	if err != nil {
+		irc.SendError(err.Error())
+	} else if msg != "" {
+		irc.Send(msg)
+	}
 }
 
 // generateVibe runs the two-step pipeline in a goroutine:
-//  1. GLM analyzes the conversation log and produces a Z-Image prompt.
+//  1. The AI provider analyzes the conversation log and produces a Z-Image prompt.
 //  2. ComfyUI processes the prompt via the zimage workflow and uploads the result.
 func generateVibe(irc state.State, messages []birdbase.ChannelMessage, hours int) {
 	irc.Send(fmt.Sprintf("%s, reading the room for the last %dh and painting the vibe...", irc.User.NickName, hours))
@@ -91,7 +110,7 @@ func generateVibe(irc state.State, messages []birdbase.ChannelMessage, hours int
 
 	userPrompt := formatEventLog(irc.Channel.Name, hours, messages)
 
-	imagePrompt, err := glm.SingleRequestWithSystem(systemPrompt, userPrompt, irc.Config.Glm)
+	imagePrompt, err := singleRequestWithFallback(systemPrompt, userPrompt, irc.Config)
 	if err != nil {
 		logger.Error("Failed to generate vibe prompt", "error", err)
 		irc.Send("Error: failed to analyze the channel vibe. Please try again later.")

@@ -1,23 +1,25 @@
 package commands
 
 import (
+	"context"
 	"fmt"
 
 	"aibird/birdbase"
 	"aibird/irc/state"
 	"aibird/logger"
+	"aibird/queue"
+	"aibird/shared/meta"
 	"aibird/text"
-	"aibird/text/glm"
 )
 
-func ParseStory(irc state.State) {
+func ParseStory(irc state.State, q *queue.ProcessingQueue) {
 	if irc.Channel == nil {
 		irc.Send("Error: story can only be used in a channel.")
 		return
 	}
 
-	if irc.Config.Glm.ApiKey == "" {
-		irc.Send("Error: AI story requires GLM to be configured.")
+	if !hasTextProviderConfig(irc.Config) {
+		irc.Send("Error: no AI provider available. Configure LlamaCpp or GLM.")
 		return
 	}
 
@@ -49,7 +51,25 @@ func ParseStory(irc state.State) {
 		return
 	}
 
-	go generateStory(irc, messages, hours, persona)
+	// Queue the AI generation — LlamaCpp uses the GPU and must be serialized
+	queueItem := queue.QueueItem{
+		Item: queue.Item{
+			State: irc,
+			Function: func(ctx context.Context, s state.State, gpu meta.GPUType) {
+				generateStory(s, messages, hours, persona)
+			},
+		},
+		Model: "story",
+		User:  irc.User,
+		GPU:   meta.GPU4090,
+	}
+
+	msg, err := q.Enqueue(queueItem)
+	if err != nil {
+		irc.SendError(err.Error())
+	} else if msg != "" {
+		irc.Send(msg)
+	}
 }
 
 func generateStory(irc state.State, messages []birdbase.ChannelMessage, hours int, persona string) {
@@ -68,7 +88,7 @@ func generateStory(irc state.State, messages []birdbase.ChannelMessage, hours in
 		userPrompt += fmt.Sprintf("\n\nGenre/Style for this story: %s", persona)
 	}
 
-	answer, err := glm.SingleRequestWithSystem(systemPrompt, userPrompt, irc.Config.Glm)
+	answer, err := singleRequestWithFallback(systemPrompt, userPrompt, irc.Config)
 	if err != nil {
 		logger.Error("Failed to generate story", "error", err)
 		irc.Send("Error: failed to write the story. Please try again later.")
