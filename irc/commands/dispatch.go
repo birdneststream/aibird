@@ -1,6 +1,7 @@
 package commands
 
 import (
+	"context"
 	"strings"
 
 	"aibird/image/comfyui"
@@ -67,7 +68,8 @@ func IsQueueableCommand(s state.State) bool {
 
 // RunQueueableCommand runs a command that has been taken from the queue.
 // It routes to the existing handlers that already have upload functionality.
-func RunQueueableCommand(s state.State, gpu meta.GPUType) {
+// The ctx parameter allows cancellation on timeout or queue shutdown.
+func RunQueueableCommand(ctx context.Context, s state.State, gpu meta.GPUType) {
 	actionLower := strings.ToLower(s.Action())
 
 	logger.Debug("Routing queue command", "action", s.Action(), "actionLower", actionLower)

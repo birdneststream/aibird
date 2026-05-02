@@ -1,6 +1,7 @@
 package commands
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"regexp"
@@ -427,7 +428,8 @@ func CheckAiCanUse(irc state.State) error {
 
 // ProcessLlamaCppAiRequest handles llama.cpp AI requests from the queue.
 // This is called by the queue processor, not directly by ParseAiText.
-func ProcessLlamaCppAiRequest(irc state.State, gpu meta.GPUType) {
+// The ctx parameter allows cancellation on timeout or queue shutdown.
+func ProcessLlamaCppAiRequest(ctx context.Context, irc state.State, gpu meta.GPUType) {
 	// Try to check llama.cpp status, but proceed anyway if health check fails
 	isLlamaCppRunning, err := llamacpp.IsLlamaCppRunning(irc.Config.LlamaCpp.Url, irc.Config.LlamaCpp.Port)
 	if err != nil {

@@ -1,6 +1,7 @@
 package queue
 
 import (
+	"context"
 	"sync"
 
 	"aibird/irc/state"
@@ -9,7 +10,7 @@ import (
 
 type Item struct {
 	State    state.State
-	Function func(state.State, meta.GPUType)
+	Function func(ctx context.Context, s state.State, gpu meta.GPUType)
 }
 
 // ProcessingQueue manages a single GPU processing queue

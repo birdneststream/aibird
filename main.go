@@ -602,8 +602,8 @@ func dispatchCommand(irc state.State, q *queue.ProcessingQueue) {
 		queueItem := queue.QueueItem{
 			Item: queue.Item{
 				State: irc,
-				Function: func(s state.State, gpu meta.GPUType) {
-					commands.ProcessLlamaCppAiRequest(s, gpu)
+				Function: func(ctx context.Context, s state.State, gpu meta.GPUType) {
+					commands.ProcessLlamaCppAiRequest(ctx, s, gpu)
 				},
 			},
 			Model: "llamacpp-ai", // Special identifier for llama.cpp requests
@@ -625,8 +625,8 @@ func dispatchCommand(irc state.State, q *queue.ProcessingQueue) {
 		queueItem := queue.QueueItem{
 			Item: queue.Item{
 				State: irc,
-				Function: func(s state.State, gpu meta.GPUType) {
-					commands.RunQueueableCommand(s, gpu)
+				Function: func(ctx context.Context, s state.State, gpu meta.GPUType) {
+					commands.RunQueueableCommand(ctx, s, gpu)
 				},
 			},
 			Model: irc.Action(), // Use the command as the model identifier

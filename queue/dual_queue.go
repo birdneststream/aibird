@@ -76,26 +76,26 @@ func (pq *ProcessingQueue) processQueue(ctx context.Context, queue *Queue, queue
 			return ctx.Err()
 		case <-ticker.C:
 			if !queue.isProcessing() && !queue.IsEmpty() {
-				pq.processQueueItem(queue)
+				pq.processQueueItem(ctx, queue)
 			}
 		}
 	}
 }
 
-func (pq *ProcessingQueue) processQueueItem(queue *Queue) {
+func (pq *ProcessingQueue) processQueueItem(parentCtx context.Context, queue *Queue) {
 	queue.setProcessing(true)
 	item := queue.Dequeue()
 	queue.setProcessingItem(item)
 	if item != nil {
 		logger.Debug("Processing queue item", "gpu", item.GPU, "action", item.State.Action())
 
-		ctx, cancel := context.WithTimeout(context.Background(), 4*time.Minute)
+		ctx, cancel := context.WithTimeout(parentCtx, 4*time.Minute)
 		defer cancel()
 
 		done := make(chan struct{})
 
 		go func() {
-			item.Function(item.State, item.GPU)
+			item.Function(ctx, item.State, item.GPU)
 			close(done)
 		}()
 

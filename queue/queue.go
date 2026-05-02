@@ -1,11 +1,9 @@
 package queue
 
 import (
-	"context"
 	"errors"
 	"fmt"
 	"sync"
-	"time"
 
 	"aibird/logger"
 )
@@ -139,54 +137,6 @@ func (q *Queue) isProcessing() bool {
 	q.processingMutex.Lock()
 	defer q.processingMutex.Unlock()
 	return q.processing
-}
-
-// ProcessQueue continuously processes elements in the queue with context cancellation
-func (q *Queue) ProcessQueue(ctx context.Context) error {
-	ticker := time.NewTicker(100 * time.Millisecond)
-	defer ticker.Stop()
-
-	for {
-		select {
-		case <-ctx.Done():
-			logger.Info("Queue processing stopped due to context cancellation")
-			return ctx.Err()
-		case <-ticker.C:
-			// Only process if we're not already processing and there are items in the queue
-			if !q.isProcessing() && !q.IsEmpty() {
-				logger.Debug("Queue: Starting to process next item", "queue_length", q.Len())
-
-				// Mark as processing before dequeuing to prevent race conditions
-				q.setProcessing(true)
-
-				// Get the next item from the queue
-				element := q.Dequeue()
-
-				// Set the currently processing item
-				q.setProcessingItem(element)
-
-				// Process the item if it's a valid function
-				if element != nil {
-					// Execute the function in a goroutine but maintain processing flag
-					go func() {
-						logger.Debug("Queue: Executing function")
-						// Execute the function
-						element.Function(element.State, element.GPU)
-
-						// Mark as not processing when done
-						q.setProcessing(false)
-						q.setProcessingItem(nil)
-						logger.Debug("Queue: Function completed", "queue_length", q.Len())
-					}()
-				} else {
-					// If not a valid function, reset processing flag
-					q.setProcessing(false)
-					q.setProcessingItem(nil)
-					logger.Debug("Queue: Dequeued item was not a function")
-				}
-			}
-		}
-	}
 }
 
 // Len returns the current number of items in the queue
