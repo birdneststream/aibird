@@ -138,38 +138,13 @@ func SingleRequestWithSystem(systemPrompt, userPrompt string, config settings.Gl
 	return strings.TrimSpace(response.Choices[0].Message.Content), nil
 }
 
-// GenerateLyrics generates song lyrics using GLM
+// GenerateLyrics generates song lyrics using GLM.
 func GenerateLyrics(message string, config settings.GlmConfig) (string, error) {
 	systemPrompt, err := text.GetPrompt("lyrics.md")
 	if err != nil {
 		return "", err
 	}
-
-	userPrompt := "Generate lyrics for a song about: " + message
-
-	body := &GlmRequestBody{
-		Model:  config.DefaultModel,
-		Stream: false,
-		Thinking: &GlmThinking{
-			Type: "disabled",
-		},
-		Messages: []text.Message{
-			{Role: "system", Content: systemPrompt},
-			{Role: "user", Content: userPrompt},
-		},
-	}
-
-	httpRequest := buildHttpRequest(config, body)
-	var response GlmResponse
-	if err := httpRequest.Call(&response); err != nil {
-		return "", err
-	}
-
-	if len(response.Choices) == 0 {
-		return "", fmt.Errorf("GLM returned an empty response")
-	}
-
-	return strings.TrimSpace(response.Choices[0].Message.Content), nil
+	return SingleRequestWithSystem(systemPrompt, "Generate lyrics for a song about: "+message, config)
 }
 
 // ImageRequest generates an image using CogView-4
