@@ -177,47 +177,13 @@ func ParseAiText(irc *state.State) bool {
 			})
 			return true
 
-		case serviceLlamacpp:
-			if irc.IsEmptyMessage() {
-				return true
-			}
-
-			if !checkLlamaCppAvailable(irc) {
-				return true
-			}
-
-			irc.ReplyTo(girc.Fmt("🧠 Processing AI request, please wait..."))
-			response, err := llamacpp.ChatRequest(irc)
-			if err != nil {
-				logger.Error("Error processing AI request", "error", err)
-				irc.SendError(fmt.Sprintf("🧠 Error processing AI request: %s", err))
-			} else {
-				logger.Debug("Calling handleAiResponse from llama.cpp path")
-				handleAiResponse(irc, response)
-			}
-
-			return true
-
 		default:
-			// Fallback for unknown or legacy service values (e.g. "openrouter") -> use llamacpp
-			if irc.IsEmptyMessage() {
-				return true
-			}
-
-			if !checkLlamaCppAvailable(irc) {
-				return true
-			}
-
-			irc.ReplyTo(girc.Fmt("🧠 Processing AI request, please wait..."))
-			response, err := llamacpp.ChatRequest(irc)
-			if err != nil {
-				logger.Error("Error processing AI request", "error", err)
-				irc.SendError(fmt.Sprintf("🧠 Error processing AI request: %s", err))
-			} else {
-				logger.Debug("Calling handleAiResponse from default path", "original_service", service)
-				handleAiResponse(irc, response)
-			}
-
+			// Fallback for unknown/legacy service values → use llamacpp
+			logger.Info("Unknown AI service, defaulting to llamacpp", "service", service)
+			handleLlamaCppRequest(irc)
+			return true
+		case serviceLlamacpp:
+			handleLlamaCppRequest(irc)
 			return true
 		}
 	}
@@ -291,6 +257,27 @@ func ParseAiText(irc *state.State) bool {
 	}
 
 	return false
+}
+
+// handleLlamaCppRequest processes an AI request using llama.cpp.
+func handleLlamaCppRequest(irc *state.State) {
+	if irc.IsEmptyMessage() {
+		return
+	}
+
+	if !checkLlamaCppAvailable(irc) {
+		return
+	}
+
+	irc.ReplyTo(girc.Fmt("🧠 Processing AI request, please wait..."))
+	response, err := llamacpp.ChatRequest(irc)
+	if err != nil {
+		logger.Error("Error processing AI request", "error", err)
+		irc.SendError(fmt.Sprintf("🧠 Error processing AI request: %s", err))
+	} else {
+		logger.Debug("Calling handleAiResponse from llama.cpp path")
+		handleAiResponse(irc, response)
+	}
 }
 
 func handleAiResponse(irc *state.State, response string) {
