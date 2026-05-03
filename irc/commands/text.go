@@ -302,7 +302,7 @@ func handleAiResponse(irc state.State, response string) {
 
 		// Strip thinking content for TTS processing
 		ttsResponse := stripThinkingContent(response)
-		logger.Info("TTS content filtering applied", "original_length", len(response), "filtered_length", len(ttsResponse), "has_think_tags", strings.Contains(response, "ignty"))
+		logger.Info("TTS content filtering applied", "original_length", len(response), "filtered_length", len(ttsResponse), "has_think_tags", strings.Contains(response, "<think"))
 
 		// Debug: Show first 200 chars of original response
 		preview := response
