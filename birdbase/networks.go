@@ -718,7 +718,8 @@ func (s *SQLiteDB) saveUsersToDatabase(tx *sql.Tx, networkID int64, users []User
 			}
 
 			_, err = tx.Exec(`
-				INSERT OR IGNORE INTO channels (network_id, name) VALUES (?, ?)
+				INSERT INTO channels (network_id, name) VALUES (?, ?)
+				ON CONFLICT(network_id, name) DO NOTHING
 			`, networkID, modeData.Channel)
 			if err != nil {
 				return err
@@ -913,8 +914,9 @@ func (s *SQLiteDB) AddUserToChannel(networkName, ident, host, channelName string
 	}
 
 	_, err = s.db.Exec(`
-		INSERT OR IGNORE INTO user_channels (user_id, channel_id, joined_at)
+		INSERT INTO user_channels (user_id, channel_id, joined_at)
 		VALUES (?, ?, datetime('now'))
+		ON CONFLICT(user_id, channel_id) DO NOTHING
 	`, userID, channelID)
 
 	if err == nil {
