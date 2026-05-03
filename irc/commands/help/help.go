@@ -278,28 +278,28 @@ func OwnerHelp() []Help {
 	return []Help{
 		{
 			Name:      "debug",
-Type: typeOwner,
+			Type:      typeOwner,
 			Help:      "Toggle debug mode or display debugging information.",
 			Arguments: []Arguments{},
 			Queueable: false,
 		},
 		{
 			Name:      "save",
-Type: typeOwner,
+			Type:      typeOwner,
 			Help:      "Save current state to persistent storage.",
 			Arguments: []Arguments{},
 			Queueable: false,
 		},
 		{
 			Name:      "ip",
-Type: typeOwner,
+			Type:      typeOwner,
 			Help:      "Display IP information.",
 			Arguments: []Arguments{},
 			Queueable: false,
 		},
 		{
 			Name:      "dbstats",
-Type: typeOwner,
+			Type:      typeOwner,
 			Help:      "Display SQLite database statistics including keys and disk usage.",
 			Arguments: []Arguments{},
 			Queueable: false,
@@ -354,7 +354,7 @@ func AdminHelp() []Help {
 		},
 		{
 			Name:      "sync",
-Type: typeOwner,
+			Type:      typeOwner,
 			Help:      "Synchronize channel state and restore missing user modes.",
 			Arguments: []Arguments{},
 			Queueable: false,

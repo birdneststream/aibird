@@ -7,93 +7,93 @@ import (
 
 func TestStripThinkingContent(t *testing.T) {
 	tests := []struct {
-		name     string
-		input    string
-		wantContains   []string // output must contain these
+		name            string
+		input           string
+		wantContains    []string // output must contain these
 		wantNotContains []string // output must NOT contain these
 	}{
 		{
-			name:  "removes think block",
-			input: "Hello <think let me think about this </think > world",
-			wantContains: []string{"Hello", "world"},
+			name:            "removes think block",
+			input:           "Hello <think let me think about this </think > world",
+			wantContains:    []string{"Hello", "world"},
 			wantNotContains: []string{"<think", "</think", "let me think"},
 		},
 		{
-			name:  "removes multiline think block",
-			input: "Hello <think\nline1\nline2\n</think > world",
-			wantContains: []string{"Hello", "world"},
+			name:            "removes multiline think block",
+			input:           "Hello <think\nline1\nline2\n</think > world",
+			wantContains:    []string{"Hello", "world"},
 			wantNotContains: []string{"<think", "</think", "line1", "line2"},
 		},
 		{
-			name:  "no think block unchanged",
-			input: "Just a regular message",
-			wantContains: []string{"Just a regular message"},
+			name:            "no think block unchanged",
+			input:           "Just a regular message",
+			wantContains:    []string{"Just a regular message"},
 			wantNotContains: []string{"<think"},
 		},
 		{
-			name:  "removes markdown bold and italic",
-			input: "Hello **bold** and *italic* text",
-			wantContains: []string{"Hello", "bold", "italic", "text"},
+			name:            "removes markdown bold and italic",
+			input:           "Hello **bold** and *italic* text",
+			wantContains:    []string{"Hello", "bold", "italic", "text"},
 			wantNotContains: []string{"**", "*"},
 		},
 		{
-			name:  "removes markdown code blocks",
-			input: "Here is code ```go\nfmt.Println(\"hi\")\n``` done",
-			wantContains: []string{"Here is code", "done"},
+			name:            "removes markdown code blocks",
+			input:           "Here is code ```go\nfmt.Println(\"hi\")\n``` done",
+			wantContains:    []string{"Here is code", "done"},
 			wantNotContains: []string{"```", "fmt"},
 		},
 		{
-			name:  "removes emoji characters",
-			input: "Hello 🧠 brain and 🎨 art here",
-			wantContains: []string{"Hello", "brain", "and", "art", "here"},
+			name:            "removes emoji characters",
+			input:           "Hello 🧠 brain and 🎨 art here",
+			wantContains:    []string{"Hello", "brain", "and", "art", "here"},
 			wantNotContains: []string{"🧠", "🎨"},
 		},
 		{
-			name:  "converts newlines to spaces",
-			input: "Line1\nLine2\nLine3",
-			wantContains: []string{"Line1", "Line2", "Line3"},
+			name:            "converts newlines to spaces",
+			input:           "Line1\nLine2\nLine3",
+			wantContains:    []string{"Line1", "Line2", "Line3"},
 			wantNotContains: []string{"\n"},
 		},
 		{
-			name:  "removes inline code",
-			input: "Use `code here` for that",
-			wantContains: []string{"Use", "code here", "for that"},
+			name:            "removes inline code",
+			input:           "Use `code here` for that",
+			wantContains:    []string{"Use", "code here", "for that"},
 			wantNotContains: []string{"`"},
 		},
 		{
-			name:  "removes markdown links",
-			input: "Check [this link](https://example.com) out",
-			wantContains: []string{"Check", "this link", "out"},
+			name:            "removes markdown links",
+			input:           "Check [this link](https://example.com) out",
+			wantContains:    []string{"Check", "this link", "out"},
 			wantNotContains: []string{"[", "](https"},
 		},
 		{
-			name:  "removes headers",
-			input: "## Heading 2\nSome text",
-			wantContains: []string{"Heading 2", "Some text"},
+			name:            "removes headers",
+			input:           "## Heading 2\nSome text",
+			wantContains:    []string{"Heading 2", "Some text"},
 			wantNotContains: []string{"##"},
 		},
 		{
-			name:  "fixes escaped quotes",
-			input: `He said \"hello\" to me`,
-			wantContains: []string{`He said "hello" to me`},
+			name:            "fixes escaped quotes",
+			input:           `He said \"hello\" to me`,
+			wantContains:    []string{`He said "hello" to me`},
 			wantNotContains: []string{`\"`},
 		},
 		{
-			name:  "empty string returns empty",
-			input: "",
-			wantContains: []string{},
+			name:            "empty string returns empty",
+			input:           "",
+			wantContains:    []string{},
 			wantNotContains: []string{},
 		},
 		{
-			name:  "whitespace only returns empty",
-			input: "   \n\t  ",
-			wantContains: []string{},
+			name:            "whitespace only returns empty",
+			input:           "   \n\t  ",
+			wantContains:    []string{},
 			wantNotContains: []string{},
 		},
 		{
-			name:  "cleans multiple spaces",
-			input: "too   many    spaces",
-			wantContains: []string{"too many spaces"},
+			name:            "cleans multiple spaces",
+			input:           "too   many    spaces",
+			wantContains:    []string{"too many spaces"},
 			wantNotContains: []string{"  "},
 		},
 	}

@@ -265,7 +265,8 @@ func (s *SQLiteDB) initSchema() error {
 		// Table is created by the CREATE TABLE IF NOT EXISTS in the schema string above,
 		// so no additional migration steps are needed here.
 		if currentVersion < 4 {
-			// intentionally empty — schema already includes channel_messages
+			// intentionally empty — schema already includes channel_messages via CREATE TABLE IF NOT EXISTS
+			_ = currentVersion // suppress SA9003: migration handled by schema string
 		}
 
 		_, err = tx.Exec("INSERT INTO schema_version (version) VALUES (?)", schemaVersion)

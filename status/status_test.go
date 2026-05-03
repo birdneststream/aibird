@@ -40,11 +40,11 @@ func TestParseTemperature(t *testing.T) {
 
 func TestCheckGPUTemperatures(t *testing.T) {
 	tests := []struct {
-		name          string
-		gpus          []GPUInfo
-		threshold     int
-		wantName      string
-		wantTemp      int
+		name      string
+		gpus      []GPUInfo
+		threshold int
+		wantName  string
+		wantTemp  int
 	}{
 		{
 			name:      "no gpus",
@@ -122,9 +122,9 @@ func TestFormatGPUInfo(t *testing.T) {
 
 func TestFormatDockerStatus(t *testing.T) {
 	tests := []struct {
-		name    string
-		docker  DockerStatus
-		wantUp  int
+		name     string
+		docker   DockerStatus
+		wantUp   int
 		wantDown int
 	}{
 		{
