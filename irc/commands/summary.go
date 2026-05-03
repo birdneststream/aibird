@@ -14,7 +14,7 @@ import (
 	"aibird/text"
 )
 
-func ParseSummary(irc state.State, q *queue.ProcessingQueue) {
+func ParseSummary(irc *state.State, q *queue.ProcessingQueue) {
 	if irc.Channel == nil {
 		irc.Send("Error: summary can only be used in a channel.")
 		return
@@ -102,9 +102,9 @@ func ParseSummary(irc state.State, q *queue.ProcessingQueue) {
 	// Queue the AI generation — LlamaCpp uses the GPU and must be serialized
 	queueItem := queue.QueueItem{
 		Item: queue.Item{
-			State: irc,
+			State: *irc,
 			Function: func(ctx context.Context, s state.State, gpu meta.GPUType) {
-				generateSummary(s, messages, hours, persona)
+				generateSummary(&s, messages, hours, persona)
 			},
 		},
 		Model: "summary",
@@ -120,7 +120,7 @@ func ParseSummary(irc state.State, q *queue.ProcessingQueue) {
 	}
 }
 
-func generateSummary(irc state.State, messages []birdbase.ChannelMessage, hours int, persona string) {
+func generateSummary(irc *state.State, messages []birdbase.ChannelMessage, hours int, persona string) {
 	irc.Send(fmt.Sprintf("%s, generating summary of the last %dh (%d events)...", irc.User.NickName, hours, len(messages)))
 
 	systemPrompt, err := text.GetPrompt("summary.md")

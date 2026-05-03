@@ -53,7 +53,7 @@ func convertToDetailURL(imageURL string) string {
 }
 
 // processAisciiCommand handles the aiscii command processing for ParseAiImageWithGPU
-func processAisciiCommand(irc state.State, response, message string) bool {
+func processAisciiCommand(irc *state.State, response, message string) bool {
 	logger.Debug("Processing aiscii command", "file", response)
 
 	// Create a copy for IRC art processing (since Birdhole deletes the original)
@@ -147,7 +147,7 @@ func processAisciiCommand(irc state.State, response, message string) bool {
 func ParseAiImageWithGPU(irc state.State, gpu meta.GPUType) bool {
 	if irc.IsAction("sd") {
 		if irc.GetBoolArg("help") {
-			irc.Send(girc.Fmt(help.FindHelp(irc)))
+			irc.Send(girc.Fmt(help.FindHelp(&irc)))
 			return true
 		}
 	}
@@ -161,7 +161,7 @@ func ParseAiImageWithGPU(irc state.State, gpu meta.GPUType) bool {
 		imgArg, _ := irc.GetStringArg("img", "")
 
 		if irc.GetBoolArg("help") || (irc.IsEmptyMessage() && imgArg == "") {
-			irc.Send(girc.Fmt(help.FindHelp(irc)))
+			irc.Send(girc.Fmt(help.FindHelp(&irc)))
 			return true
 		}
 		var aiEnhancedPrompt string
@@ -202,7 +202,7 @@ func ParseAiImageWithGPU(irc state.State, gpu meta.GPUType) bool {
 
 		// Use a safe display message to prevent leaking blocked prompts in IRC output
 		displayMessage := message
-		if comfyui.BadWordsCheck(message, irc.Config.ComfyUi) {
+		if comfyui.BadWordsCheck(message, &irc.Config.ComfyUi) {
 			displayMessage = irc.Config.ComfyUi.BadWordsPrompt
 		}
 
@@ -214,7 +214,7 @@ func ParseAiImageWithGPU(irc state.State, gpu meta.GPUType) bool {
 		}
 
 		// Use the provided GPU parameter instead of hardcoded GPU4090
-		response, err := comfyui.Process(irc, aiEnhancedPrompt, gpu)
+		response, err := comfyui.Process(&irc, aiEnhancedPrompt, gpu)
 		if err != nil {
 			logger.Error("ComfyUI request failed", "error", err)
 			irc.SendError(err.Error())
@@ -223,10 +223,10 @@ func ParseAiImageWithGPU(irc state.State, gpu meta.GPUType) bool {
 			// Special handling for aiscii command - convert to IRC art instead of uploading
 			logger.Debug("Checking aiscii action in GPU function", "action", irc.Action(), "isAiscii", irc.IsAction("aiscii"))
 			if strings.Contains(irc.Action(), "aiscii") {
-				return processAisciiCommand(irc, response, displayMessage)
+				return processAisciiCommand(&irc, response, displayMessage)
 			}
 
-			return uploadAndReply(irc, response, displayMessage, aiEnhancedPrompt)
+			return uploadAndReply(&irc, response, displayMessage, aiEnhancedPrompt)
 		}
 	}
 

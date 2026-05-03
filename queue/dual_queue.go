@@ -19,7 +19,7 @@ func NewProcessingQueue() *ProcessingQueue {
 	}
 }
 
-func (pq *ProcessingQueue) Enqueue(item QueueItem) (string, error) { //nolint:gocyclo
+func (pq *ProcessingQueue) Enqueue(item QueueItem) (string, error) { //nolint:gocyclo,gocritic // item copied by value for goroutine isolation
 	pq.Mutex.Lock()
 	defer pq.Mutex.Unlock()
 
@@ -45,7 +45,7 @@ func (pq *ProcessingQueue) Enqueue(item QueueItem) (string, error) { //nolint:go
 		return "", errors.New("could not load workflow metadata for this model")
 	}
 
-	statusClient := status.NewClient(item.State.Config.AiBird)
+	statusClient := status.NewClient(&item.State.Config.AiBird)
 	statusMeta := &meta.AibirdMeta{
 		AccessLevel: metaData.AccessLevel,
 	}

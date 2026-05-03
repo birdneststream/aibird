@@ -9,7 +9,7 @@ import (
 	"aibird/logger"
 )
 
-func ParseTop(irc state.State) {
+func ParseTop(irc *state.State) {
 	if irc.Channel == nil {
 		irc.Send("Error: top can only be used in a channel.")
 		return

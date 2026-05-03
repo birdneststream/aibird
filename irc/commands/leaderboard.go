@@ -9,14 +9,14 @@ import (
 	"aibird/logger"
 )
 
-func ParseLeaderboard(irc state.State) {
+func ParseLeaderboard(irc *state.State) {
 	switch irc.Command.Action {
 	case cmdLeaderboard:
 		handleLeaderboard(irc)
 	}
 }
 
-func handleLeaderboard(irc state.State) {
+func handleLeaderboard(irc *state.State) {
 	// Get the argument to determine which leaderboard to show
 	arg := strings.TrimSpace(irc.Command.Message)
 
@@ -40,7 +40,7 @@ func handleLeaderboard(irc state.State) {
 	}
 }
 
-func handleNetworkLeaderboard(irc state.State) {
+func handleNetworkLeaderboard(irc *state.State) {
 	entries, err := birdbase.GetNetworkLeaderboard(irc.Network.NetworkName, 10)
 	if err != nil {
 		logger.Error("Failed to get network leaderboard", "error", err, "network", irc.Network.NetworkName)
@@ -77,7 +77,7 @@ func handleNetworkLeaderboard(irc state.State) {
 	irc.Send("└────┴─────────────────┴─────────────────┴───────┘")
 }
 
-func handleGlobalLeaderboard(irc state.State) {
+func handleGlobalLeaderboard(irc *state.State) {
 	entries, err := birdbase.GetGlobalLeaderboard(10)
 	if err != nil {
 		logger.Error("Failed to get global leaderboard", "error", err)
@@ -115,7 +115,7 @@ func handleGlobalLeaderboard(irc state.State) {
 	irc.Send("└────┴─────────────────┴─────────────────┴─────────────────┴───────┘")
 }
 
-func handleCommandLeaderboard(irc state.State, command string) {
+func handleCommandLeaderboard(irc *state.State, command string) {
 	entries, err := birdbase.GetCommandLeaderboard(command, 10)
 	if err != nil {
 		logger.Error("Failed to get command leaderboard", "error", err, "command", command)

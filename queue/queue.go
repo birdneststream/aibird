@@ -24,7 +24,7 @@ type Queue struct {
 const maxQueueSize = 10
 
 // Enqueue adds an element to the end of the queue
-func (q *Queue) Enqueue(element QueueItem) (string, error) {
+func (q *Queue) Enqueue(element QueueItem) (string, error) { //nolint:gocritic // element copied by value for goroutine isolation
 	q.mutex.Lock()
 	defer q.mutex.Unlock()
 
@@ -56,7 +56,7 @@ func (q *Queue) Enqueue(element QueueItem) (string, error) {
 
 // EnqueueFront adds an element to the start of the queue and returns a message if not empty.
 // If msg is empty, uses the default VIP message.
-func (q *Queue) EnqueueFront(element QueueItem, msg string) (string, error) {
+func (q *Queue) EnqueueFront(element QueueItem, msg string) (string, error) { //nolint:gocritic // element copied by value for goroutine isolation
 	q.mutex.Lock()
 	defer q.mutex.Unlock()
 

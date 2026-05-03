@@ -34,7 +34,7 @@ func convertAudioToMp3AndAmplify(inputFile string) (string, error) {
 	return outputFile, nil
 }
 
-func ProcessAndUploadAudio(irc state.State, message, response string, gpu meta.GPUType) {
+func ProcessAndUploadAudio(irc *state.State, message, response string, gpu meta.GPUType) {
 	audioFile, err := comfyui.Process(irc, "", gpu)
 	if err != nil {
 		logger.Error("Failed to process comfyui request", "error", err)
@@ -69,8 +69,8 @@ func ProcessAndUploadAudio(irc state.State, message, response string, gpu meta.G
 }
 
 // ParseAiSound handles sound commands (non-queued path)
-func ParseAiSound(irc state.State) bool {
-	return parseAiSoundInternal(irc, meta.GPU4090)
+func ParseAiSound(irc *state.State) bool {
+	return parseAiSoundInternal(*irc, meta.GPU4090)
 }
 
 // ParseAiSoundWithGPU handles sound commands with explicit GPU selection (queued path)
@@ -81,11 +81,11 @@ func ParseAiSoundWithGPU(irc state.State, gpu meta.GPUType) bool {
 func parseAiSoundInternal(irc state.State, gpu meta.GPUType) bool {
 	if irc.IsAction("tts") {
 		if irc.GetBoolArg("help") || irc.IsEmptyMessage() {
-			irc.Send(girc.Fmt(help.FindHelp(irc)))
+			irc.Send(girc.Fmt(help.FindHelp(&irc)))
 			return true
 		}
 
-		systemStatus := status.NewClient(irc.Config.AiBird)
+		systemStatus := status.NewClient(&irc.Config.AiBird)
 		voice, _ := irc.GetStringArg("voice", "woman")
 		validVoices, err := systemStatus.GetWavs()
 		if err != nil {
@@ -109,7 +109,7 @@ func parseAiSoundInternal(irc state.State, gpu meta.GPUType) bool {
 		message := text.AppendFullStop(irc.Message())
 
 		irc.ReplyTo("🔊 Processing TTS request, please wait...")
-		ProcessAndUploadAudio(irc, message, message, gpu)
+		ProcessAndUploadAudio(&irc, message, message, gpu)
 
 		return true
 	}
@@ -126,13 +126,13 @@ func parseAiSoundInternal(irc state.State, gpu meta.GPUType) bool {
 		duration, _ := irc.GetStringArg("duration", "")
 
 		if irc.GetBoolArg("help") || url == "" || name == "" {
-			irc.Send(girc.Fmt(help.FindHelp(irc)))
+			irc.Send(girc.Fmt(help.FindHelp(&irc)))
 			return true
 		}
 
 		irc.ReplyTo(fmt.Sprintf("Adding new voice '%s' from %s. Please wait...", name, url))
 
-		statusClient := status.NewClient(irc.Config.AiBird)
+		statusClient := status.NewClient(&irc.Config.AiBird)
 		message, err := statusClient.AddVoice(url, name, start, duration)
 		if err != nil {
 			irc.SendError(fmt.Sprintf("Failed to add voice: %s", err.Error()))
@@ -145,7 +145,7 @@ func parseAiSoundInternal(irc state.State, gpu meta.GPUType) bool {
 
 	if irc.IsAction("music") {
 		if irc.GetBoolArg("help") || irc.IsEmptyMessage() {
-			irc.Send(girc.Fmt(help.FindHelp(irc)))
+			irc.Send(girc.Fmt(help.FindHelp(&irc)))
 			return true
 		}
 
@@ -174,19 +174,19 @@ func parseAiSoundInternal(irc state.State, gpu meta.GPUType) bool {
 		}
 
 		irc.ReplyTo("🎵 Processing music request, please wait...")
-		ProcessAndUploadAudio(irc, irc.Message(), irc.Message(), gpu)
+		ProcessAndUploadAudio(&irc, irc.Message(), irc.Message(), gpu)
 
 		return true
 	}
 
 	if irc.IsAction("sound") {
 		if irc.GetBoolArg("help") || irc.IsEmptyMessage() {
-			irc.Send(girc.Fmt(help.FindHelp(irc)))
+			irc.Send(girc.Fmt(help.FindHelp(&irc)))
 			return true
 		}
 
 		irc.ReplyTo("🔊 Processing sound request, please wait...")
-		ProcessAndUploadAudio(irc, irc.Message(), irc.Message(), gpu)
+		ProcessAndUploadAudio(&irc, irc.Message(), irc.Message(), gpu)
 
 		return true
 	}

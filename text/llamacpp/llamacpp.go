@@ -35,7 +35,7 @@ func IsLlamaCppRunning(url, port string) (bool, error) {
 // ChatRequest sends a chat completion request to the llama.cpp server.
 // The llama.cpp server (with --reasoning-format deepseek, the default) separates
 // thinking/reasoning content into reasoning_content, so message.content is clean.
-func ChatRequest(irc state.State) (string, error) {
+func ChatRequest(irc *state.State) (string, error) {
 	llamacppConfig := irc.Config.LlamaCpp
 
 	if irc.Message() == "reset" {

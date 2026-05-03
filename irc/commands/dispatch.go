@@ -61,7 +61,7 @@ func RunQueueableCommand(ctx context.Context, s state.State, gpu meta.GPUType) {
 	switch {
 	case IsTextCommand(actionLower):
 		logger.Debug("Command categorized as text", "action", s.Action())
-		ParseAiText(s)
+		ParseAiText(&s)
 	case isImageCommand(actionLower):
 		logger.Debug("Command categorized as image", "action", s.Action())
 		ParseAiImageWithGPU(s, gpu)

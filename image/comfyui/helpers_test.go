@@ -305,7 +305,7 @@ func TestBadWordsCheck(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result := BadWordsCheck(tt.message, tt.config)
+			result := BadWordsCheck(tt.message, &tt.config)
 			if result != tt.expected {
 				t.Errorf("BadWordsCheck(%q, config) = %v, want %v", tt.message, result, tt.expected)
 			}

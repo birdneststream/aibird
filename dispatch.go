@@ -13,7 +13,7 @@ import (
 	"github.com/lrstanley/girc"
 )
 
-func dispatchCommand(irc state.State, q *queue.ProcessingQueue) {
+func dispatchCommand(irc *state.State, q *queue.ProcessingQueue) {
 	// Check if the command is denied at any level
 	action := irc.Action()
 	if irc.IsCommandDenied(action) {
@@ -36,7 +36,7 @@ func dispatchCommand(irc state.State, q *queue.ProcessingQueue) {
 
 		queueItem := queue.QueueItem{
 			Item: queue.Item{
-				State: irc,
+				State: *irc,
 				Function: func(ctx context.Context, s state.State, gpu meta.GPUType) {
 					commands.ProcessLlamaCppAiRequest(ctx, s, gpu)
 				},
@@ -55,11 +55,11 @@ func dispatchCommand(irc state.State, q *queue.ProcessingQueue) {
 		return
 	}
 
-	if commands.IsQueueableCommand(irc) {
+	if commands.IsQueueableCommand(*irc) {
 		// Create QueueItem with model information
 		queueItem := queue.QueueItem{
 			Item: queue.Item{
-				State: irc,
+				State: *irc,
 				Function: func(ctx context.Context, s state.State, gpu meta.GPUType) {
 					commands.RunQueueableCommand(ctx, s, gpu)
 				},

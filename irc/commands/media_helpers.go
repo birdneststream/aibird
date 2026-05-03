@@ -17,7 +17,7 @@ import (
 // preparePromptAndDisplay handles the common pre-processing steps for media commands:
 // cleaning the prompt, optionally enhancing it, checking bad words, and sending the
 // "processing" status message.
-func preparePromptAndDisplay(irc state.State, gpu meta.GPUType) (aiEnhancedPrompt, displayMessage string) {
+func preparePromptAndDisplay(irc *state.State, gpu meta.GPUType) (aiEnhancedPrompt, displayMessage string) {
 	message := comfyui.CleanPrompt(irc.Message())
 
 	if irc.GetBoolArg("pe") {
@@ -27,7 +27,7 @@ func preparePromptAndDisplay(irc state.State, gpu meta.GPUType) (aiEnhancedPromp
 	}
 
 	displayMessage = message
-	if comfyui.BadWordsCheck(message, irc.Config.ComfyUi) {
+	if comfyui.BadWordsCheck(message, &irc.Config.ComfyUi) {
 		displayMessage = irc.Config.ComfyUi.BadWordsPrompt
 	}
 
@@ -43,7 +43,7 @@ func preparePromptAndDisplay(irc state.State, gpu meta.GPUType) (aiEnhancedPromp
 // uploadAndReply handles the common post-processing steps for media commands:
 // building upload fields, uploading to BirdHole, and sending the IRC reply.
 // Returns true on success.
-func uploadAndReply(irc state.State, response, displayMessage, aiEnhancedPrompt string) bool {
+func uploadAndReply(irc *state.State, response, displayMessage, aiEnhancedPrompt string) bool {
 	fields := []request.Fields{
 		{Key: "panorama", Value: strconv.FormatBool(irc.IsAction("panorama"))},
 	}

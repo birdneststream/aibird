@@ -7,7 +7,7 @@ import (
 )
 
 // ParseRecordCommand handles the !record command to save ASCII art to the recording service
-func ParseRecordCommand(irc state.State) bool {
+func ParseRecordCommand(irc *state.State) bool {
 	logger.Debug("Processing record command", "user", irc.User.NickName, "network", irc.Network.NetworkName, "channel", irc.Channel.Name)
 
 	// Get the recording URL from config

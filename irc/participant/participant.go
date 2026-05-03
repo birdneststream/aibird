@@ -144,7 +144,7 @@ func (p *Participant) generateAndSendResponse(c *girc.Client, e girc.Event, netw
 	ctx := p.buildMessageContext(memory, channel, network, e, "reactive")
 
 	// Generate response using GLM
-	response, err := GenerateParticipantMessage(ctx, p.config.Glm)
+	response, err := GenerateParticipantMessage(&ctx, &p.config.Glm)
 	if err != nil {
 		logger.Error("Failed to generate participant response", "error", err, "network", network.NetworkName, "channel", channel.Name)
 		return
@@ -407,7 +407,7 @@ func (p *Participant) handleBurstResponse(c *girc.Client, e girc.Event, network 
 			logger.Debug("Burst delay expired, sending response", "user", username)
 
 			ctx := p.buildMessageContext(memory, channel, network, e, "reactive")
-			response, err := GenerateParticipantMessage(ctx, p.config.Glm)
+			response, err := GenerateParticipantMessage(&ctx, &p.config.Glm)
 			if err != nil {
 				logger.Error("Failed to generate burst response", "error", err)
 				return

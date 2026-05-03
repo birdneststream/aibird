@@ -9,8 +9,8 @@ import (
 )
 
 // ParseAiVideo handles video commands (non-queued path)
-func ParseAiVideo(irc state.State) bool {
-	return parseAiVideoInternal(irc, meta.GPU4090)
+func ParseAiVideo(irc *state.State) bool {
+	return parseAiVideoInternal(*irc, meta.GPU4090)
 }
 
 // ParseAiVideoWithGPU handles video commands with explicit GPU selection (queued path)
@@ -23,14 +23,14 @@ func parseAiVideoInternal(irc state.State, gpu meta.GPUType) bool {
 		return false
 	}
 
-	aiEnhancedPrompt, displayMessage := preparePromptAndDisplay(irc, gpu)
+	aiEnhancedPrompt, displayMessage := preparePromptAndDisplay(&irc, gpu)
 
-	response, err := comfyui.Process(irc, aiEnhancedPrompt, gpu)
+	response, err := comfyui.Process(&irc, aiEnhancedPrompt, gpu)
 	if err != nil {
 		logger.Error("ComfyUI request failed", "error", err)
 		irc.SendError(err.Error())
 		return false
 	}
 
-	return uploadAndReply(irc, response, displayMessage, aiEnhancedPrompt)
+	return uploadAndReply(&irc, response, displayMessage, aiEnhancedPrompt)
 }

@@ -51,7 +51,7 @@ type Client struct {
 }
 
 // NewClient creates a new status client
-func NewClient(config settings.AiBird) *Client {
+func NewClient(config *settings.AiBird) *Client {
 	return &Client{
 		BaseURL:      config.StatusUrl,
 		StatusApiKey: config.StatusApiKey,

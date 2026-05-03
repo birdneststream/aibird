@@ -53,7 +53,7 @@ func freeVram(clientAddr string, clientPort int) error {
 	return nil
 }
 
-func Process(irc state.State, aiEnhancedPrompt string, gpu meta.GPUType) (string, error) {
+func Process(irc *state.State, aiEnhancedPrompt string, gpu meta.GPUType) (string, error) {
 	logger.Debug("Starting comfyui.Process", "gpu", gpu, "action", irc.Action())
 	comfyUiConfig := irc.Config.ComfyUi
 	model := irc.Action()
@@ -67,7 +67,7 @@ func Process(irc state.State, aiEnhancedPrompt string, gpu meta.GPUType) (string
 }
 
 // processWithMeta handles the V2 metadata-driven workflow processing.
-func processWithMeta(irc state.State, aiEnhancedPrompt string, model string, comfyUiConfig settings.ComfyUiConfig, metaData *AibirdMeta) (string, error) {
+func processWithMeta(irc *state.State, aiEnhancedPrompt string, model string, comfyUiConfig settings.ComfyUiConfig, metaData *AibirdMeta) (string, error) {
 	if irc.User.GetAccessLevel() < metaData.AccessLevel {
 		logger.Error("Access level too low", "required", metaData.AccessLevel, "user", irc.User.GetAccessLevel())
 		return "", fmt.Errorf("⛔️ Sorry, you need access level %d to use this command. Check !support for more info", metaData.AccessLevel)
@@ -104,7 +104,7 @@ func workflowFile(model string) string {
 }
 
 // preparePrompt builds the final prompt string from user input.
-func preparePrompt(irc state.State, aiEnhancedPrompt string, model string, comfyUiConfig settings.ComfyUiConfig) string {
+func preparePrompt(irc *state.State, aiEnhancedPrompt string, model string, comfyUiConfig settings.ComfyUiConfig) string {
 	var message string
 	if !irc.IsAction("tts") {
 		message = CleanPrompt(irc.Message())
@@ -114,7 +114,7 @@ func preparePrompt(irc state.State, aiEnhancedPrompt string, model string, comfy
 	if aiEnhancedPrompt != "" {
 		message = CleanPrompt(aiEnhancedPrompt)
 	}
-	if BadWordsCheck(message, comfyUiConfig) {
+	if BadWordsCheck(message, &comfyUiConfig) {
 		message = comfyUiConfig.BadWordsPrompt
 	}
 
@@ -134,7 +134,7 @@ func preparePrompt(irc state.State, aiEnhancedPrompt string, model string, comfy
 }
 
 // applyParameters processes user arguments and metadata to build widget update map.
-func applyParameters(irc state.State, metaData *AibirdMeta, message string, cudaDevice string) (map[string]map[int]interface{}, error) { //nolint:gocyclo
+func applyParameters(irc *state.State, metaData *AibirdMeta, message string, cudaDevice string) (map[string]map[int]interface{}, error) { //nolint:gocyclo
 	widgetUpdates := make(map[string]map[int]interface{})
 
 	// --- Process Prompt ---
@@ -198,7 +198,7 @@ func applyParameters(irc state.State, metaData *AibirdMeta, message string, cuda
 
 // processParameter handles a single parameter definition, returning the resolved value.
 // Returns nil if the parameter should be skipped.
-func processParameter(irc state.State, paramName string, paramDef ParameterDef) interface{} { //nolint:gocyclo
+func processParameter(irc *state.State, paramName string, paramDef ParameterDef) interface{} { //nolint:gocyclo
 	var rawUserInput interface{}
 	var userInputProvided bool
 
@@ -282,7 +282,7 @@ func processParameter(irc state.State, paramName string, paramDef ParameterDef) 
 }
 
 // parseUserInput converts raw user input to the appropriate type based on parameter definition.
-func parseUserInput(irc state.State, paramName string, paramDef ParameterDef, rawUserInput interface{}) interface{} { //nolint:gocyclo
+func parseUserInput(irc *state.State, paramName string, paramDef ParameterDef, rawUserInput interface{}) interface{} { //nolint:gocyclo
 	switch paramDef.Type {
 	case "string":
 		if strVal, ok := rawUserInput.(string); ok {
@@ -335,7 +335,7 @@ func parseUserInput(irc state.State, paramName string, paramDef ParameterDef, ra
 }
 
 // parseLyrics handles the special "lyrics" parameter type (URL download or AI generation).
-func parseLyrics(irc state.State, paramDef ParameterDef, rawUserInput interface{}) interface{} {
+func parseLyrics(irc *state.State, paramDef ParameterDef, rawUserInput interface{}) interface{} {
 	lyricsPrompt, ok := rawUserInput.(string)
 	if !ok {
 		return nil
@@ -379,7 +379,7 @@ func parseLyrics(irc state.State, paramDef ParameterDef, rawUserInput interface{
 }
 
 // executeAndCollect creates a ComfyUI client, runs the workflow, and collects output files.
-func executeAndCollect(irc state.State, model string, clientAddr string, clientPort int, workflowFile string, widgetUpdates map[string]map[int]interface{}, metaData *AibirdMeta) (string, error) { //nolint:gocyclo
+func executeAndCollect(irc *state.State, model string, clientAddr string, clientPort int, workflowFile string, widgetUpdates map[string]map[int]interface{}, metaData *AibirdMeta) (string, error) { //nolint:gocyclo
 	// Create ComfyUI client
 	c := client.NewComfyClient(clientAddr, clientPort, nil)
 	if !c.IsInitialized() {

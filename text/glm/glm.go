@@ -14,7 +14,7 @@ import (
 )
 
 // Request handles a GLM chat request from IRC
-func Request(irc state.State) (string, error) {
+func Request(irc *state.State) (string, error) {
 	// Handle special commands like "reset"
 	if didHandle, response := handleResetCommand(irc); didHandle {
 		return response, nil
@@ -39,7 +39,7 @@ func Request(irc state.State) (string, error) {
 }
 
 // handleResetCommand checks for and handles the "reset" command.
-func handleResetCommand(irc state.State) (bool, string) {
+func handleResetCommand(irc *state.State) (bool, string) {
 	if irc.Message() != "reset" {
 		return false, ""
 	}
@@ -57,7 +57,7 @@ const (
 )
 
 // buildRequestBody creates the request body for the GLM API call.
-func buildRequestBody(irc state.State, message string) *GlmRequestBody {
+func buildRequestBody(irc *state.State, message string) *GlmRequestBody {
 	body := &GlmRequestBody{
 		Model:  irc.Config.Glm.DefaultModel,
 		Stream: false,
@@ -91,7 +91,7 @@ func buildHttpRequest(config settings.GlmConfig, payload *GlmRequestBody) reques
 }
 
 // processResponse handles the API response, updates the cache, and returns the final message.
-func processResponse(irc state.State, response *GlmResponse) (string, error) {
+func processResponse(irc *state.State, response *GlmResponse) (string, error) {
 	if len(response.Choices) == 0 {
 		return "", fmt.Errorf("GLM returned an empty response")
 	}

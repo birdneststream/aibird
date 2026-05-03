@@ -25,7 +25,7 @@ const (
 // Argument constants.
 const argHelp = "--help"
 
-func ParseMood(irc state.State, q *queue.ProcessingQueue) {
+func ParseMood(irc *state.State, q *queue.ProcessingQueue) {
 	if irc.Channel == nil {
 		irc.Send("Error: mood can only be used in a channel.")
 		return
@@ -68,9 +68,9 @@ func ParseMood(irc state.State, q *queue.ProcessingQueue) {
 	// Queue the AI generation — LlamaCpp uses the GPU and must be serialized
 	queueItem := queue.QueueItem{
 		Item: queue.Item{
-			State: irc,
+			State: *irc,
 			Function: func(ctx context.Context, s state.State, gpu meta.GPUType) {
-				generateMood(s, messages, hours)
+				generateMood(&s, messages, hours)
 			},
 		},
 		Model: "mood",
@@ -86,7 +86,7 @@ func ParseMood(irc state.State, q *queue.ProcessingQueue) {
 	}
 }
 
-func generateMood(irc state.State, messages []birdbase.ChannelMessage, hours int) {
+func generateMood(irc *state.State, messages []birdbase.ChannelMessage, hours int) {
 	irc.Send(fmt.Sprintf("%s, reading the room for the last %dh...", irc.User.NickName, hours))
 
 	systemPrompt, err := text.GetPrompt("mood.md")

@@ -393,7 +393,7 @@ func CleanPrompt(message string) string {
 	return message
 }
 
-func BadWordsCheck(message string, config settings.ComfyUiConfig) bool {
+func BadWordsCheck(message string, config *settings.ComfyUiConfig) bool {
 	lowerMsg := strings.ToLower(message)
 	for _, word := range config.BadWords {
 		if strings.Contains(lowerMsg, strings.ToLower(word)) {

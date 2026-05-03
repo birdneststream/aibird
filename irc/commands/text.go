@@ -30,7 +30,7 @@ const (
 	serviceLlamacpp = "llamacpp"
 )
 
-func checkLlamaCppAvailable(irc state.State) bool {
+func checkLlamaCppAvailable(irc *state.State) bool {
 	isRunning, err := llamacpp.IsLlamaCppRunning(irc.Config.LlamaCpp.Url, irc.Config.LlamaCpp.Port)
 	if err != nil {
 		logger.Warn("Health check failed, proceeding with llama.cpp request anyway", "error", err)
@@ -68,7 +68,7 @@ var (
 	reFlags           = regexp.MustCompile(`[\x{1F1E6}-\x{1F1FF}]`)
 )
 
-func ParseAiText(irc state.State) bool {
+func ParseAiText(irc *state.State) bool {
 	if irc.IsAction("ai") {
 		if irc.GetBoolArg("info") {
 			irc.ReplyTo(girc.Fmt(fmt.Sprintf("🧠 AI service: %s 🧠 AI model: %s 🧠 Base prompt: %s 🧠 Personality: %s",
@@ -293,7 +293,7 @@ func ParseAiText(irc state.State) bool {
 	return false
 }
 
-func handleAiResponse(irc state.State, response string) {
+func handleAiResponse(irc *state.State, response string) {
 	hasTTS := irc.GetBoolArg("tts")
 	voiceArg := irc.FindArgument("voice", "")
 	logger.Debug("handleAiResponse called", "has_tts_flag", hasTTS, "voice_arg", voiceArg)
@@ -392,7 +392,7 @@ func stripEmojis(text string) string {
 
 // ShouldQueueLlamaCppAi checks if an !ai command needs to be queued.
 // Returns true if it's a llama.cpp request that should be queued.
-func ShouldQueueLlamaCppAi(irc state.State) bool {
+func ShouldQueueLlamaCppAi(irc *state.State) bool {
 	if !irc.IsAction("ai") {
 		return false
 	}
@@ -443,8 +443,8 @@ func ShouldQueueLlamaCppAi(irc state.State) bool {
 }
 
 // CheckAiCanUse checks if the AI system is available (respects can_use flag)
-func CheckAiCanUse(irc state.State) error {
-	statusClient := status.NewClient(irc.Config.AiBird)
+func CheckAiCanUse(irc *state.State) error {
+	statusClient := status.NewClient(&irc.Config.AiBird)
 	_, err := statusClient.CheckCanUse()
 	return err
 }
@@ -453,17 +453,17 @@ func CheckAiCanUse(irc state.State) error {
 // This is called by the queue processor, not directly by ParseAiText.
 // The ctx parameter allows cancellation on timeout or queue shutdown.
 func ProcessLlamaCppAiRequest(ctx context.Context, irc state.State, gpu meta.GPUType) {
-	if !checkLlamaCppAvailable(irc) {
+	if !checkLlamaCppAvailable(&irc) {
 		return
 	}
 
 	irc.ReplyTo(girc.Fmt("🧠 Processing AI request, please wait..."))
-	response, err := llamacpp.ChatRequest(irc)
+	response, err := llamacpp.ChatRequest(&irc)
 	if err != nil {
 		logger.Error("Error processing AI request", "error", err)
 		irc.SendError(fmt.Sprintf("🧠 Error processing AI request: %s", err))
 	} else {
 		logger.Debug("Calling handleAiResponse from llama.cpp queue path")
-		handleAiResponse(irc, response)
+		handleAiResponse(&irc, response)
 	}
 }

@@ -10,7 +10,7 @@ import (
 	"aibird/logger"
 )
 
-func ParseRecall(irc state.State) {
+func ParseRecall(irc *state.State) {
 	if irc.Channel == nil {
 		irc.Send("Error: recall can only be used in a channel.")
 		return

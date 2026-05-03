@@ -494,7 +494,7 @@ func AdminHelp() []Help {
 	}
 }
 
-func FindHelp(irc state.State) string {
+func FindHelp(irc *state.State) string {
 	config := irc.Config.AiBird
 	name := irc.Action()
 
@@ -598,7 +598,7 @@ func getHelpForWorkflowType(workflowType string, config settings.AiBird) []Help 
 
 			// Special handling for dynamic voice list
 			if paramName == "voice" {
-				statusClient := status.NewClient(config)
+				statusClient := status.NewClient(&config)
 				voices, err := statusClient.GetWavs()
 				if err != nil {
 					logger.Error("Could not get voices for help message", "error", err)

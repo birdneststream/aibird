@@ -17,7 +17,7 @@ import (
 // It uses the AI provider (LlamaCpp with GLM fallback) to analyze recent
 // conversation and produce a Z-Image prompt, then sends that prompt through
 // the ComfyUI zimage workflow.
-func ParseVibe(irc state.State, q *queue.ProcessingQueue) {
+func ParseVibe(irc *state.State, q *queue.ProcessingQueue) {
 	if irc.Channel == nil {
 		irc.Send("Error: vibe can only be used in a channel.")
 		return
@@ -76,9 +76,9 @@ func ParseVibe(irc state.State, q *queue.ProcessingQueue) {
 	// Queue the entire vibe pipeline — both AI text gen and ComfyUI image gen use the GPU
 	queueItem := queue.QueueItem{
 		Item: queue.Item{
-			State: irc,
+			State: *irc,
 			Function: func(ctx context.Context, s state.State, gpu meta.GPUType) {
-				generateVibe(s, messages, hours)
+				generateVibe(&s, messages, hours)
 			},
 		},
 		Model: "vibe",
@@ -97,7 +97,7 @@ func ParseVibe(irc state.State, q *queue.ProcessingQueue) {
 // generateVibe runs the two-step pipeline in a goroutine:
 //  1. The AI provider analyzes the conversation log and produces a Z-Image prompt.
 //  2. ComfyUI processes the prompt via the zimage workflow and uploads the result.
-func generateVibe(irc state.State, messages []birdbase.ChannelMessage, hours int) {
+func generateVibe(irc *state.State, messages []birdbase.ChannelMessage, hours int) {
 	irc.Send(fmt.Sprintf("%s, reading the room for the last %dh and painting the vibe...", irc.User.NickName, hours))
 
 	// Step 1: Use GLM to generate a Z-Image prompt from the conversation.
@@ -123,7 +123,7 @@ func generateVibe(irc state.State, messages []birdbase.ChannelMessage, hours int
 	}
 
 	// Check bad words before proceeding — abort if the AI-generated prompt violates content policy.
-	if comfyui.BadWordsCheck(imagePrompt, irc.Config.ComfyUi) {
+	if comfyui.BadWordsCheck(imagePrompt, &irc.Config.ComfyUi) {
 		logger.Warn("Vibe prompt blocked by content filter")
 		irc.Send("Error: the generated prompt was blocked by content filters. Please try again.")
 		return

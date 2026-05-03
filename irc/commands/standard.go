@@ -30,7 +30,7 @@ const (
 	cmdLeaderboard = "leaderboard"
 )
 
-func ParseStandard(irc state.State) {
+func ParseStandard(irc *state.State) {
 	// For backward compatibility, call the version with queue
 	ParseStandardWithQueue(irc, nil)
 }
@@ -43,7 +43,7 @@ func formatHelp(prefix string, commands []help.Help) string {
 	return prefix + strings.Join(names, ", ")
 }
 
-func filterHelp(commands []help.Help, irc state.State) []help.Help {
+func filterHelp(commands []help.Help, irc *state.State) []help.Help {
 	var filtered []help.Help
 	for _, cmd := range commands {
 		if !irc.IsCommandDenied(cmd.Name) {
@@ -53,7 +53,7 @@ func filterHelp(commands []help.Help, irc state.State) []help.Help {
 	return filtered
 }
 
-func ParseStandardWithQueue(irc state.State, q *queue.ProcessingQueue) {
+func ParseStandardWithQueue(irc *state.State, q *queue.ProcessingQueue) {
 	switch irc.Command.Action {
 	case cmdHelp:
 		irc.Send("Type  <command> --help for more information on a command.")
@@ -105,7 +105,7 @@ func ParseStandardWithQueue(irc state.State, q *queue.ProcessingQueue) {
 		irc.Send(user.Seen())
 		return
 	case cmdStatus:
-		client := status.NewClient(irc.Config.AiBird)
+		client := status.NewClient(&irc.Config.AiBird)
 		formattedStatus, err := client.GetFormattedStatus()
 		if err != nil {
 			irc.Send(girc.Fmt("❌ Error getting status: " + err.Error()))
@@ -177,7 +177,7 @@ func ParseStandardWithQueue(irc state.State, q *queue.ProcessingQueue) {
 	}
 }
 
-func ParsePlay(irc state.State) {
+func ParsePlay(irc *state.State) {
 	if irc.Message() == argHelp || irc.Message() == "" {
 		irc.Send(help.FindHelp(irc))
 		return

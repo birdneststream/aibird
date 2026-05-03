@@ -111,7 +111,7 @@ func fetchRedditHeadlines(proxy settings.Proxy) ([]string, error) {
 
 // callAIAndSend sends a "please wait" message and calls the AI with the given prompt.
 // Used by commands that were queued (the AI call runs inside the queue processor).
-func callAIAndSend(irc state.State, prompt string, message string) {
+func callAIAndSend(irc *state.State, prompt string, message string) {
 	irc.Send(fmt.Sprintf("%s, %s", irc.User.NickName, message))
 
 	if !hasTextProviderConfig(irc.Config) {
@@ -130,7 +130,7 @@ func callAIAndSend(irc state.State, prompt string, message string) {
 
 // queueAIAndSend enqueues an AI text generation request through the GPU queue.
 // The Reddit fetch or other prep work should be done before calling this.
-func queueAIAndSend(irc state.State, q *queue.ProcessingQueue, prompt string, message string, model string) {
+func queueAIAndSend(irc *state.State, q *queue.ProcessingQueue, prompt string, message string, model string) {
 	if q == nil {
 		callAIAndSend(irc, prompt, message)
 		return
@@ -138,9 +138,9 @@ func queueAIAndSend(irc state.State, q *queue.ProcessingQueue, prompt string, me
 
 	queueItem := queue.QueueItem{
 		Item: queue.Item{
-			State: irc,
+			State: *irc,
 			Function: func(ctx context.Context, s state.State, gpu meta.GPUType) {
-				callAIAndSend(s, prompt, message)
+				callAIAndSend(&s, prompt, message)
 			},
 		},
 		Model: model,
@@ -156,7 +156,7 @@ func queueAIAndSend(irc state.State, q *queue.ProcessingQueue, prompt string, me
 	}
 }
 
-func ParseHeadlines(irc state.State, q *queue.ProcessingQueue) {
+func ParseHeadlines(irc *state.State, q *queue.ProcessingQueue) {
 	helpers.GoSafe(func() {
 		headlines, err := fetchRedditHeadlines(irc.Config.AiBird.Proxy)
 		if err != nil {
@@ -185,7 +185,7 @@ func ParseHeadlines(irc state.State, q *queue.ProcessingQueue) {
 	})
 }
 
-func ParseIrcNews(irc state.State, q *queue.ProcessingQueue) {
+func ParseIrcNews(irc *state.State, q *queue.ProcessingQueue) {
 	helpers.GoSafe(func() {
 		headlines, err := fetchRedditHeadlines(irc.Config.AiBird.Proxy)
 		if err != nil {

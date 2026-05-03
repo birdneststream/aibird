@@ -9,7 +9,7 @@ import (
 	"aibird/irc/state"
 )
 
-func ParseOwner(irc state.State) {
+func ParseOwner(irc *state.State) {
 	if irc.User.IsOwner {
 		switch irc.Command.Action {
 		case "save":
@@ -26,7 +26,7 @@ func ParseOwner(irc state.State) {
 	}
 }
 
-func handleDbStats(irc state.State) {
+func handleDbStats(irc *state.State) {
 	// Get database stats from SQLite
 	stats, err := birdbase.GetDatabaseStats()
 	if err != nil {

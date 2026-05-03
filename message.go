@@ -6,7 +6,6 @@ import (
 	"time"
 
 	"aibird/birdbase"
-	"aibird/irc/commands"
 	"aibird/irc/networks"
 	"aibird/irc/participant"
 	"aibird/irc/state"
@@ -36,30 +35,6 @@ func handlePrivMsg(c *girc.Client, e girc.Event, network *networks.Network, conf
 	// It is a command, so we initialize state and then perform checks.
 	irc := state.Init(c, e, network, config)
 
-	if irc.User == nil {
-		// This should not happen with the new state.Init logic, but as a safeguard.
-		logger.Warn("Dropping message because user state is nil.", "source", e.Source.String())
-		return
-	}
-
-	// Set the command validator function that state.Verify will use.
-	irc.ValidateCommand = func(cmdName string) bool {
-		if irc.Channel == nil {
-			// Private Message
-			return commands.IsValidCommand(cmdName)
-		}
-		// Channel Message
-		return commands.IsValidCommandForChannel(
-			cmdName,
-			irc.Channel.Ai,
-			irc.Channel.Sd,
-			irc.Channel.Sound,
-			irc.Channel.Video,
-			irc.User.IsAdmin,
-			irc.User.IsOwner,
-		)
-	}
-
 	// Verify will parse the command, check for a trigger, and run the validator.
 	if err := irc.Verify(); err == nil {
 		logger.Info(
@@ -78,14 +53,14 @@ func handlePrivMsg(c *girc.Client, e girc.Event, network *networks.Network, conf
 		}
 
 		// Only check for flooding on messages that are commands.
-		checkFlood(irc)
+		checkFlood(&irc)
 
-		dispatchCommand(irc, q)
+		dispatchCommand(&irc, q)
 	}
 }
 
 // isZncBufferPlayback checks if a message is likely ZNC buffer replay and should be ignored.
-func isZncBufferPlayback(e girc.Event, network *networks.Network, config *settings.Config) bool {
+func isZncBufferPlayback(e girc.Event, network *networks.Network, config *settings.Config) bool { //nolint:gocritic // girc library mandates Event by value
 	const zncBufferGrace = 15 * time.Second
 
 	if network.ConnectedAt.IsZero() {
@@ -111,7 +86,7 @@ func isZncBufferPlayback(e girc.Event, network *networks.Network, config *settin
 
 // storeChannelEvent stores a non-command message for the summary feature.
 // Skips bot's own messages and non-channel messages.
-func storeChannelEvent(e girc.Event, network *networks.Network) {
+func storeChannelEvent(e girc.Event, network *networks.Network) { //nolint:gocritic // girc library mandates Event by value
 	if e.Source.Name == network.Nick || len(e.Params) == 0 || !strings.HasPrefix(e.Params[0], "#") {
 		return
 	}
@@ -142,7 +117,7 @@ func storeChannelEvent(e girc.Event, network *networks.Network) {
 // Uses nick-based keys and kicks the user from the channel on threshold breach.
 // This is the visible punishment layer — separate from MessageFloodCheck which
 // silently ignores the user via User.Ignored.
-func checkFlood(irc state.State) { //nolint:gocritic // State passed by value per current architecture
+func checkFlood(irc *state.State) { //nolint:gocritic // State passed by value per current architecture
 	if irc.Channel == nil {
 		return
 	}

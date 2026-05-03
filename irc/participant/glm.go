@@ -30,7 +30,7 @@ type ParticipantChoice struct {
 }
 
 // GenerateParticipantMessage generates a contextual response using GLM
-func GenerateParticipantMessage(ctx MessageContext, config settings.GlmConfig) (string, error) {
+func GenerateParticipantMessage(ctx *MessageContext, config *settings.GlmConfig) (string, error) {
 	// Guard: skip participant responses if GLM is not configured
 	if config.ApiKey == "" || config.Url == "" {
 		return "", fmt.Errorf("GLM is not configured for participant system")
@@ -92,7 +92,7 @@ func GenerateParticipantMessage(ctx MessageContext, config settings.GlmConfig) (
 }
 
 // buildContextualPrompt creates a context-aware prompt for different message types
-func buildContextualPrompt(ctx MessageContext) string {
+func buildContextualPrompt(ctx *MessageContext) string {
 	basePrompt := getPersonalityPrompt(ctx.PersonalityMode)
 
 	switch ctx.Type {
@@ -200,7 +200,7 @@ func getPersonalityPrompt(personalityMode string) string {
 }
 
 // makeGlmRequest sends a request to the GLM API
-func makeGlmRequest(requestBody ParticipantRequest, config settings.GlmConfig) (*ParticipantResponse, error) {
+func makeGlmRequest(requestBody ParticipantRequest, config *settings.GlmConfig) (*ParticipantResponse, error) {
 	httpRequest := request.Request{
 		Method: "POST",
 		Url:    config.Url,
