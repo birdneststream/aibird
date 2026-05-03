@@ -16,11 +16,11 @@ func TestIncrementCommandUsage(t *testing.T) {
 	defer func() { Data = origData }()
 
 	// Increment same command twice
-	if err := IncrementCommandUsage("testnet", "alice", "ai"); err != nil {
-		t.Fatalf("IncrementCommandUsage failed: %v", err)
+	if incrErr := IncrementCommandUsage("testnet", "alice", "ai"); incrErr != nil {
+		t.Fatalf("IncrementCommandUsage failed: %v", incrErr)
 	}
-	if err := IncrementCommandUsage("testnet", "alice", "ai"); err != nil {
-		t.Fatalf("IncrementCommandUsage second call failed: %v", err)
+	if incrErr := IncrementCommandUsage("testnet", "alice", "ai"); incrErr != nil {
+		t.Fatalf("IncrementCommandUsage second call failed: %v", incrErr)
 	}
 
 	// Verify count is 2
@@ -32,6 +32,14 @@ func TestIncrementCommandUsage(t *testing.T) {
 	}
 	if count != 2 {
 		t.Errorf("Expected count 2, got %d", count)
+	}
+}
+
+// seedLeaderboardData is a test helper that calls IncrementCommandUsage with error checking.
+func seedLeaderboardData(t *testing.T, network, nickname, command string) {
+	t.Helper()
+	if err := IncrementCommandUsage(network, nickname, command); err != nil {
+		t.Fatalf("IncrementCommandUsage(%s, %s, %s) failed: %v", network, nickname, command, err)
 	}
 }
 
@@ -47,12 +55,12 @@ func TestGetNetworkLeaderboard(t *testing.T) {
 	defer func() { Data = origData }()
 
 	// Seed data with multiple users and commands
-	_ = IncrementCommandUsage("testnet", "alice", "ai")
-	_ = IncrementCommandUsage("testnet", "alice", "ai")
-	_ = IncrementCommandUsage("testnet", "alice", "ai")
-	_ = IncrementCommandUsage("testnet", "bob", "sd")
-	_ = IncrementCommandUsage("testnet", "bob", "sd")
-	_ = IncrementCommandUsage("testnet", "carol", "ai")
+	seedLeaderboardData(t, "testnet", "alice", "ai")
+	seedLeaderboardData(t, "testnet", "alice", "ai")
+	seedLeaderboardData(t, "testnet", "alice", "ai")
+	seedLeaderboardData(t, "testnet", "bob", "sd")
+	seedLeaderboardData(t, "testnet", "bob", "sd")
+	seedLeaderboardData(t, "testnet", "carol", "ai")
 
 	entries, err := GetNetworkLeaderboard("testnet", 10)
 	if err != nil {
@@ -97,7 +105,7 @@ func TestGetNetworkLeaderboard_Limit(t *testing.T) {
 
 	// Seed 5 entries
 	for i := 0; i < 5; i++ {
-		_ = IncrementCommandUsage("testnet", "user"+string(rune('a'+i)), "ai")
+		seedLeaderboardData(t, "testnet", "user"+string(rune('a'+i)), "ai")
 	}
 
 	entries, err := GetNetworkLeaderboard("testnet", 3)
@@ -122,9 +130,9 @@ func TestGetNetworkUserTotals(t *testing.T) {
 	defer func() { Data = origData }()
 
 	// Seed data
-	_ = IncrementCommandUsage("testnet", "alice", "ai")
-	_ = IncrementCommandUsage("testnet", "alice", "ai")
-	_ = IncrementCommandUsage("testnet", "alice", "sd")
+	seedLeaderboardData(t, "testnet", "alice", "ai")
+	seedLeaderboardData(t, "testnet", "alice", "ai")
+	seedLeaderboardData(t, "testnet", "alice", "sd")
 
 	// GetNetworkUserTotals scans MAX(updated_at) into time.Time,
 	// which fails silently for aggregated SQLite datetime strings.
@@ -159,11 +167,11 @@ func TestGetGlobalLeaderboard(t *testing.T) {
 	defer func() { Data = origData }()
 
 	// Two networks
-	_ = IncrementCommandUsage("net1", "alice", "ai")
-	_ = IncrementCommandUsage("net1", "alice", "ai")
-	_ = IncrementCommandUsage("net2", "bob", "sd")
-	_ = IncrementCommandUsage("net2", "bob", "sd")
-	_ = IncrementCommandUsage("net2", "bob", "sd")
+	seedLeaderboardData(t, "net1", "alice", "ai")
+	seedLeaderboardData(t, "net1", "alice", "ai")
+	seedLeaderboardData(t, "net2", "bob", "sd")
+	seedLeaderboardData(t, "net2", "bob", "sd")
+	seedLeaderboardData(t, "net2", "bob", "sd")
 
 	// GetGlobalLeaderboard scans updated_at directly (non-aggregated),
 	// so time.Time scan works.
@@ -197,10 +205,10 @@ func TestGetCommandLeaderboard(t *testing.T) {
 	defer func() { Data = origData }()
 
 	// Multiple commands
-	_ = IncrementCommandUsage("net1", "alice", "ai")
-	_ = IncrementCommandUsage("net1", "alice", "ai")
-	_ = IncrementCommandUsage("net1", "bob", "sd")
-	_ = IncrementCommandUsage("net2", "carol", "ai")
+	seedLeaderboardData(t, "net1", "alice", "ai")
+	seedLeaderboardData(t, "net1", "alice", "ai")
+	seedLeaderboardData(t, "net1", "bob", "sd")
+	seedLeaderboardData(t, "net2", "carol", "ai")
 
 	// Filter by "ai" command — scans updated_at directly, so time.Time works
 	entries, err := GetCommandLeaderboard("ai", 10)
