@@ -13,7 +13,7 @@ import (
 	"github.com/lrstanley/girc"
 )
 
-func dispatchCommand(irc *state.State, q *queue.ProcessingQueue) {
+func dispatchCommand(irc *state.State, q *queue.ProcessingQueue) { //nolint:gocyclo // command dispatch routing by nature has many branches
 	// Check if the command is denied at any level
 	action := irc.Action()
 	if irc.IsCommandDenied(action) {

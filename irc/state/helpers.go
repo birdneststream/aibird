@@ -346,7 +346,7 @@ func (s *State) TextToBirdhole(message string) {
 // updateUserField applies a single argument to a user field using explicit type-safe setters.
 // Returns true if the field was recognized (including immutable blocked fields).
 // Uses originalKey for display messages to preserve user-specified casing.
-func (s *State) updateUserField(user *users.User, originalKey string, value interface{}) bool {
+func (s *State) updateUserField(user *users.User, originalKey string, value interface{}) bool { //nolint:gocyclo // explicit type-safe switch is preferred over reflection
 	key := strings.ToLower(originalKey)
 	switch key {
 	// Immutable fields — blocked
@@ -442,7 +442,7 @@ func (s *State) UpdateUserBasedOnArgs(user *users.User) {
 
 // updateChannelField applies a single argument to a channel field using explicit type-safe setters.
 // Returns true if the field was recognized (including immutable blocked fields).
-func (s *State) updateChannelField(originalKey string, value interface{}) bool {
+func (s *State) updateChannelField(originalKey string, value interface{}) bool { //nolint:gocyclo // explicit type-safe switch is preferred over reflection
 	key := strings.ToLower(originalKey)
 	switch key {
 	// Immutable fields — blocked

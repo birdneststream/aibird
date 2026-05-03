@@ -294,7 +294,7 @@ func LoadNetwork(networkName string) (*NetworkData, error) {
 	return Data.LoadNetwork(networkName)
 }
 
-func (s *SQLiteDB) LoadNetwork(networkName string) (*NetworkData, error) {
+func (s *SQLiteDB) LoadNetwork(networkName string) (*NetworkData, error) { //nolint:gocyclo // sequential DB loading with multiple table queries
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
@@ -331,7 +331,8 @@ func (s *SQLiteDB) LoadNetwork(networkName string) (*NetworkData, error) {
 		}
 		network.Servers = append(network.Servers, server)
 	}
-	if err := serverRows.Err(); err != nil {
+	err = serverRows.Err()
+	if err != nil {
 		return nil, err
 	}
 
@@ -352,7 +353,8 @@ func (s *SQLiteDB) LoadNetwork(networkName string) (*NetworkData, error) {
 		}
 		network.AdminHosts = append(network.AdminHosts, admin)
 	}
-	if err := adminRows.Err(); err != nil {
+	err = adminRows.Err()
+	if err != nil {
 		return nil, err
 	}
 
@@ -373,7 +375,8 @@ func (s *SQLiteDB) LoadNetwork(networkName string) (*NetworkData, error) {
 		}
 		network.IgnoredNicks = append(network.IgnoredNicks, nick)
 	}
-	if err := ignoredRows.Err(); err != nil {
+	err = ignoredRows.Err()
+	if err != nil {
 		return nil, err
 	}
 
@@ -394,7 +397,8 @@ func (s *SQLiteDB) LoadNetwork(networkName string) (*NetworkData, error) {
 		}
 		network.DenyCommands = append(network.DenyCommands, cmd)
 	}
-	if err := deniedRows.Err(); err != nil {
+	err = deniedRows.Err()
+	if err != nil {
 		return nil, err
 	}
 
@@ -654,7 +658,7 @@ func (s *SQLiteDB) SaveSingleUser(networkName, ident, host string, user *UserDat
 	return tx.Commit()
 }
 
-func (s *SQLiteDB) saveUsersToDatabase(tx *sql.Tx, networkID int64, users []UserData) error {
+func (s *SQLiteDB) saveUsersToDatabase(tx *sql.Tx, networkID int64, users []UserData) error { //nolint:gocyclo // dedup + upsert + mode saving is inherently complex
 	logger.Debug("saveUsersToDatabase called", "network_id", networkID, "users_count", len(users))
 
 	userMap := make(map[string]*UserData)

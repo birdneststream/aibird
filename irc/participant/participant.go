@@ -63,7 +63,7 @@ func (p *Participant) HandleChatMessage(c *girc.Client, e girc.Event, network *n
 }
 
 // shouldRespond determines if the bot should respond to a message
-func (p *Participant) shouldRespond(memory *ConversationMemory, channel *channels.Channel, network *networks.Network, e girc.Event) bool { //nolint:gocritic // girc library mandates Event by value
+func (p *Participant) shouldRespond(memory *ConversationMemory, channel *channels.Channel, network *networks.Network, e girc.Event) bool { //nolint:gocritic,gocyclo // girc library mandates Event by value; response logic is inherently multi-branch
 	// Don't respond to ourselves
 	if e.Source.Name == network.Nick {
 		return false
