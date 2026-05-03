@@ -56,9 +56,9 @@ func fetchRedditHeadlines(proxy settings.Proxy) ([]string, error) {
 	var resp *http.Response
 	if proxy.Host != "" && proxy.Port != "" {
 		proxyStr := fmt.Sprintf("http://%s:%s@%s:%s", proxy.User, proxy.Pass, proxy.Host, proxy.Port)
-		proxyURL, err := url.Parse(proxyStr)
-		if err != nil {
-			return nil, fmt.Errorf("error parsing proxy URL: %w", err)
+		proxyURL, parseErr := url.Parse(proxyStr)
+		if parseErr != nil {
+			return nil, fmt.Errorf("error parsing proxy URL: %w", parseErr)
 		}
 
 		client := &http.Client{
@@ -73,7 +73,6 @@ func fetchRedditHeadlines(proxy settings.Proxy) ([]string, error) {
 		}
 	} else {
 		client := &http.Client{Timeout: 10 * time.Second}
-		var err error
 		resp, err = client.Do(req)
 		if err != nil {
 			return nil, fmt.Errorf("error fetching headlines from Reddit: %w", err)

@@ -72,7 +72,7 @@ func (s *SQLiteDB) SaveNetwork(networkName string, network *NetworkData) error {
 			serverHosts = append(serverHosts, server.Host)
 		}
 
-		if err := syncSimpleCollection(tx, "servers", "host", "network_id", networkID, serverHosts); err != nil {
+		if err = syncSimpleCollection(tx, "servers", "host", "network_id", networkID, serverHosts); err != nil {
 			return err
 		}
 	} else {
@@ -165,7 +165,7 @@ func (s *SQLiteDB) SaveNetwork(networkName string, network *NetworkData) error {
 					chanCmds = append(chanCmds, cmd)
 				}
 
-				if err := syncSimpleCollection(tx, "denied_commands", "command", "channel_id", channelID, chanCmds); err != nil {
+				if err = syncSimpleCollection(tx, "denied_commands", "command", "channel_id", channelID, chanCmds); err != nil {
 					return err
 				}
 			} else {
@@ -181,7 +181,7 @@ func (s *SQLiteDB) SaveNetwork(networkName string, network *NetworkData) error {
 			channelNames = append(channelNames, channel.Name)
 		}
 
-		if err := syncSimpleCollection(tx, "channels", "name", "network_id", networkID, channelNames); err != nil {
+		if err = syncSimpleCollection(tx, "channels", "name", "network_id", networkID, channelNames); err != nil {
 			return err
 		}
 	} else {
@@ -207,7 +207,7 @@ func (s *SQLiteDB) SaveNetwork(networkName string, network *NetworkData) error {
 		for _, nick := range network.IgnoredNicks {
 			nicks = append(nicks, nick)
 		}
-		if err := syncSimpleCollection(tx, "ignored_nicks", "nickname", "network_id", networkID, nicks); err != nil {
+		if err = syncSimpleCollection(tx, "ignored_nicks", "nickname", "network_id", networkID, nicks); err != nil {
 			return err
 		}
 	} else {
@@ -233,7 +233,7 @@ func (s *SQLiteDB) SaveNetwork(networkName string, network *NetworkData) error {
 		for _, cmd := range network.DenyCommands {
 			cmds = append(cmds, cmd)
 		}
-		if err := syncSimpleCollection(tx, "denied_commands", "command", "network_id", networkID, cmds); err != nil {
+		if err = syncSimpleCollection(tx, "denied_commands", "command", "network_id", networkID, cmds); err != nil {
 			return err
 		}
 	} else {

@@ -368,7 +368,7 @@ func (s *SQLiteDB) GetChannelStats(networkID int64, channelName string, hours in
 
 	for chatterRows.Next() {
 		var entry ChatterEntry
-		if err := chatterRows.Scan(&entry.Nickname, &entry.Count); err != nil {
+		if err = chatterRows.Scan(&entry.Nickname, &entry.Count); err != nil {
 			continue
 		}
 		stats.TopChatters = append(stats.TopChatters, entry)

@@ -435,22 +435,22 @@ func GetAibirdMeta(workflowFile string) (*AibirdMeta, error) { //nolint:gocyclo
 
 	var metaNode map[string]interface{}
 	for _, n := range nodes {
-		node, ok := n.(map[string]interface{})
-		if !ok {
+		node, nodeOk := n.(map[string]interface{})
+		if !nodeOk {
 			continue
 		}
 
 		// v1 legacy comfyui support
-		properties, ok := node["properties"].(map[string]interface{})
-		if ok {
-			if title, ok := properties["title"].(string); ok && title == metaNodeTitle {
+		properties, propOk := node["properties"].(map[string]interface{})
+		if propOk {
+			if title, titleOk := properties["title"].(string); titleOk && title == metaNodeTitle {
 				metaNode = node
 				break
 			}
 		}
 
 		// v2 current comfyui support
-		if title, ok := node["title"].(string); ok && title == metaNodeTitle {
+		if title, titleOk := node["title"].(string); titleOk && title == metaNodeTitle {
 			metaNode = node
 			break
 		}

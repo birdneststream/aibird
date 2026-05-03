@@ -263,8 +263,8 @@ func ParseAiText(irc state.State) bool {
 				Url:      imageUrl,
 				FileName: tempFile,
 			}
-			if err := downloadReq.Download(); err != nil {
-				logger.Error("Failed to download GLM image", "error", err)
+			if dlErr := downloadReq.Download(); dlErr != nil {
+				logger.Error("Failed to download GLM image", "error", dlErr)
 				irc.SendError("Failed to download generated image")
 				return
 			}

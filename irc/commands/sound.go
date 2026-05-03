@@ -47,9 +47,9 @@ func ProcessAndUploadAudio(irc state.State, message, response string, gpu meta.G
 	if filepath.Ext(audioFile) == ".mp3" {
 		finalFile = audioFile
 	} else {
-		convertedFile, err := convertAudioToMp3AndAmplify(audioFile)
-		if err != nil {
-			logger.Error("Failed to convert audio file", "error", err)
+		convertedFile, convErr := convertAudioToMp3AndAmplify(audioFile)
+		if convErr != nil {
+			logger.Error("Failed to convert audio file", "error", convErr)
 			irc.SendError("Failed to process audio file.")
 			return
 		}
