@@ -166,8 +166,8 @@ func (q *Queue) GetActionList() []string {
 	defer q.mutex.Unlock()
 
 	var actions []string
-	for _, item := range q.elements {
-		actions = append(actions, item.State.Action())
+	for i := range q.elements {
+		actions = append(actions, q.elements[i].State.Action())
 	}
 	return actions
 }

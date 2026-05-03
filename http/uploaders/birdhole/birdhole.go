@@ -12,17 +12,17 @@ import (
 )
 
 // BirdHole uploads a file, converting PNG to JPG first.
-func BirdHole(fileName string, message string, fields []request.Fields, config *settings.BirdholeConfig) (string, error) {
+func BirdHole(fileName, message string, fields []request.Fields, config *settings.BirdholeConfig) (string, error) {
 	return upload(fileName, message, fields, config, true)
 }
 
 // BirdHolePNG uploads a PNG file without converting to JPG, preserving metadata.
-func BirdHolePNG(fileName string, message string, fields []request.Fields, config *settings.BirdholeConfig) (string, error) {
+func BirdHolePNG(fileName, message string, fields []request.Fields, config *settings.BirdholeConfig) (string, error) {
 	return upload(fileName, message, fields, config, false)
 }
 
 // upload is the shared implementation for BirdHole and BirdHolePNG.
-func upload(fileName string, message string, fields []request.Fields, config *settings.BirdholeConfig, convertToJpg bool) (string, error) {
+func upload(fileName, message string, fields []request.Fields, config *settings.BirdholeConfig, convertToJpg bool) (string, error) {
 	if convertToJpg {
 		fileName = image.ConvertPngToJpg(fileName)
 	}

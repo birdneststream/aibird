@@ -245,9 +245,9 @@ func parseTemperature(temp string) (int, error) {
 	return tempVal, err
 }
 
-// checkGPUTemperatures checks if any GPU is over the temperature threshold
-// Returns the GPU name and temperature if any GPU is too hot, empty string otherwise
-func checkGPUTemperatures(gpus []GPUInfo, threshold int) (string, int) {
+// checkGPUTemperatures checks if any GPU is over the temperature threshold.
+// Returns the GPU name and temperature if any GPU is too hot.
+func checkGPUTemperatures(gpus []GPUInfo, threshold int) (overheatedGPU string, temperature int) {
 	for _, gpu := range gpus {
 		temp, err := parseTemperature(gpu.Temperature)
 		if err != nil {
@@ -262,7 +262,7 @@ func checkGPUTemperatures(gpus []GPUInfo, threshold int) (string, int) {
 }
 
 // formatGPUInfo formats a single GPU's information
-func formatGPUInfo(gpu GPUInfo) string {
+func formatGPUInfo(gpu *GPUInfo) string {
 	shortName := strings.Replace(gpu.Name, "NVIDIA GeForce ", "", 1)
 	return fmt.Sprintf("%s [Temp: %s | Mem: %s/%s | Usage: %s]",
 		shortName,
@@ -304,8 +304,8 @@ func (c *Client) GetFormattedStatus() (string, error) {
 	if status.Error != "" {
 		lines = append(lines, fmt.Sprintf("GPUs: ❌ Error: %s", status.Error))
 	} else if len(status.GPUs) > 0 {
-		for _, gpu := range status.GPUs {
-			gpuLine := formatGPUInfo(gpu)
+		for i := range status.GPUs {
+			gpuLine := formatGPUInfo(&status.GPUs[i])
 			lines = append(lines, fmt.Sprintf(" • %s", gpuLine))
 		}
 	} else {

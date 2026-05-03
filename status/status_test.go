@@ -110,7 +110,7 @@ func TestFormatGPUInfo(t *testing.T) {
 		UtilizationGPU: "50%",
 	}
 
-	result := formatGPUInfo(gpu)
+	result := formatGPUInfo(&gpu)
 
 	assert.Contains(t, result, "RTX 4090")
 	assert.Contains(t, result, "45 C")

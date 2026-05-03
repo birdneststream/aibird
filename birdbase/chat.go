@@ -53,15 +53,15 @@ func (s *SQLiteDB) GetChatHistory(key string) ([]Message, error) {
 	return messages, err
 }
 
-func IncrementUserUsage(ident, host string) (int, bool, error) {
+func IncrementUserUsage(ident, host string) (count int, shouldNag bool, err error) {
 	return Data.IncrementUserUsage(ident, host)
 }
 
-func (s *SQLiteDB) IncrementUserUsage(ident, host string) (int, bool, error) {
+func (s *SQLiteDB) IncrementUserUsage(ident, host string) (count int, shouldNag bool, err error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	_, err := s.db.Exec(`
+	_, err = s.db.Exec(`
         INSERT INTO user_usage (ident, host, total_uses, updated_at)
         VALUES (?, ?, 1, datetime('now'))
         ON CONFLICT(ident, host) DO UPDATE SET
@@ -82,7 +82,7 @@ func (s *SQLiteDB) IncrementUserUsage(ident, host string) (int, bool, error) {
 		return 0, false, err
 	}
 
-	shouldNag := totalUses > 0 && totalUses%30 == 0
+	shouldNag = totalUses > 0 && totalUses%30 == 0
 
 	return totalUses, shouldNag, nil
 }

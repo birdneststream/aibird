@@ -39,11 +39,11 @@ func LoadConfig() (*Config, error) {
 	}
 
 	// Set default values for channels
-	for _, network := range config.Networks {
-		for i := range network.Channels {
+	for i := range config.Networks {
+		for j := range config.Networks[i].Channels {
 			// if Video is not set, default to true
-			if !network.Channels[i].Video {
-				network.Channels[i].Video = true
+			if !config.Networks[i].Channels[j].Video {
+				config.Networks[i].Channels[j].Video = true
 			}
 		}
 	}

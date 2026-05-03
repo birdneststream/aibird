@@ -68,8 +68,8 @@ func (n *Network) ProvideStateInit(channelName, ident, host string) (*channels.C
 }
 
 func (n *Network) GetNetworkChannel(channelName string) *channels.Channel {
-	for i, channel := range n.Channels {
-		if channel.Name == channelName {
+	for i := range n.Channels {
+		if n.Channels[i].Name == channelName {
 			return &n.Channels[i]
 		}
 	}
@@ -202,8 +202,8 @@ func (n *Network) SaveNormalized() error {
 
 	// Convert and save users (runtime/persistent data) with channel info
 	var usersData []birdbase.UserData
-	for _, user := range n.Users {
-		userData, err := user.ToUserData(0) // NetworkID will be resolved by SaveNetworkUsers
+	for i := range n.Users {
+		userData, err := n.Users[i].ToUserData(0) // NetworkID will be resolved by SaveNetworkUsers
 		if err != nil {
 			return err
 		}
@@ -252,18 +252,18 @@ func (n *Network) LoadNormalized() error {
 	// STEP 2: Ensure network configuration is saved to database (configuration merge strategy)
 	// This ensures all networks and channels from config.toml are persisted to database
 	channelsData := make([]birdbase.ChannelData, len(n.Channels))
-	for i, channel := range n.Channels {
+	for i := range n.Channels {
 		channelsData[i] = birdbase.ChannelData{
-			Name:          channel.Name,
-			PreserveModes: channel.PreserveModes,
-			Ai:            channel.Ai,
-			Sd:            channel.Sd,
-			ImageDescribe: channel.ImageDescribe,
-			Sound:         channel.Sound,
-			Video:         channel.Video,
-			ActionTrigger: channel.ActionTrigger,
-			TrimOutput:    channel.TrimOutput,
-			DenyCommands:  channel.DenyCommands,
+			Name:          n.Channels[i].Name,
+			PreserveModes: n.Channels[i].PreserveModes,
+			Ai:            n.Channels[i].Ai,
+			Sd:            n.Channels[i].Sd,
+			ImageDescribe: n.Channels[i].ImageDescribe,
+			Sound:         n.Channels[i].Sound,
+			Video:         n.Channels[i].Video,
+			ActionTrigger: n.Channels[i].ActionTrigger,
+			TrimOutput:    n.Channels[i].TrimOutput,
+			DenyCommands:  n.Channels[i].DenyCommands,
 		}
 	}
 
@@ -326,8 +326,8 @@ func (n *Network) LoadNormalized() error {
 
 	// STEP 4: Convert users back to User structs (preserving runtime data)
 	n.Users = nil
-	for _, userData := range usersData {
-		user := users.NewUserFromData(&userData)
+	for i := range usersData {
+		user := users.NewUserFromData(&usersData[i])
 
 		// Re-check ignore status based on current config (not database value)
 		// This ensures users are only ignored if they're in the current ignore list
