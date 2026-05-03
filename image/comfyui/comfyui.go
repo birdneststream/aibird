@@ -472,8 +472,11 @@ func executeAndCollect(irc state.State, model string, clientAddr string, clientP
 						if err != nil {
 							return "", fmt.Errorf("failed to write image: %w", err)
 						}
-						f.Write(*imgData)
-						f.Close()
+						defer f.Close()
+
+						if _, err := f.Write(*imgData); err != nil {
+							return "", fmt.Errorf("failed to write image data: %w", err)
+						}
 
 						// Post-generation rate limit for wan models
 						if strings.Contains(model, "wan") && irc.User.GetAccessLevel() <= 2 {
