@@ -1,3 +1,4 @@
+// Package image provides image URL validation and download helpers.
 package image
 
 import (

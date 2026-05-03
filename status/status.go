@@ -1,3 +1,4 @@
+// Package status provides API client for the AI service status and model execution checks.
 package status
 
 import (

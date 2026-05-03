@@ -1,3 +1,4 @@
+// Package help provides command help text metadata and lookup for all bot commands.
 package help
 
 import (

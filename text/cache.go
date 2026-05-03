@@ -1,3 +1,4 @@
+// Package text provides text generation caching and shared text utilities.
 package text
 
 import (

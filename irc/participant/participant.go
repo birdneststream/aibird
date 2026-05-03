@@ -1,3 +1,4 @@
+// Package participant implements the AI chat participant system for non-command channel messages.
 package participant
 
 import (

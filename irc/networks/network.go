@@ -1,3 +1,4 @@
+// Package networks defines IRC network types, server configuration, and user lookup.
 package networks
 
 import (

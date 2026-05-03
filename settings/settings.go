@@ -1,3 +1,4 @@
+// Package settings loads and validates TOML configuration files.
 package settings
 
 import (

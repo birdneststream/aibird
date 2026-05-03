@@ -1,3 +1,4 @@
+// Package glm implements the GLM text and image generation provider.
 package glm
 
 import (

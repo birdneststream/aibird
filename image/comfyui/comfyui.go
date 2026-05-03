@@ -1,3 +1,4 @@
+// Package comfyui integrates with ComfyUI for AI-powered image, video, and audio generation.
 package comfyui
 
 import (

@@ -1,3 +1,4 @@
+// Package request provides HTTP request utilities including multipart uploads and downloads.
 package request
 
 import (

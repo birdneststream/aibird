@@ -1,3 +1,4 @@
+// Package helpers provides shared utilities including mode mapping, string helpers, and markdown conversion.
 package helpers
 
 import (

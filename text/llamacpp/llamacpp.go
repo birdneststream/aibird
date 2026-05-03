@@ -1,3 +1,4 @@
+// Package llamacpp implements the llama.cpp text generation provider.
 package llamacpp
 
 import (

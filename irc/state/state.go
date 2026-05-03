@@ -1,3 +1,4 @@
+// Package state manages IRC connection state including users, channels, and command parsing.
 package state
 
 import (

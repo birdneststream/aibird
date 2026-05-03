@@ -1,3 +1,4 @@
+// Package commands implements IRC command dispatching and handler registration.
 package commands
 
 import (

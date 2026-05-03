@@ -1,3 +1,4 @@
+// Package ircart converts images to IRC-compatible colored ASCII art.
 package ircart
 
 import (

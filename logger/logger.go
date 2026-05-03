@@ -1,3 +1,4 @@
+// Package logger provides centralized structured logging using slog.
 package logger
 
 import (

@@ -1,3 +1,4 @@
+// Package asciistore stores and retrieves ASCII art records for the recall command.
 package asciistore
 
 import (

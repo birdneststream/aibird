@@ -1,3 +1,4 @@
+// Package exifparser extracts EXIF metadata from PNG images.
 package exifparser
 
 import (

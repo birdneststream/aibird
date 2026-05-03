@@ -1,3 +1,4 @@
+// Package channels defines IRC channel types, mode tracking, and user membership management.
 package channels
 
 import (

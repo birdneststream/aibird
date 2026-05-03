@@ -1,3 +1,4 @@
+// Package birdhole uploads generated media files to the Birdhole gallery service.
 package birdhole
 
 import (

@@ -1,3 +1,4 @@
+// Package queue implements a thread-safe GPU processing queue with priority routing.
 package queue
 
 import (

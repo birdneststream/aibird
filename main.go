@@ -1,3 +1,4 @@
+// Package main is the entry point for the AiBird IRC bot.
 package main
 
 import (

@@ -1,3 +1,4 @@
+// Package servers defines IRC server configuration types.
 package servers
 
 type (

@@ -1,3 +1,4 @@
+// Package users defines IRC user types with access levels, AI preferences, and mode tracking.
 package users
 
 import (

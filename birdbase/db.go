@@ -1,3 +1,4 @@
+// Package birdbase provides the SQLite database layer for persistent storage.
 package birdbase
 
 import (
