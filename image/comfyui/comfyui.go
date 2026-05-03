@@ -217,7 +217,7 @@ func processParameter(irc state.State, paramName string, paramDef ParameterDef) 
 
 	// Check if required parameter is provided
 	if paramDef.Required && !userInputProvided {
-		return fmt.Errorf("⚠️ Parameter --%s is required. %s", paramName, paramDef.Description)
+		return fmt.Errorf("⚠️ Parameter --%s is required: %s", paramName, paramDef.Description)
 	}
 
 	// Special pre-flight check for image URLs to give users faster feedback
@@ -235,7 +235,7 @@ func processParameter(irc state.State, paramName string, paramDef ParameterDef) 
 			}
 			resp.Body.Close()
 			if resp.StatusCode != http.StatusOK {
-				return fmt.Errorf("⚠️ The image URL for --img appears to be invalid (server response: %s). Please check the link.", resp.Status)
+				return fmt.Errorf("⚠️ The image URL for --img appears to be invalid (server response: %s): please check the link", resp.Status)
 			}
 			logger.Debug("Image URL check passed", "status", resp.Status)
 		}
@@ -302,13 +302,13 @@ func parseUserInput(irc state.State, paramName string, paramDef ParameterDef, ra
 		if strVal, ok := rawUserInput.(string); ok {
 			val, err := strconv.ParseInt(strVal, 10, 64)
 			if err != nil {
-				return fmt.Errorf("⚠️ Invalid value for --%s. Expected an int, but got '%s'.", paramName, strVal)
+				return fmt.Errorf("⚠️ Invalid value for --%s: expected an int, but got '%s'", paramName, strVal)
 			}
 			if paramDef.Min != nil && float64(val) < *paramDef.Min {
-				return fmt.Errorf("⚠️ Value for --%s is too low. Minimum is %g, but you gave %d.", paramName, *paramDef.Min, val)
+				return fmt.Errorf("⚠️ Value for --%s is too low: minimum is %g, but you gave %d", paramName, *paramDef.Min, val)
 			}
 			if paramDef.Max != nil && float64(val) > *paramDef.Max {
-				return fmt.Errorf("⚠️ Value for --%s is too high. Maximum is %g, but you gave %d.", paramName, *paramDef.Max, val)
+				return fmt.Errorf("⚠️ Value for --%s is too high: maximum is %g, but you gave %d", paramName, *paramDef.Max, val)
 			}
 			return val
 		}
@@ -316,13 +316,13 @@ func parseUserInput(irc state.State, paramName string, paramDef ParameterDef, ra
 		if strVal, ok := rawUserInput.(string); ok {
 			val, err := strconv.ParseFloat(strVal, 64)
 			if err != nil {
-				return fmt.Errorf("⚠️ Invalid value for --%s. Expected a float, but got '%s'.", paramName, strVal)
+				return fmt.Errorf("⚠️ Invalid value for --%s: expected a float, but got '%s'", paramName, strVal)
 			}
 			if paramDef.Min != nil && val < *paramDef.Min {
-				return fmt.Errorf("⚠️ Value for --%s is too low. Minimum is %g, but you gave %g.", paramName, *paramDef.Min, val)
+				return fmt.Errorf("⚠️ Value for --%s is too low: minimum is %g, but you gave %g", paramName, *paramDef.Min, val)
 			}
 			if paramDef.Max != nil && val > *paramDef.Max {
-				return fmt.Errorf("⚠️ Value for --%s is too high. Maximum is %g, but you gave %g.", paramName, *paramDef.Max, val)
+				return fmt.Errorf("⚠️ Value for --%s is too high: maximum is %g, but you gave %g", paramName, *paramDef.Max, val)
 			}
 			return val
 		}

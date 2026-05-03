@@ -306,10 +306,10 @@ func TestGetAllNetworkNames(t *testing.T) {
 	// Save two networks
 	n1 := &NetworkData{Enabled: true, Nick: "bot1", User: "u", Name: "n"}
 	n2 := &NetworkData{Enabled: true, Nick: "bot2", User: "u", Name: "n"}
-	if err := db.SaveNetwork("net1", n1); err != nil {
+	if err = db.SaveNetwork("net1", n1); err != nil {
 		t.Fatalf("SaveNetwork net1 failed: %v", err)
 	}
-	if err := db.SaveNetwork("net2", n2); err != nil {
+	if err = db.SaveNetwork("net2", n2); err != nil {
 		t.Fatalf("SaveNetwork net2 failed: %v", err)
 	}
 

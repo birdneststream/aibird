@@ -108,7 +108,7 @@ func (s *State) UserCacheKey(extra string) string {
 }
 
 func (s *State) UserAiChatCacheKey() string {
-	basePromptHash := sha3.Sum224([]byte(s.User.GetBasePrompt()))
+	basePromptHash := sha3.Sum224([]byte(s.User.GetBasePrompt())) //nolint:govet // hash value needed for cache key
 	hashValue := hex.EncodeToString(basePromptHash[:])
 	return s.UserCacheKey(s.User.AiService + hashValue)
 }

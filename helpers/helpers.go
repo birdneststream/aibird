@@ -95,13 +95,15 @@ func StringToStatusIndicator(s string) string {
 		return "[N/A]" // ASCII for empty or not available
 	}
 	// Assuming you want to keep the boolean to emoji functionality as well
-	if s == "true" {
+	switch s {
+	case "true":
 		return "[YES]"
-	} else if s == "false" {
+	case "false":
 		return "[NO]"
+	default:
+		// Return a default emoji if the string is not empty, true, or false
+		return "[?]"
 	}
-	// Return a default emoji if the string is not empty, true, or false
-	return "[?]"
 }
 
 func GetModes(modes string) []string {

@@ -202,7 +202,7 @@ func (rlm *RateLimitManager) cleanup() {
 	}
 }
 
-// Initialize in-memory structures with context for graceful shutdown
+// InitMemory initializes in-memory structures with context for graceful shutdown.
 func InitMemory() {
 	// Cancel any existing context to prevent orphaned goroutines
 	if memCancel != nil {

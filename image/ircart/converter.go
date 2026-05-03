@@ -125,7 +125,7 @@ func ConvertPNGToIRCArt(pngFilePath string, useHalfblocks bool) ([]string, error
 					// Use most compact format while maintaining irssi compatibility
 					// IRC color code format: \x03FG,BG
 					// The format string handles both single and double digit color codes.
-					line.WriteString(fmt.Sprintf("\x03%d,%d", actualFg, bgColor))
+					fmt.Fprintf(&line, "\x03%d,%d", actualFg, bgColor)
 					lastFgColor = fgColor
 					lastBgColor = bgColor
 				}
@@ -152,7 +152,7 @@ func ConvertPNGToIRCArt(pngFilePath string, useHalfblocks bool) ([]string, error
 				// Add background color code only if it changed
 				if ircColor.Code != lastColorCode {
 					// Use most compact fg,bg format for irssi compatibility
-					line.WriteString(fmt.Sprintf("\x03%d,%d", ircColor.Code, ircColor.Code))
+					fmt.Fprintf(&line, "\x03%d,%d", ircColor.Code, ircColor.Code)
 					lastColorCode = ircColor.Code
 				}
 

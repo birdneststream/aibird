@@ -331,7 +331,7 @@ func (s *SQLiteDB) LoadNetwork(networkName string) (*NetworkData, error) {
 		}
 		network.Servers = append(network.Servers, server)
 	}
-	if err := serverRows.Err(); err != nil {
+	if err = serverRows.Err(); err != nil {
 		return nil, err
 	}
 
@@ -352,7 +352,7 @@ func (s *SQLiteDB) LoadNetwork(networkName string) (*NetworkData, error) {
 		}
 		network.AdminHosts = append(network.AdminHosts, admin)
 	}
-	if err := adminRows.Err(); err != nil {
+	if err = adminRows.Err(); err != nil {
 		return nil, err
 	}
 
@@ -373,7 +373,7 @@ func (s *SQLiteDB) LoadNetwork(networkName string) (*NetworkData, error) {
 		}
 		network.IgnoredNicks = append(network.IgnoredNicks, nick)
 	}
-	if err := ignoredRows.Err(); err != nil {
+	if err = ignoredRows.Err(); err != nil {
 		return nil, err
 	}
 
@@ -394,7 +394,7 @@ func (s *SQLiteDB) LoadNetwork(networkName string) (*NetworkData, error) {
 		}
 		network.DenyCommands = append(network.DenyCommands, cmd)
 	}
-	if err := deniedRows.Err(); err != nil {
+	if err = deniedRows.Err(); err != nil {
 		return nil, err
 	}
 

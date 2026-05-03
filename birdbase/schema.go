@@ -262,8 +262,10 @@ func (s *SQLiteDB) initSchema() error {
 		}
 
 		// Migration 3→4: Add channel_messages table for summary feature
+		// Table is created by the CREATE TABLE IF NOT EXISTS in the schema string above,
+		// so no additional migration steps are needed here.
 		if currentVersion < 4 {
-			// Table is created by the schema string above, no additional migration needed
+			// intentionally empty — schema already includes channel_messages
 		}
 
 		_, err = tx.Exec("INSERT INTO schema_version (version) VALUES (?)", schemaVersion)

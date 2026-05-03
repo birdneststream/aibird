@@ -391,7 +391,7 @@ func (s *SQLiteDB) GetChannelStats(networkID int64, channelName string, hours in
 	for eventRows.Next() {
 		var eventType string
 		var count int
-		if err := eventRows.Scan(&eventType, &count); err != nil {
+		if scanErr := eventRows.Scan(&eventType, &count); scanErr != nil {
 			continue
 		}
 		stats.EventCounts[eventType] = count
