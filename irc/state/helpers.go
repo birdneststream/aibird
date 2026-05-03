@@ -301,7 +301,7 @@ func (s *State) TextToBirdhole(message string) {
 	// Ensure the file gets cleaned up when done
 	defer os.Remove(filePath)
 
-	response, err := birdhole.BirdHole(filePath, s.Action()+" "+s.Message(), nil, s.Config.Birdhole)
+	response, err := birdhole.BirdHole(filePath, s.Action()+" "+s.Message(), nil, &s.Config.Birdhole)
 	if err != nil {
 		s.SendError("Failed to upload to birdhole: " + err.Error())
 		return

@@ -53,7 +53,7 @@ func uploadAndReply(irc state.State, response, displayMessage, aiEnhancedPrompt 
 		fields = append(fields, request.Fields{Key: "message", Value: displayMessage})
 	}
 
-	upload, err := birdhole.BirdHole(response, displayMessage, fields, irc.Config.Birdhole)
+	upload, err := birdhole.BirdHole(response, displayMessage, fields, &irc.Config.Birdhole)
 	if err != nil {
 		logger.Error("Birdhole error", "error", err)
 		irc.SendError(err.Error())

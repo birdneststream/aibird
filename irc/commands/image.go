@@ -74,7 +74,7 @@ func processAisciiCommand(irc state.State, response, message string) bool {
 		{Key: "meta_prompt", Value: message},
 	}
 
-	upload, err := birdhole.BirdHolePNG(response, message, fields, irc.Config.Birdhole)
+	upload, err := birdhole.BirdHolePNG(response, message, fields, &irc.Config.Birdhole)
 	if err != nil {
 		logger.Error("Birdhole upload failed for aiscii", "error", err)
 		// Clean up copy on error

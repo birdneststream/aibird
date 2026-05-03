@@ -278,7 +278,7 @@ func ParseAiText(irc state.State) bool {
 				{Key: "meta_nick", Value: irc.User.NickName},
 				{Key: "meta_prompt", Value: irc.Message()},
 			}
-			upload, err := birdhole.BirdHole(tempFile, irc.Message(), fields, irc.Config.Birdhole)
+			upload, err := birdhole.BirdHole(tempFile, irc.Message(), fields, &irc.Config.Birdhole)
 			if err != nil {
 				logger.Error("Birdhole upload failed", "error", err)
 				irc.SendError("Failed to upload image: " + err.Error())

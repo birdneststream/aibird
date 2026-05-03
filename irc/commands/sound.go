@@ -59,7 +59,7 @@ func ProcessAndUploadAudio(irc state.State, message, response string, gpu meta.G
 
 	fields := irc.BuildUploadFields()
 
-	upload, err := birdhole.BirdHole(finalFile, message, fields, irc.Config.Birdhole)
+	upload, err := birdhole.BirdHole(finalFile, message, fields, &irc.Config.Birdhole)
 	if err != nil {
 		logger.Error("Failed to upload to birdhole", "error", err)
 		irc.SendError(err.Error())
