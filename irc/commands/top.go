@@ -55,7 +55,7 @@ func ParseTop(irc *state.State) {
 
 	// Event breakdown
 	var eventParts []string
-	for _, et := range []string{eventPrivmsg, eventAction, eventJoin, eventPart, "quit", eventKick} {
+	for _, et := range []string{eventPrivmsg, eventAction, eventJoin, eventPart, eventQuit, eventKick} {
 		if count, ok := stats.EventCounts[et]; ok && count > 0 {
 			label := et
 			switch et {
@@ -87,16 +87,4 @@ func ParseTop(irc *state.State) {
 	}
 }
 
-func parseIntSafe(s string) (int, error) {
-	var result int
-	for _, c := range strings.TrimSpace(s) {
-		if c < '0' || c > '9' {
-			break
-		}
-		result = result*10 + int(c-'0')
-	}
-	if result == 0 {
-		return 0, fmt.Errorf("not a number")
-	}
-	return result, nil
-}
+

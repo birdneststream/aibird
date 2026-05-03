@@ -3,6 +3,8 @@ package commands
 import (
 	"strings"
 	"testing"
+
+	"aibird/birdbase"
 )
 
 func TestStripThinkingContent(t *testing.T) {
@@ -152,6 +154,131 @@ func TestStripMarkdown(t *testing.T) {
 			got := stripMarkdown(tt.input)
 			if got != tt.want {
 				t.Errorf("stripMarkdown() = %q, want %q", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestSanitizePersona(t *testing.T) {
+	tests := []struct {
+		name  string
+		input string
+		want  string
+	}{
+		{"empty", "", ""},
+		{"simple text", "hello", "hello"},
+		{"strips newlines", "hello\nworld", "hello world"},
+		{"strips carriage returns", "hello\r\nworld", "hello  world"},
+		{"trims whitespace", "  hello  ", "hello"},
+		{"truncates at 200", strings.Repeat("a", 250), strings.Repeat("a", 200)},
+		{"exactly 200 chars", strings.Repeat("a", 200), strings.Repeat("a", 200)},
+		{"under 200 unchanged", "short text", "short text"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := sanitizePersona(tt.input)
+			if got != tt.want {
+				t.Errorf("sanitizePersona() = %q (len=%d), want %q (len=%d)", got, len(got), tt.want, len(tt.want))
+			}
+		})
+	}
+}
+
+func TestFormatEventLog(t *testing.T) {
+	messages := []birdbase.ChannelMessage{
+		{Nickname: "alice", EventType: "privmsg", Message: "hello", Timestamp: 1000},
+		{Nickname: "bob", EventType: "action", Message: "waves", Timestamp: 2000},
+		{Nickname: "carol", EventType: "join", Message: "", Timestamp: 3000},
+		{Nickname: "dave", EventType: "part", Message: "", Timestamp: 4000},
+		{Nickname: "eve", EventType: "quit", Message: "", Timestamp: 5000},
+		{Nickname: "frank", EventType: "kick", Message: "alice", Timestamp: 6000},
+	}
+
+	result := formatEventLog("#test", 6, messages)
+
+	if !strings.Contains(result, "Channel: #test") {
+		t.Error("should contain channel name")
+	}
+	if !strings.Contains(result, "last 6 hours") {
+		t.Error("should contain hours")
+	}
+	if !strings.Contains(result, "<alice> hello") {
+		t.Error("should format privmsg")
+	}
+	if !strings.Contains(result, "* bob waves") {
+		t.Error("should format action")
+	}
+	if !strings.Contains(result, "--> carol joined") {
+		t.Error("should format join")
+	}
+	if !strings.Contains(result, "<-- dave left") {
+		t.Error("should format part")
+	}
+	if !strings.Contains(result, "<-- eve quit") {
+		t.Error("should format quit")
+	}
+	if !strings.Contains(result, "<-- frank was kicked by alice") {
+		t.Error("should format kick")
+	}
+
+	// Empty messages
+	emptyResult := formatEventLog("#empty", 1, nil)
+	if !strings.Contains(emptyResult, "Channel: #empty") {
+		t.Error("should contain header even with no messages")
+	}
+}
+
+func TestParseHoursFromMessage(t *testing.T) {
+	tests := []struct {
+		name         string
+		msg          string
+		defaultHours int
+		maxHours     int
+		want         int
+	}{
+		{"empty string returns default", "", 24, 168, 24},
+		{"6h", "6h", 24, 168, 6},
+		{"plain number", "12", 24, 168, 12},
+		{"clamped to max", "200h", 24, 168, 168},
+		{"with trailing text", "6h --persona cowboy", 24, 168, 6},
+		{"zero returns default", "0", 24, 168, 24},
+		{"negative returns default", "-5", 24, 168, 24},
+		{"non-numeric returns default", "hello", 24, 168, 24},
+		{"exact max", "168h", 24, 168, 168},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := parseHoursFromMessage(tt.msg, tt.defaultHours, tt.maxHours)
+			if got != tt.want {
+				t.Errorf("parseHoursFromMessage(%q, %d, %d) = %d, want %d", tt.msg, tt.defaultHours, tt.maxHours, got, tt.want)
+			}
+		})
+	}
+}
+
+func TestParseIntSafe(t *testing.T) {
+	tests := []struct {
+		name    string
+		input   string
+		want    int
+		wantErr bool
+	}{
+		{"simple number", "123", 123, false},
+		{"zero", "0", 0, true},
+		{"non-numeric", "abc", 0, true},
+		{"stops at non-digit", "12abc", 12, false},
+		{"empty string", "", 0, true},
+		{"with whitespace", " 42 ", 42, false},
+		{"single digit", "7", 7, false},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := parseIntSafe(tt.input)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("parseIntSafe(%q) error = %v, wantErr %v", tt.input, err, tt.wantErr)
+			}
+			if got != tt.want {
+				t.Errorf("parseIntSafe(%q) = %d, want %d", tt.input, got, tt.want)
 			}
 		})
 	}
