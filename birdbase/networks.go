@@ -53,9 +53,30 @@ func (s *SQLiteDB) SaveNetwork(networkName string, network *NetworkData) error {
 		return err
 	}
 
-	if len(network.Servers) > 0 {
-		for _, server := range network.Servers {
-			_, err = tx.Exec(`
+	if err = saveNetworkServers(tx, networkID, network.Servers); err != nil {
+		return err
+	}
+	if err = saveNetworkAdminHosts(tx, networkID, network.AdminHosts); err != nil {
+		return err
+	}
+	if err = saveNetworkChannels(tx, networkID, network.Channels); err != nil {
+		return err
+	}
+	if err = saveNetworkIgnoredNicks(tx, networkID, network.IgnoredNicks); err != nil {
+		return err
+	}
+	if err = saveNetworkDeniedCommands(tx, networkID, network.DenyCommands); err != nil {
+		return err
+	}
+
+	return tx.Commit()
+}
+
+// saveNetworkServers persists server entries for a network.
+func saveNetworkServers(tx *sql.Tx, networkID int64, servers []ServerData) error {
+	if len(servers) > 0 {
+		for _, server := range servers {
+			_, err := tx.Exec(`
 				INSERT INTO servers (network_id, host, port, ssl, skip_ssl_verify)
 				VALUES (?, ?, ?, ?, ?)
 				ON CONFLICT(network_id, host, port) DO UPDATE SET
@@ -68,23 +89,27 @@ func (s *SQLiteDB) SaveNetwork(networkName string, network *NetworkData) error {
 		}
 
 		var serverHosts []interface{}
-		for _, server := range network.Servers {
+		for _, server := range servers {
 			serverHosts = append(serverHosts, server.Host)
 		}
 
-		if err = syncSimpleCollection(tx, "servers", "host", "network_id", networkID, serverHosts); err != nil {
+		if err := syncSimpleCollection(tx, "servers", "host", "network_id", networkID, serverHosts); err != nil {
 			return err
 		}
 	} else {
-		_, err = tx.Exec("DELETE FROM servers WHERE network_id = ?", networkID)
+		_, err := tx.Exec("DELETE FROM servers WHERE network_id = ?", networkID)
 		if err != nil {
 			return err
 		}
 	}
+	return nil
+}
 
-	if len(network.AdminHosts) > 0 {
-		for _, admin := range network.AdminHosts {
-			_, err = tx.Exec(`
+// saveNetworkAdminHosts persists admin host entries for a network.
+func saveNetworkAdminHosts(tx *sql.Tx, networkID int64, admins []AdminHost) error {
+	if len(admins) > 0 {
+		for _, admin := range admins {
+			_, err := tx.Exec(`
 				INSERT INTO admin_hosts (network_id, host, ident, is_owner)
 				VALUES (?, ?, ?, ?)
 				ON CONFLICT(network_id, host, ident) DO UPDATE SET
@@ -99,7 +124,7 @@ func (s *SQLiteDB) SaveNetwork(networkName string, network *NetworkData) error {
 		var args []interface{}
 		args = append(args, networkID)
 
-		for _, admin := range network.AdminHosts {
+		for _, admin := range admins {
 			hostIdentPairs = append(hostIdentPairs, "(host = ? AND ident = ?)")
 			args = append(args, admin.Host, admin.Ident)
 		}
@@ -109,20 +134,24 @@ func (s *SQLiteDB) SaveNetwork(networkName string, network *NetworkData) error {
 			WHERE network_id = ? AND NOT (%s)
 		`, strings.Join(hostIdentPairs, " OR "))
 
-		_, err = tx.Exec(deleteQuery, args...)
+		_, err := tx.Exec(deleteQuery, args...)
 		if err != nil {
 			return err
 		}
 	} else {
-		_, err = tx.Exec("DELETE FROM admin_hosts WHERE network_id = ?", networkID)
+		_, err := tx.Exec("DELETE FROM admin_hosts WHERE network_id = ?", networkID)
 		if err != nil {
 			return err
 		}
 	}
+	return nil
+}
 
-	if len(network.Channels) > 0 {
-		for _, channel := range network.Channels {
-			_, err = tx.Exec(`
+// saveNetworkChannels persists channel entries and their denied commands for a network.
+func saveNetworkChannels(tx *sql.Tx, networkID int64, channels []ChannelData) error {
+	if len(channels) > 0 {
+		for _, channel := range channels {
+			_, err := tx.Exec(`
 				INSERT INTO channels (network_id, name, preserve_modes, ai_enabled, sd_enabled, 
 					image_describe, sound_enabled, video_enabled, action_trigger, trim_output)
 				VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
@@ -148,52 +177,64 @@ func (s *SQLiteDB) SaveNetwork(networkName string, network *NetworkData) error {
 				return err
 			}
 
-			if len(channel.DenyCommands) > 0 {
-				for _, cmd := range channel.DenyCommands {
-					_, err = tx.Exec(`
-						INSERT INTO denied_commands (network_id, channel_id, command)
-						VALUES (NULL, ?, ?)
-						ON CONFLICT(network_id, channel_id, command) DO NOTHING
-					`, channelID, cmd)
-					if err != nil {
-						return err
-					}
-				}
-
-				var chanCmds []interface{}
-				for _, cmd := range channel.DenyCommands {
-					chanCmds = append(chanCmds, cmd)
-				}
-
-				if err = syncSimpleCollection(tx, "denied_commands", "command", "channel_id", channelID, chanCmds); err != nil {
-					return err
-				}
-			} else {
-				_, err = tx.Exec("DELETE FROM denied_commands WHERE channel_id = ?", channelID)
-				if err != nil {
-					return err
-				}
+			if err = saveChannelDeniedCommands(tx, channelID, channel.DenyCommands); err != nil {
+				return err
 			}
 		}
 
 		var channelNames []interface{}
-		for _, channel := range network.Channels {
+		for _, channel := range channels {
 			channelNames = append(channelNames, channel.Name)
 		}
 
-		if err = syncSimpleCollection(tx, "channels", "name", "network_id", networkID, channelNames); err != nil {
+		if err := syncSimpleCollection(tx, "channels", "name", "network_id", networkID, channelNames); err != nil {
 			return err
 		}
 	} else {
-		_, err = tx.Exec("DELETE FROM channels WHERE network_id = ?", networkID)
+		_, err := tx.Exec("DELETE FROM channels WHERE network_id = ?", networkID)
 		if err != nil {
 			return err
 		}
 	}
+	return nil
+}
 
-	if len(network.IgnoredNicks) > 0 {
-		for _, nick := range network.IgnoredNicks {
-			_, err = tx.Exec(`
+// saveChannelDeniedCommands persists denied commands for a single channel.
+func saveChannelDeniedCommands(tx *sql.Tx, channelID int64, denyCommands []string) error {
+	if len(denyCommands) > 0 {
+		for _, cmd := range denyCommands {
+			_, err := tx.Exec(`
+				INSERT INTO denied_commands (network_id, channel_id, command)
+				VALUES (NULL, ?, ?)
+				ON CONFLICT(network_id, channel_id, command) DO NOTHING
+			`, channelID, cmd)
+			if err != nil {
+				return err
+			}
+		}
+
+		var chanCmds []interface{}
+		for _, cmd := range denyCommands {
+			chanCmds = append(chanCmds, cmd)
+		}
+
+		if err := syncSimpleCollection(tx, "denied_commands", "command", "channel_id", channelID, chanCmds); err != nil {
+			return err
+		}
+	} else {
+		_, err := tx.Exec("DELETE FROM denied_commands WHERE channel_id = ?", channelID)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// saveNetworkIgnoredNicks persists ignored nick entries for a network.
+func saveNetworkIgnoredNicks(tx *sql.Tx, networkID int64, nicks []string) error {
+	if len(nicks) > 0 {
+		for _, nick := range nicks {
+			_, err := tx.Exec(`
 				INSERT INTO ignored_nicks (network_id, nickname)
 				VALUES (?, ?)
 				ON CONFLICT(network_id, nickname) DO NOTHING
@@ -203,23 +244,27 @@ func (s *SQLiteDB) SaveNetwork(networkName string, network *NetworkData) error {
 			}
 		}
 
-		var nicks []interface{}
-		for _, nick := range network.IgnoredNicks {
-			nicks = append(nicks, nick)
+		var nickInterfaces []interface{}
+		for _, nick := range nicks {
+			nickInterfaces = append(nickInterfaces, nick)
 		}
-		if err = syncSimpleCollection(tx, "ignored_nicks", "nickname", "network_id", networkID, nicks); err != nil {
+		if err := syncSimpleCollection(tx, "ignored_nicks", "nickname", "network_id", networkID, nickInterfaces); err != nil {
 			return err
 		}
 	} else {
-		_, err = tx.Exec("DELETE FROM ignored_nicks WHERE network_id = ?", networkID)
+		_, err := tx.Exec("DELETE FROM ignored_nicks WHERE network_id = ?", networkID)
 		if err != nil {
 			return err
 		}
 	}
+	return nil
+}
 
-	if len(network.DenyCommands) > 0 {
-		for _, cmd := range network.DenyCommands {
-			_, err = tx.Exec(`
+// saveNetworkDeniedCommands persists network-level denied commands.
+func saveNetworkDeniedCommands(tx *sql.Tx, networkID int64, cmds []string) error {
+	if len(cmds) > 0 {
+		for _, cmd := range cmds {
+			_, err := tx.Exec(`
 				INSERT INTO denied_commands (network_id, channel_id, command)
 				VALUES (?, NULL, ?)
 				ON CONFLICT(network_id, channel_id, command) DO NOTHING
@@ -229,21 +274,20 @@ func (s *SQLiteDB) SaveNetwork(networkName string, network *NetworkData) error {
 			}
 		}
 
-		var cmds []interface{}
-		for _, cmd := range network.DenyCommands {
-			cmds = append(cmds, cmd)
+		var cmdInterfaces []interface{}
+		for _, cmd := range cmds {
+			cmdInterfaces = append(cmdInterfaces, cmd)
 		}
-		if err = syncSimpleCollection(tx, "denied_commands", "command", "network_id", networkID, cmds); err != nil {
+		if err := syncSimpleCollection(tx, "denied_commands", "command", "network_id", networkID, cmdInterfaces); err != nil {
 			return err
 		}
 	} else {
-		_, err = tx.Exec("DELETE FROM denied_commands WHERE network_id = ?", networkID)
+		_, err := tx.Exec("DELETE FROM denied_commands WHERE network_id = ?", networkID)
 		if err != nil {
 			return err
 		}
 	}
-
-	return tx.Commit()
+	return nil
 }
 
 func LoadNetwork(networkName string) (*NetworkData, error) {
