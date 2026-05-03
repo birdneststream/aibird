@@ -359,7 +359,7 @@ func (s *State) Verify() error { //nolint:gocyclo
 	}
 
 	if s.User.GetAccessLevel() < 2 {
-		nagUserToGiveMoney(*s)
+		s.nagUserToGiveMoney()
 	}
 
 	action = strings.TrimPrefix(action, s.GetActionTrigger())
@@ -386,7 +386,7 @@ func (s *State) ShouldPreserveModes() bool {
 	return s.Network.PreserveModes
 }
 
-func Init(c *girc.Client, e girc.Event, network *networks.Network, config *settings.Config) State {
+func Init(c *girc.Client, e girc.Event, network *networks.Network, config *settings.Config) State { //nolint:gocritic // girc library mandates Event by value
 	s := State{
 		Client:  c,
 		Event:   e,
@@ -423,7 +423,9 @@ func Init(c *girc.Client, e girc.Event, network *networks.Network, config *setti
 	return s
 }
 
-func nagUserToGiveMoney(s State) {
+// nagUserToGiveMoney periodically prompts free-tier users to support the project.
+// It is an unexported method on State to keep the API clean.
+func (s *State) nagUserToGiveMoney() {
 	if s.User.GetAccessLevel() > 0 {
 		return
 	}

@@ -33,7 +33,7 @@ func NewParticipant(config *settings.Config) *Participant {
 }
 
 // HandleChatMessage processes non-command messages for potential responses
-func (p *Participant) HandleChatMessage(c *girc.Client, e girc.Event, network *networks.Network, config *settings.Config) {
+func (p *Participant) HandleChatMessage(c *girc.Client, e girc.Event, network *networks.Network, config *settings.Config) { //nolint:gocritic // girc library mandates Event by value
 	// Quick check if chat mode is enabled for this channel
 	channel := network.GetNetworkChannel(e.Params[0])
 	if channel == nil || !channel.ChatMode {
@@ -63,7 +63,7 @@ func (p *Participant) HandleChatMessage(c *girc.Client, e girc.Event, network *n
 }
 
 // shouldRespond determines if the bot should respond to a message
-func (p *Participant) shouldRespond(memory *ConversationMemory, channel *channels.Channel, network *networks.Network, e girc.Event) bool {
+func (p *Participant) shouldRespond(memory *ConversationMemory, channel *channels.Channel, network *networks.Network, e girc.Event) bool { //nolint:gocritic // girc library mandates Event by value
 	// Don't respond to ourselves
 	if e.Source.Name == network.Nick {
 		return false
@@ -139,7 +139,7 @@ func (p *Participant) shouldRespond(memory *ConversationMemory, channel *channel
 }
 
 // generateAndSendResponse creates and sends an AI-generated response
-func (p *Participant) generateAndSendResponse(c *girc.Client, e girc.Event, network *networks.Network, channel *channels.Channel, memory *ConversationMemory) {
+func (p *Participant) generateAndSendResponse(c *girc.Client, e girc.Event, network *networks.Network, channel *channels.Channel, memory *ConversationMemory) { //nolint:gocritic // girc library mandates Event by value
 	// Build context for response generation
 	ctx := p.buildMessageContext(memory, channel, network, e, "reactive")
 
@@ -164,7 +164,7 @@ func (p *Participant) generateAndSendResponse(c *girc.Client, e girc.Event, netw
 }
 
 // buildMessageContext creates context for response generation
-func (p *Participant) buildMessageContext(memory *ConversationMemory, channel *channels.Channel, network *networks.Network, e girc.Event, messageType string) MessageContext {
+func (p *Participant) buildMessageContext(memory *ConversationMemory, channel *channels.Channel, network *networks.Network, e girc.Event, messageType string) MessageContext { //nolint:gocritic // girc library mandates Event by value
 	personality := p.getChannelPersonality(channel)
 
 	return MessageContext{
@@ -385,7 +385,7 @@ func (p *Participant) isUserInBurst(memory *ConversationMemory, username string)
 }
 
 // handleBurstResponse manages delayed responses for users sending message bursts
-func (p *Participant) handleBurstResponse(c *girc.Client, e girc.Event, network *networks.Network, channel *channels.Channel, memory *ConversationMemory, delay time.Duration) {
+func (p *Participant) handleBurstResponse(c *girc.Client, e girc.Event, network *networks.Network, channel *channels.Channel, memory *ConversationMemory, delay time.Duration) { //nolint:gocritic // girc library mandates Event by value
 	username := e.Source.Name
 
 	// Cancel any existing timer for this user
@@ -430,7 +430,7 @@ func (p *Participant) handleBurstResponse(c *girc.Client, e girc.Event, network 
 }
 
 // HandleChatMessage is the main entry point for processing chat messages
-func HandleChatMessage(c *girc.Client, e girc.Event, network *networks.Network, config *settings.Config) {
+func HandleChatMessage(c *girc.Client, e girc.Event, network *networks.Network, config *settings.Config) { //nolint:gocritic // girc library mandates Event by value
 	if GlobalParticipant != nil {
 		GlobalParticipant.HandleChatMessage(c, e, network, config)
 	}

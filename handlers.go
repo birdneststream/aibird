@@ -14,7 +14,7 @@ import (
 	"github.com/lrstanley/girc"
 )
 
-func handleWelcome(c *girc.Client, e girc.Event, network *networks.Network) {
+func handleWelcome(c *girc.Client, e girc.Event, network *networks.Network) { //nolint:gocritic // girc library mandates Event by value in handler signatures
 	// Set connection time to ignore ZNC buffer playback
 	network.ConnectedAt = time.Now()
 	logger.Info("Connected to network", "network", network.NetworkName, "connected_at", network.ConnectedAt)
@@ -32,7 +32,7 @@ func handleWelcome(c *girc.Client, e girc.Event, network *networks.Network) {
 	}
 }
 
-func handleNick(c *girc.Client, e girc.Event, network *networks.Network) {
+func handleNick(c *girc.Client, e girc.Event, network *networks.Network) { //nolint:gocritic // girc library mandates Event by value in handler signatures
 	logger.Debug("Nick change event", "network", network.NetworkName, "old_nick", e.Source.Name, "new_nick", e.Last())
 
 	if e.Source.Name == network.Nick {
@@ -59,14 +59,14 @@ func handleNick(c *girc.Client, e girc.Event, network *networks.Network) {
 	}
 }
 
-func handleWhoReply(c *girc.Client, e girc.Event, network *networks.Network, config *settings.Config) {
+func handleWhoReply(c *girc.Client, e girc.Event, network *networks.Network, config *settings.Config) { //nolint:gocritic // girc library mandates Event by value in handler signatures
 	irc := state.Init(c, e, network, config)
 	if irc.Channel != nil {
 		go irc.SyncUsersFromWho()
 	}
 }
 
-func handleEndOfWho(c *girc.Client, e girc.Event, network *networks.Network, config *settings.Config) {
+func handleEndOfWho(c *girc.Client, e girc.Event, network *networks.Network, config *settings.Config) { //nolint:gocritic // girc library mandates Event by value in handler signatures
 	// RPL_ENDOFWHO indicates WHO command is complete for this channel
 	// This is when we should restore missing user modes if this was a sync command
 	logger.Debug("END_OF_WHO received", "network", network.NetworkName, "params", e.Params)
@@ -85,7 +85,7 @@ func handleEndOfWho(c *girc.Client, e girc.Event, network *networks.Network, con
 	}
 }
 
-func handleJoin(c *girc.Client, e girc.Event, network *networks.Network, config *settings.Config) {
+func handleJoin(c *girc.Client, e girc.Event, network *networks.Network, config *settings.Config) { //nolint:gocritic // girc library mandates Event by value in handler signatures
 	logger.Debug("JOIN event", "network", network.NetworkName, "nick", e.Source.Name, "channel", e.Params[0], "ident", e.Source.Ident, "host", e.Source.Host)
 
 	if e.Source.Name == network.Nick {
@@ -160,7 +160,7 @@ func handleJoin(c *girc.Client, e girc.Event, network *networks.Network, config 
 	// }
 }
 
-func handlePart(c *girc.Client, e girc.Event, network *networks.Network) {
+func handlePart(c *girc.Client, e girc.Event, network *networks.Network) { //nolint:gocritic // girc library mandates Event by value in handler signatures
 	logger.Debug("PART event", "network", network.NetworkName, "nick", e.Source.Name, "channel", e.Params[0], "ident", e.Source.Ident, "host", e.Source.Host)
 
 	if e.Source.Name == network.Nick {
@@ -184,7 +184,7 @@ func handlePart(c *girc.Client, e girc.Event, network *networks.Network) {
 	}
 }
 
-func handleQuit(c *girc.Client, e girc.Event, network *networks.Network) {
+func handleQuit(c *girc.Client, e girc.Event, network *networks.Network) { //nolint:gocritic // girc library mandates Event by value in handler signatures
 	logger.Debug("QUIT event", "network", network.NetworkName, "nick", e.Source.Name, "ident", e.Source.Ident, "host", e.Source.Host)
 
 	if e.Source.Name == network.Nick {
@@ -212,7 +212,7 @@ func handleQuit(c *girc.Client, e girc.Event, network *networks.Network) {
 	}
 }
 
-func handleMode(c *girc.Client, e girc.Event, network *networks.Network) {
+func handleMode(c *girc.Client, e girc.Event, network *networks.Network) { //nolint:gocritic // girc library mandates Event by value in handler signatures
 	if len(e.Params) < 3 {
 		return
 	}
@@ -250,7 +250,7 @@ func handleMode(c *girc.Client, e girc.Event, network *networks.Network) {
 	go network.Save()
 }
 
-func handleKick(c *girc.Client, e girc.Event, network *networks.Network, config *settings.Config) {
+func handleKick(c *girc.Client, e girc.Event, network *networks.Network, config *settings.Config) { //nolint:gocritic // girc library mandates Event by value in handler signatures
 	// e.Params[0] = channel, e.Params[1] = kicked user, e.Params[2] = reason
 	kickedNick := e.Params[1]
 	channelName := e.Params[0]

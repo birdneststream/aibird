@@ -129,7 +129,7 @@ func ReverseModeMap(mode string) string {
 	return ""
 }
 
-func FindChannelNameInEventParams(event girc.Event) string {
+func FindChannelNameInEventParams(event girc.Event) string { //nolint:gocritic // girc library mandates Event by value
 	for _, param := range event.Params {
 		if strings.HasPrefix(param, "#") {
 			return param

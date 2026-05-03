@@ -17,7 +17,7 @@ import (
 	"github.com/lrstanley/girc"
 )
 
-func handlePrivMsg(c *girc.Client, e girc.Event, network *networks.Network, config *settings.Config, q *queue.ProcessingQueue) {
+func handlePrivMsg(c *girc.Client, e girc.Event, network *networks.Network, config *settings.Config, q *queue.ProcessingQueue) { //nolint:gocritic // girc library mandates Event by value
 	// Grace period after connect to ignore ZNC buffer playback commands
 	const zncBufferGrace = 15 * time.Second
 
@@ -123,7 +123,7 @@ func handlePrivMsg(c *girc.Client, e girc.Event, network *networks.Network, conf
 // Uses nick-based keys and kicks the user from the channel on threshold breach.
 // This is the visible punishment layer — separate from MessageFloodCheck which
 // silently ignores the user via User.Ignored.
-func checkFlood(irc state.State) {
+func checkFlood(irc state.State) { //nolint:gocritic // State passed by value per current architecture
 	if irc.Channel == nil {
 		return
 	}
