@@ -12,6 +12,23 @@ import (
 	"aibird/status"
 )
 
+// Command type constants used in help category definitions.
+const (
+	typeStandard = "standard"
+	typeAdmin    = "admin"
+	typeOwner    = "owner"
+	typeText     = "text"
+	typeHelp     = "help"
+)
+
+// Argument placeholder constants used across help definitions.
+const (
+	argNickname    = "<nickname>"
+	argHours       = "<hours>"
+	argChannelName = "<channel_name>"
+	valTrueFalse   = "true, false"
+)
+
 type (
 	Help struct {
 		Name      string
@@ -33,65 +50,65 @@ func StandardHelp() []Help {
 	return []Help{
 		{
 			Name:      "hello",
-			Type:      "standard",
+			Type:      typeStandard,
 			Help:      "Greets the user.",
 			Arguments: []Arguments{},
 			Queueable: false,
 		},
 		{
 			Name:      "status",
-			Type:      "standard",
+			Type:      typeStandard,
 			Help:      "Displays the current status of the airig GPUs.",
 			Arguments: []Arguments{},
 			Queueable: false,
 		},
 		{
 			Name:      "help",
-			Type:      "standard",
+			Type:      typeStandard,
 			Help:      "Displays help information for available commands.",
 			Arguments: []Arguments{},
 			Queueable: false,
 		},
 		{
 			Name:      "headlies",
-			Type:      "standard",
+			Type:      typeStandard,
 			Help:      "Summarizes the latest headlines from r/worldnews.",
 			Arguments: []Arguments{},
 			Queueable: false,
 		},
 		{
 			Name:      "ircnews",
-			Type:      "standard",
+			Type:      typeStandard,
 			Help:      "Rewrites a random world news headline with an IRC theme.",
 			Arguments: []Arguments{},
 			Queueable: false,
 		},
 		{
 			Name: "seen",
-			Type: "standard",
+			Type: typeStandard,
 			Help: "Checks if a user has been active recently.",
 			Arguments: []Arguments{
-				{Argument: "<nickname>", Help: "Specify the nickname of the user to check.", Values: ""},
+				{Argument: argNickname, Help: "Specify the nickname of the user to check.", Values: ""},
 			},
 			Queueable: false,
 		},
 		{
 			Name:      "support",
-			Type:      "standard",
+			Type:      typeStandard,
 			Help:      "Provides information on how to support the project.",
 			Arguments: []Arguments{},
 			Queueable: false,
 		},
 		{
 			Name:      "models",
-			Type:      "standard",
+			Type:      typeStandard,
 			Help:      "Lists all available image generation models/workflows.",
 			Arguments: []Arguments{},
 			Queueable: false,
 		},
 		{
 			Name: "play",
-			Type: "standard",
+			Type: typeStandard,
 			Help: "Play IRC ASCII art from a birdhole derived text file URL.",
 			Arguments: []Arguments{
 				{Argument: "<url>", Help: "URL to the ASCII art text file (must be from hole.birdnest.live/derived)", Values: ""},
@@ -101,7 +118,7 @@ func StandardHelp() []Help {
 		},
 		{
 			Name:      "record",
-			Type:      "standard",
+			Type:      typeStandard,
 			Help:      "Record the most recently generated ASCII art to the configured recording service.",
 			Arguments: []Arguments{},
 			Queueable: false,
@@ -109,7 +126,7 @@ func StandardHelp() []Help {
 		},
 		{
 			Name: "leaderboard",
-			Type: "standard",
+			Type: typeStandard,
 			Help: "Display command usage leaderboard for the current network.",
 			Arguments: []Arguments{
 				{Argument: "global", Help: "Show global leaderboard across all networks (owner only)", Values: ""},
@@ -120,10 +137,10 @@ func StandardHelp() []Help {
 		},
 		{
 			Name: "summary",
-			Type: "standard",
+			Type: typeStandard,
 			Help: "Summarizes recent channel activity using AI.",
 			Arguments: []Arguments{
-				{Argument: "<hours>", Help: "Number of hours to summarize (default: 24, max: 168).", Values: "e.g., 6, 12, 48"},
+				{Argument: argHours, Help: "Number of hours to summarize (default: 24, max: 168).", Values: "e.g., 6, 12, 48"},
 				{Argument: "--persona", Help: "Creative angle or persona for the summary.", Values: "e.g., \"a western cowboy\""},
 			},
 			Queueable: false,
@@ -131,7 +148,7 @@ func StandardHelp() []Help {
 		},
 		{
 			Name: "recall",
-			Type: "standard",
+			Type: typeStandard,
 			Help: "Searches recent channel history for a keyword.",
 			Arguments: []Arguments{
 				{Argument: "<keyword>", Help: "Keyword or phrase to search for.", Values: ""},
@@ -141,30 +158,30 @@ func StandardHelp() []Help {
 		},
 		{
 			Name: "top",
-			Type: "standard",
+			Type: typeStandard,
 			Help: "Shows channel activity stats and top chatters.",
 			Arguments: []Arguments{
-				{Argument: "<hours>", Help: "Number of hours for stats (default: 24, max: 168).", Values: "e.g., 6, 24, 168"},
+				{Argument: argHours, Help: "Number of hours for stats (default: 24, max: 168).", Values: "e.g., 6, 24, 168"},
 			},
 			Queueable: false,
 			Example:   "top 6h",
 		},
 		{
 			Name: "mood",
-			Type: "standard",
+			Type: typeStandard,
 			Help: "Analyzes the current mood/vibe of the channel.",
 			Arguments: []Arguments{
-				{Argument: "<hours>", Help: "Number of hours to analyze (default: 24, max: 168).", Values: "e.g., 6, 24"},
+				{Argument: argHours, Help: "Number of hours to analyze (default: 24, max: 168).", Values: "e.g., 6, 24"},
 			},
 			Queueable: false,
 			Example:   "mood",
 		},
 		{
 			Name: "story",
-			Type: "standard",
+			Type: typeStandard,
 			Help: "Turns channel events into a short fictional story.",
 			Arguments: []Arguments{
-				{Argument: "<hours>", Help: "Number of hours of events (default: 24, max: 168).", Values: "e.g., 6, 24"},
+				{Argument: argHours, Help: "Number of hours of events (default: 24, max: 168).", Values: "e.g., 6, 24"},
 				{Argument: "--persona", Help: "Genre or style for the story.", Values: "e.g., \"fantasy\", \"film noir\""},
 			},
 			Queueable: false,
@@ -172,10 +189,10 @@ func StandardHelp() []Help {
 		},
 		{
 			Name: "vibe",
-			Type: "standard",
+			Type: typeStandard,
 			Help: "Generates a visual artwork capturing the channel's vibe using AI.",
 			Arguments: []Arguments{
-				{Argument: "<hours>", Help: "Number of hours to analyze (default: 6, max: 48).", Values: "e.g., 3, 6, 24"},
+				{Argument: argHours, Help: "Number of hours to analyze (default: 6, max: 48).", Values: "e.g., 3, 6, 24"},
 			},
 			Queueable: false,
 			Example:   "vibe 6h",
@@ -195,7 +212,7 @@ func TextHelp() []Help {
 	return []Help{
 		{
 			Name: "ai",
-			Type: "text",
+			Type: typeText,
 			Help: "Interact with the AI services for various tasks.",
 			Arguments: []Arguments{
 				{Argument: "help", Help: "Show help information for AI commands.", Values: ""},
@@ -214,7 +231,7 @@ func TextHelp() []Help {
 		},
 		{
 			Name: "glm",
-			Type: "text",
+			Type: typeText,
 			Help: "Process a GLM (ChatGLM) request.",
 			Arguments: []Arguments{
 				{Argument: "<message>", Help: "Specify the message to process.", Values: ""},
@@ -224,7 +241,7 @@ func TextHelp() []Help {
 		},
 		{
 			Name: "glm-img",
-			Type: "text",
+			Type: typeText,
 			Help: "Generate an image using CogView-4 from Z.AI.",
 			Arguments: []Arguments{
 				{Argument: "<prompt>", Help: "Describe the image you want to generate.", Values: ""},
@@ -261,28 +278,28 @@ func OwnerHelp() []Help {
 	return []Help{
 		{
 			Name:      "debug",
-			Type:      "owner",
+Type: typeOwner,
 			Help:      "Toggle debug mode or display debugging information.",
 			Arguments: []Arguments{},
 			Queueable: false,
 		},
 		{
 			Name:      "save",
-			Type:      "owner",
+Type: typeOwner,
 			Help:      "Save current state to persistent storage.",
 			Arguments: []Arguments{},
 			Queueable: false,
 		},
 		{
 			Name:      "ip",
-			Type:      "owner",
+Type: typeOwner,
 			Help:      "Display IP information.",
 			Arguments: []Arguments{},
 			Queueable: false,
 		},
 		{
 			Name:      "dbstats",
-			Type:      "owner",
+Type: typeOwner,
 			Help:      "Display SQLite database statistics including keys and disk usage.",
 			Arguments: []Arguments{},
 			Queueable: false,
@@ -294,16 +311,16 @@ func AdminHelp() []Help {
 	return []Help{
 		{
 			Name: "user",
-			Type: "admin",
+			Type: typeAdmin,
 			Help: "Manage user settings and permissions.",
 			Arguments: []Arguments{
-				{Argument: "<nickname>", Help: "Specify the nickname of the user.", Values: ""},
+				{Argument: argNickname, Help: "Specify the nickname of the user.", Values: ""},
 				{Argument: "--latestActivity", Help: "Set the latest activity timestamp.", Values: "unix timestamp"},
 				{Argument: "--firstSeen", Help: "Set the first seen timestamp.", Values: "unix timestamp"},
 				{Argument: "--latestChat", Help: "Set the latest chat message.", Values: "text"},
-				{Argument: "--isAdmin", Help: "Set the admin status.", Values: "true, false"},
-				{Argument: "--isOwner", Help: "Set the owner status.", Values: "true, false"},
-				{Argument: "--ignored", Help: "Set the ignored status.", Values: "true, false"},
+				{Argument: "--isAdmin", Help: "Set the admin status.", Values: valTrueFalse},
+				{Argument: "--isOwner", Help: "Set the owner status.", Values: valTrueFalse},
+				{Argument: "--ignored", Help: "Set the ignored status.", Values: valTrueFalse},
 				{Argument: "--accessLevel", Help: "Set the access level.", Values: "integer"},
 				{Argument: "--aiService", Help: "Set the AI service.", Values: "llamacpp, glm"},
 				{Argument: "--aiModel", Help: "Set the AI model.", Values: "model name"},
@@ -314,100 +331,100 @@ func AdminHelp() []Help {
 		},
 		{
 			Name: "channel",
-			Type: "admin",
+			Type: typeAdmin,
 			Help: "Manage channel settings and permissions. No <channel_name> argument use the current channel.",
 			Arguments: []Arguments{
-				{Argument: "<channel_name>", Help: "Specify the name of the channel.", Values: ""},
-				{Argument: "--ai", Help: "Enable or disable AI features.", Values: "true, false"},
-				{Argument: "--sd", Help: "Enable or disable Stable Diffusion image generation.", Values: "true, false"},
-				{Argument: "--imageDescribe", Help: "Enable or disable image description features.", Values: "true, false"},
-				{Argument: "--sound", Help: "Enable or disable sound features.", Values: "true, false"},
-				{Argument: "--video", Help: "Enable or disable video features.", Values: "true, false"},
+				{Argument: argChannelName, Help: "Specify the name of the channel.", Values: ""},
+				{Argument: "--ai", Help: "Enable or disable AI features.", Values: valTrueFalse},
+				{Argument: "--sd", Help: "Enable or disable Stable Diffusion image generation.", Values: valTrueFalse},
+				{Argument: "--imageDescribe", Help: "Enable or disable image description features.", Values: valTrueFalse},
+				{Argument: "--sound", Help: "Enable or disable sound features.", Values: valTrueFalse},
+				{Argument: "--video", Help: "Enable or disable video features.", Values: valTrueFalse},
 				{Argument: "--actionTrigger", Help: "Set the trigger for actions.", Values: "text"},
-				{Argument: "--trimOutput", Help: "Enable or disable trimming of output for responses.", Values: "true, false"},
+				{Argument: "--trimOutput", Help: "Enable or disable trimming of output for responses.", Values: valTrueFalse},
 			},
 			Queueable: false,
 		},
 		{
 			Name:      "network",
-			Type:      "admin",
+			Type:      typeAdmin,
 			Help:      "Display network information or modify network settings.",
 			Arguments: []Arguments{},
 			Queueable: false,
 		},
 		{
 			Name:      "sync",
-			Type:      "owner",
+Type: typeOwner,
 			Help:      "Synchronize channel state and restore missing user modes.",
 			Arguments: []Arguments{},
 			Queueable: false,
 		},
 		{
 			Name: "op",
-			Type: "admin",
+			Type: typeAdmin,
 			Help: "Grant operator privileges to a user.",
 			Arguments: []Arguments{
-				{Argument: "<nickname>", Help: "Specify the nickname of the user to op.", Values: ""},
+				{Argument: argNickname, Help: "Specify the nickname of the user to op.", Values: ""},
 			},
 			Queueable: false,
 		},
 		{
 			Name: "deop",
-			Type: "admin",
+			Type: typeAdmin,
 			Help: "Remove operator privileges from a user.",
 			Arguments: []Arguments{
-				{Argument: "<nickname>", Help: "Specify the nickname of the user to deop.", Values: ""},
+				{Argument: argNickname, Help: "Specify the nickname of the user to deop.", Values: ""},
 			},
 			Queueable: false,
 		},
 		{
 			Name: "voice",
-			Type: "admin",
+			Type: typeAdmin,
 			Help: "Grant voice privileges to a user.",
 			Arguments: []Arguments{
-				{Argument: "<nickname>", Help: "Specify the nickname of the user to voice.", Values: ""},
+				{Argument: argNickname, Help: "Specify the nickname of the user to voice.", Values: ""},
 			},
 			Queueable: false,
 		},
 		{
 			Name: "devoice",
-			Type: "admin",
+			Type: typeAdmin,
 			Help: "Remove voice privileges from a user.",
 			Arguments: []Arguments{
-				{Argument: "<nickname>", Help: "Specify the nickname of the user to devoice.", Values: ""},
+				{Argument: argNickname, Help: "Specify the nickname of the user to devoice.", Values: ""},
 			},
 			Queueable: false,
 		},
 		{
 			Name: "kick",
-			Type: "admin",
+			Type: typeAdmin,
 			Help: "Kick a user from a channel.",
 			Arguments: []Arguments{
-				{Argument: "<nickname>", Help: "Specify the nickname of the user to kick.", Values: ""},
+				{Argument: argNickname, Help: "Specify the nickname of the user to kick.", Values: ""},
 			},
 			Queueable: false,
 		},
 		{
 			Name: "ban",
-			Type: "admin",
+			Type: typeAdmin,
 			Help: "Ban a user from a channel.",
 			Arguments: []Arguments{
-				{Argument: "<nickname>", Help: "Specify the nickname of the user to ban.", Values: ""},
+				{Argument: argNickname, Help: "Specify the nickname of the user to ban.", Values: ""},
 			},
 			Queueable: false,
 		},
 		{
 			Name: "unban",
-			Type: "admin",
+			Type: typeAdmin,
 			Help: "Remove a ban from a user in a channel.",
 			Arguments: []Arguments{
-				{Argument: "<nickname>", Help: "Specify the nickname of the user to unban.", Values: ""},
+				{Argument: argNickname, Help: "Specify the nickname of the user to unban.", Values: ""},
 			},
 			Queueable: false,
 		},
 		{
 			Name: "topic",
-			Type: "admin",
+			Type: typeAdmin,
 			Help: "Set or view the topic of the current channel.",
 			Arguments: []Arguments{
 				{Argument: "<topic>", Help: "Specify the new topic for the channel.", Values: ""},
@@ -416,59 +433,59 @@ func AdminHelp() []Help {
 		},
 		{
 			Name: "join",
-			Type: "admin",
+			Type: typeAdmin,
 			Help: "Join a channel.",
 			Arguments: []Arguments{
-				{Argument: "<channel_name>", Help: "Specify the name of the channel to join.", Values: ""},
+				{Argument: argChannelName, Help: "Specify the name of the channel to join.", Values: ""},
 			},
 			Queueable: false,
 		},
 		{
 			Name: "part",
-			Type: "admin",
+			Type: typeAdmin,
 			Help: "Leave a channel.",
 			Arguments: []Arguments{
-				{Argument: "<channel_name>", Help: "Specify the name of the channel to leave.", Values: ""},
+				{Argument: argChannelName, Help: "Specify the name of the channel to leave.", Values: ""},
 			},
 			Queueable: false,
 		},
 		{
 			Name: "ignore",
-			Type: "admin",
+			Type: typeAdmin,
 			Help: "Ignore messages from a specified user.",
 			Arguments: []Arguments{
-				{Argument: "<nickname>", Help: "Specify the nickname of the user to ignore.", Values: ""},
+				{Argument: argNickname, Help: "Specify the nickname of the user to ignore.", Values: ""},
 			},
 			Queueable: false,
 		},
 		{
 			Name: "unignore",
-			Type: "admin",
+			Type: typeAdmin,
 			Help: "Stop ignoring messages from a specified user.",
 			Arguments: []Arguments{
-				{Argument: "<nickname>", Help: "Specify the nickname of the user to unignore.", Values: ""},
+				{Argument: argNickname, Help: "Specify the nickname of the user to unignore.", Values: ""},
 			},
 			Queueable: false,
 		},
 		{
 			Name: "nick",
-			Type: "admin",
+			Type: typeAdmin,
 			Help: "Change the bots nickname.",
 			Arguments: []Arguments{
-				{Argument: "<nickname>", Help: "Specify the new nickname.", Values: ""},
+				{Argument: argNickname, Help: "Specify the new nickname.", Values: ""},
 			},
 			Queueable: false,
 		},
 		{
 			Name:      "clearqueue",
-			Type:      "admin",
+			Type:      typeAdmin,
 			Help:      "Clear the processing queue.",
 			Arguments: []Arguments{},
 			Queueable: false,
 		},
 		{
 			Name:      "removecurrent",
-			Type:      "admin",
+			Type:      typeAdmin,
 			Help:      "Remove the currently processing item from both queues.",
 			Arguments: []Arguments{},
 			Queueable: false,
