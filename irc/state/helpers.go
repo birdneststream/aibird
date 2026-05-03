@@ -32,6 +32,27 @@ const (
 // connectionGracePeriod is the time after connect before mode enforcement begins.
 const connectionGracePeriod = 30 * time.Second
 
+// IsCommandDenied checks if the given command is denied at channel, network, or global level.
+func (s *State) IsCommandDenied(commandName string) bool {
+	lists := [][]string{}
+	if s.Channel != nil {
+		lists = append(lists, s.Channel.DenyCommands)
+	}
+	if s.Network != nil {
+		lists = append(lists, s.Network.DenyCommands)
+	}
+	lists = append(lists, s.Config.AiBird.DenyCommands)
+
+	for _, list := range lists {
+		for _, cmd := range list {
+			if strings.EqualFold(commandName, cmd) {
+				return true
+			}
+		}
+	}
+	return false
+}
+
 // GetModesFromChannel returns the current modes for the state user in the state channel.
 func (s *State) GetModesFromChannel() []string {
 	if s.User == nil {

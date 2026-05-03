@@ -46,7 +46,7 @@ func formatHelp(prefix string, commands []help.Help) string {
 func filterHelp(commands []help.Help, irc state.State) []help.Help {
 	var filtered []help.Help
 	for _, cmd := range commands {
-		if !help.IsCommandDenied(cmd.Name, irc) {
+		if !irc.IsCommandDenied(cmd.Name) {
 			filtered = append(filtered, cmd)
 		}
 	}

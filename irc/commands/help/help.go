@@ -509,14 +509,14 @@ func FindHelp(irc state.State) string {
 
 	if name == typeHelp {
 		for _, help := range helpItems {
-			if !IsCommandDenied(help.Name, irc) && !processed[help.Name] {
+			if !irc.IsCommandDenied(help.Name) && !processed[help.Name] {
 				foundItems = append(foundItems, help)
 				processed[help.Name] = true
 			}
 		}
 	} else {
 		for _, help := range helpItems {
-			if IsCommandDenied(help.Name, irc) {
+			if irc.IsCommandDenied(help.Name) {
 				continue
 			}
 			if help.Name == name && !processed[name] {
@@ -527,35 +527,6 @@ func FindHelp(irc state.State) string {
 	}
 
 	return Format(foundItems)
-}
-
-func IsCommandDenied(commandName string, irc state.State) bool {
-	// Check channel level
-	if irc.Channel != nil {
-		for _, deniedCmd := range irc.Channel.DenyCommands {
-			if strings.EqualFold(commandName, deniedCmd) {
-				return true
-			}
-		}
-	}
-
-	// Check network level
-	if irc.Network != nil {
-		for _, deniedCmd := range irc.Network.DenyCommands {
-			if strings.EqualFold(commandName, deniedCmd) {
-				return true
-			}
-		}
-	}
-
-	// Check global level
-	for _, deniedCmd := range irc.Config.AiBird.DenyCommands {
-		if strings.EqualFold(commandName, deniedCmd) {
-			return true
-		}
-	}
-
-	return false
 }
 
 func Format(helpItems []Help) string {
