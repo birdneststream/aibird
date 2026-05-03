@@ -559,6 +559,38 @@ func (s *SQLiteDB) SaveNetworkUsers(networkName string, users []UserData) error 
 	return s.SaveNetworkUsersWithChannels(networkName, users, []ChannelData{})
 }
 
+// saveUserModes persists user mode data for a given mode type (preserved or current).
+// When ensureChannel is true, it creates missing channel rows and returns errors on failure.
+// When ensureChannel is false, it silently skips modes for channels not yet in the database.
+func saveUserModes(tx *sql.Tx, userID, networkID int64, modes []UserModeData, modeType string, ensureChannel bool) error {
+	for _, modeData := range modes {
+		modesJSON, err := json.Marshal(modeData.Modes)
+		if err != nil {
+			return err
+		}
+
+		if ensureChannel {
+			if _, err := tx.Exec(`INSERT INTO channels (network_id, name) VALUES (?, ?) ON CONFLICT(network_id, name) DO NOTHING`, networkID, modeData.Channel); err != nil {
+				return err
+			}
+		}
+
+		var channelID int64
+		err = tx.QueryRow("SELECT id FROM channels WHERE network_id = ? AND name = ?", networkID, modeData.Channel).Scan(&channelID)
+		if err != nil {
+			if ensureChannel {
+				return err
+			}
+			continue
+		}
+
+		if _, err := tx.Exec(`INSERT INTO user_modes (user_id, channel_id, mode_type, modes) VALUES (?, ?, ?, ?) ON CONFLICT(user_id, channel_id, mode_type) DO UPDATE SET modes = excluded.modes, updated_at = datetime('now')`, userID, channelID, modeType, modesJSON); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 func SaveSingleUser(networkName, ident, host string, user *UserData) error {
 	return Data.SaveSingleUser(networkName, ident, host, user)
 }
@@ -607,52 +639,11 @@ func (s *SQLiteDB) SaveSingleUser(networkName, ident, host string, user *UserDat
 		return err
 	}
 
-	for _, modeData := range user.PreservedModes {
-		modesJSON, jsonErr := json.Marshal(modeData.Modes)
-		if jsonErr != nil {
-			return jsonErr
-		}
-
-		var channelID int64
-		err = tx.QueryRow("SELECT id FROM channels WHERE network_id = ? AND name = ?", networkID, modeData.Channel).Scan(&channelID)
-		if err != nil {
-			continue
-		}
-
-		_, err = tx.Exec(`
-			INSERT INTO user_modes (user_id, channel_id, mode_type, modes)
-			VALUES (?, ?, 'preserved', ?)
-			ON CONFLICT(user_id, channel_id, mode_type) DO UPDATE SET
-				modes = excluded.modes,
-				updated_at = datetime('now')
-		`, userID, channelID, modesJSON)
-		if err != nil {
-			return err
-		}
+	if err := saveUserModes(tx, userID, networkID, user.PreservedModes, "preserved", false); err != nil {
+		return err
 	}
-
-	for _, modeData := range user.CurrentModes {
-		modesJSON, jsonErr := json.Marshal(modeData.Modes)
-		if jsonErr != nil {
-			return jsonErr
-		}
-
-		var channelID int64
-		err = tx.QueryRow("SELECT id FROM channels WHERE network_id = ? AND name = ?", networkID, modeData.Channel).Scan(&channelID)
-		if err != nil {
-			continue
-		}
-
-		_, err = tx.Exec(`
-			INSERT INTO user_modes (user_id, channel_id, mode_type, modes)
-			VALUES (?, ?, 'current', ?)
-			ON CONFLICT(user_id, channel_id, mode_type) DO UPDATE SET
-				modes = excluded.modes,
-				updated_at = datetime('now')
-		`, userID, channelID, modesJSON)
-		if err != nil {
-			return err
-		}
+	if err := saveUserModes(tx, userID, networkID, user.CurrentModes, "current", false); err != nil {
+		return err
 	}
 
 	return tx.Commit()
@@ -715,64 +706,11 @@ func (s *SQLiteDB) saveUsersToDatabase(tx *sql.Tx, networkID int64, users []User
 			return err
 		}
 
-		for _, modeData := range deduplicatedUsers[i].PreservedModes {
-			modesJSON, jsonErr := json.Marshal(modeData.Modes)
-			if jsonErr != nil {
-				return jsonErr
-			}
-
-			_, err = tx.Exec(`
-				INSERT INTO channels (network_id, name) VALUES (?, ?)
-				ON CONFLICT(network_id, name) DO NOTHING
-			`, networkID, modeData.Channel)
-			if err != nil {
-				return err
-			}
-
-			var channelID int64
-			err = tx.QueryRow(`
-				SELECT id FROM channels WHERE network_id = ? AND name = ?
-			`, networkID, modeData.Channel).Scan(&channelID)
-			if err != nil {
-				return err
-			}
-
-			_, err = tx.Exec(`
-				INSERT INTO user_modes (user_id, channel_id, mode_type, modes)
-				VALUES (?, ?, 'preserved', ?)
-				ON CONFLICT(user_id, channel_id, mode_type) DO UPDATE SET
-					modes = excluded.modes,
-					updated_at = datetime('now')
-			`, userID, channelID, modesJSON)
-			if err != nil {
-				return err
-			}
+		if err := saveUserModes(tx, userID, networkID, deduplicatedUsers[i].PreservedModes, "preserved", true); err != nil {
+			return err
 		}
-
-		for _, modeData := range deduplicatedUsers[i].CurrentModes {
-			modesJSON, jsonErr := json.Marshal(modeData.Modes)
-			if jsonErr != nil {
-				return jsonErr
-			}
-
-			var channelID int64
-			err = tx.QueryRow(`
-				SELECT id FROM channels WHERE network_id = ? AND name = ?
-			`, networkID, modeData.Channel).Scan(&channelID)
-			if err != nil {
-				return err
-			}
-
-			_, err = tx.Exec(`
-				INSERT INTO user_modes (user_id, channel_id, mode_type, modes)
-				VALUES (?, ?, 'current', ?)
-				ON CONFLICT(user_id, channel_id, mode_type) DO UPDATE SET
-					modes = excluded.modes,
-					updated_at = datetime('now')
-			`, userID, channelID, modesJSON)
-			if err != nil {
-				return err
-			}
+		if err := saveUserModes(tx, userID, networkID, deduplicatedUsers[i].CurrentModes, "current", true); err != nil {
+			return err
 		}
 	}
 
