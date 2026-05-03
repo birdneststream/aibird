@@ -238,13 +238,21 @@ func TestUpdateUserBasedOnArgs_AllIntFields(t *testing.T) {
 			s.UpdateUserBasedOnArgs(user)
 
 			if tt.gotInt != nil {
-				if got := tt.gotInt(user); got != tt.value.(int) {
-					t.Errorf("%s = %d, want %d", tt.fieldName, got, tt.value.(int))
+				wantInt, ok := tt.value.(int)
+				if !ok {
+					t.Fatalf("test setup error: %s value is not int", tt.fieldName)
+				}
+				if got := tt.gotInt(user); got != wantInt {
+					t.Errorf("%s = %d, want %d", tt.fieldName, got, wantInt)
 				}
 			}
 			if tt.gotInt64 != nil {
-				if got := tt.gotInt64(user); got != tt.value.(int64) {
-					t.Errorf("%s = %d, want %d", tt.fieldName, got, tt.value.(int64))
+				wantInt64, ok := tt.value.(int64)
+				if !ok {
+					t.Fatalf("test setup error: %s value is not int64", tt.fieldName)
+				}
+				if got := tt.gotInt64(user); got != wantInt64 {
+					t.Errorf("%s = %d, want %d", tt.fieldName, got, wantInt64)
 				}
 			}
 		})
@@ -307,16 +315,28 @@ func TestUpdateUserBasedOnArgs_InvalidCoercion(t *testing.T) {
 			// Field should remain at zero value (not corrupted)
 			switch strings.ToLower(tt.fieldName) {
 			case "isadmin":
-				if user.IsAdmin != tt.originalValue.(bool) {
-					t.Errorf("IsAdmin should remain %v on invalid input, got %v", tt.originalValue, user.IsAdmin)
+				origBool, ok := tt.originalValue.(bool)
+				if !ok {
+					t.Fatalf("test setup error: originalValue is not bool")
+				}
+				if user.IsAdmin != origBool {
+					t.Errorf("IsAdmin should remain %v on invalid input, got %v", origBool, user.IsAdmin)
 				}
 			case "accesslevel":
-				if user.AccessLevel != tt.originalValue.(int) {
-					t.Errorf("AccessLevel should remain %v on invalid input, got %d", tt.originalValue, user.AccessLevel)
+				origInt, ok := tt.originalValue.(int)
+				if !ok {
+					t.Fatalf("test setup error: originalValue is not int")
+				}
+				if user.AccessLevel != origInt {
+					t.Errorf("AccessLevel should remain %v on invalid input, got %d", origInt, user.AccessLevel)
 				}
 			case "firstseen":
-				if user.FirstSeen != tt.originalValue.(int64) {
-					t.Errorf("FirstSeen should remain %v on invalid input, got %d", tt.originalValue, user.FirstSeen)
+				origInt64, ok := tt.originalValue.(int64)
+				if !ok {
+					t.Fatalf("test setup error: originalValue is not int64")
+				}
+				if user.FirstSeen != origInt64 {
+					t.Errorf("FirstSeen should remain %v on invalid input, got %d", origInt64, user.FirstSeen)
 				}
 			}
 		})
@@ -666,23 +686,43 @@ func TestUpdateUserBasedOnArgs_WrapperImmutable(t *testing.T) {
 
 			switch strings.ToLower(tt.field) {
 			case "aiservice":
-				if user.AiService != tt.wantValue.(string) {
-					t.Errorf("AiService = %q, want %q", user.AiService, tt.wantValue)
+				wantStr, ok := tt.wantValue.(string)
+				if !ok {
+					t.Fatalf("test setup error: wantValue is not string for aiservice")
+				}
+				if user.AiService != wantStr {
+					t.Errorf("AiService = %q, want %q", user.AiService, wantStr)
 				}
 			case "isadmin":
-				if user.IsAdmin != tt.wantValue.(bool) {
-					t.Errorf("IsAdmin = %v, want %v", user.IsAdmin, tt.wantValue)
+				wantBool, ok := tt.wantValue.(bool)
+				if !ok {
+					t.Fatalf("test setup error: wantValue is not bool for isadmin")
+				}
+				if user.IsAdmin != wantBool {
+					t.Errorf("IsAdmin = %v, want %v", user.IsAdmin, wantBool)
 				}
 			case "nickname":
-				if user.NickName != tt.wantValue.(string) {
+				wantStr, ok := tt.wantValue.(string)
+				if !ok {
+					t.Fatalf("test setup error: wantValue is not string for nickname")
+				}
+				if user.NickName != wantStr {
 					t.Errorf("NickName = %q (should be blocked)", user.NickName)
 				}
 			case "ident":
-				if user.Ident != tt.wantValue.(string) {
+				wantStr, ok := tt.wantValue.(string)
+				if !ok {
+					t.Fatalf("test setup error: wantValue is not string for ident")
+				}
+				if user.Ident != wantStr {
 					t.Errorf("Ident = %q (should be blocked)", user.Ident)
 				}
 			case "host":
-				if user.Host != tt.wantValue.(string) {
+				wantStr, ok := tt.wantValue.(string)
+				if !ok {
+					t.Fatalf("test setup error: wantValue is not string for host")
+				}
+				if user.Host != wantStr {
 					t.Errorf("Host = %q (should be blocked)", user.Host)
 				}
 			}

@@ -153,7 +153,7 @@ func ResolveNetworkID(networkName string) int64 {
 func (s *SQLiteDB) ResolveNetworkID(networkName string) int64 {
 	// Check cache first
 	if cached, ok := networkIDCache.Load(networkName); ok {
-		return cached.(int64)
+		return cached.(int64) //nolint:errcheck // cache only stores int64 values
 	}
 
 	s.mu.RLock()
