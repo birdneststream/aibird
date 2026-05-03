@@ -373,6 +373,9 @@ func (s *SQLiteDB) GetChannelStats(networkID int64, channelName string, hours in
 		}
 		stats.TopChatters = append(stats.TopChatters, entry)
 	}
+	if err = chatterRows.Err(); err != nil {
+		return nil, fmt.Errorf("failed to iterate top chatters: %w", err)
+	}
 
 	// Event type breakdown
 	eventRows, err := s.db.Query(`
@@ -392,6 +395,9 @@ func (s *SQLiteDB) GetChannelStats(networkID int64, channelName string, hours in
 			continue
 		}
 		stats.EventCounts[eventType] = count
+	}
+	if err = eventRows.Err(); err != nil {
+		return nil, fmt.Errorf("failed to iterate event counts: %w", err)
 	}
 
 	return stats, nil

@@ -805,6 +805,9 @@ func (s *SQLiteDB) LoadNetworkUsers(networkName string) ([]UserData, error) {
 			}
 		}
 	}
+	if err = rows.Err(); err != nil {
+		return nil, fmt.Errorf("failed to iterate users: %w", err)
+	}
 
 	users := make([]UserData, 0, len(userMap))
 	for _, user := range userMap {
