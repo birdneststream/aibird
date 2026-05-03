@@ -16,7 +16,7 @@ func ParseRecall(irc state.State) {
 		return
 	}
 
-	if irc.Message() == "" || irc.Message() == "--help" {
+	if irc.Message() == "" || irc.Message() == argHelp {
 		irc.Send("Usage: !recall <keyword> — Searches recent channel history for a keyword.")
 		irc.Send("Example: !recall bird, !recall \"good morning\"")
 		return
@@ -50,9 +50,9 @@ func ParseRecall(irc state.State) {
 	for _, msg := range messages {
 		when := time.Unix(msg.Timestamp, 0).Format("Jan 02 15:04")
 		switch msg.EventType {
-		case "privmsg":
+		case eventPrivmsg:
 			irc.Send(fmt.Sprintf("[%s] <%s> %s", when, msg.Nickname, truncateMessage(msg.Message, 200)))
-		case "action":
+		case eventAction:
 			irc.Send(fmt.Sprintf("[%s] * %s %s", when, msg.Nickname, truncateMessage(msg.Message, 200)))
 		}
 	}

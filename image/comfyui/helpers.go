@@ -43,22 +43,35 @@ type compiledReplacement struct {
 	Replacement string
 }
 
+// Prompt sanitization replacement string constants.
+const (
+	replWoman            = "woman"
+	replMan              = "man"
+	replAdult            = "adult"
+	replWorkplace        = "workplace"
+	replMatureAppearance = "mature appearance"
+	replAge25            = "age 25"
+	repl25YearsOld       = "25 years old"
+	replPerson           = "person"
+	replTMNT             = "teenage mutant ninja turtles"
+)
+
 func init() {
 	// Build the compiled replacements list once.
 	raw := map[string]string{
 		// Female youth terms
-		`(?i)\b(girl|girls|grl|grll|grls|grlls)\b`:                                                "woman",
-		`(?i)\b(girly|girlish|maiden|maidens)\b`:                                                  "woman",
-		`(?i)\b(little girl|young girl|small girl|tiny girl|young lady|little lady|small lady)\b`: "woman",
-		`(?i)\b(schoolgirl|college girl|highschool girl|middle school girl|elementary girl)\b`:    "woman",
-		`(?i)\b(loli|lolli|lolita|gothic lolita|sweet lolita)\b`:                                  "woman",
+		`(?i)\b(girl|girls|grl|grll|grls|grlls)\b`:                                                replWoman,
+		`(?i)\b(girly|girlish|maiden|maidens)\b`:                                                  replWoman,
+		`(?i)\b(little girl|young girl|small girl|tiny girl|young lady|little lady|small lady)\b`: replWoman,
+		`(?i)\b(schoolgirl|college girl|highschool girl|middle school girl|elementary girl)\b`:    replWoman,
+		`(?i)\b(loli|lolli|lolita|gothic lolita|sweet lolita)\b`:                                  replWoman,
 		`(?i)\b(brownie scout|girl scout|guides|junior guides)\b`:                                 "adult group",
 
 		// Male youth terms
-		`(?i)\b(boy|boys|boi|boii|boyz)\b`: "man",
+		`(?i)\b(boy|boys|boi|boii|boyz)\b`: replMan,
 		`(?i)\b(boyish)\b`:                 "mature",
-		`(?i)\b(little boy|young boy|small boy|tiny boy|young man|little man|small man)\b`: "man",
-		`(?i)\b(schoolboy|college boy|highschool boy|middle school boy|elementary boy)\b`:  "man",
+		`(?i)\b(little boy|young boy|small boy|tiny boy|young man|little man|small man)\b`: replMan,
+		`(?i)\b(schoolboy|college boy|highschool boy|middle school boy|elementary boy)\b`:  replMan,
 		`(?i)\b(cubscout|cub scout|boy scout|eagle scout|webelos)\b`:                       "adult group",
 
 		// Family terms with age context
@@ -66,38 +79,38 @@ func init() {
 		`(?i)\b(granddaughter|grandson)\b`:                                "relative",
 
 		// Generic youth terms
-		`(?i)\b(pre-k|pre k|child|children|kid|kids|kiddo|kiddies|kiddie|youngster|youngsters)\b`: "adult",
-		`(?i)\b(teen|teens|teenager|teenagers|teenage|adolescent|adolescents)\b`:                  "adult",
-		`(?i)\b(youth|youths|juvenile|juveniles|minor|minors|underage)\b`:                         "adult",
-		`(?i)\b(baby|bby|babies|infant|infants|toddler|toddlers|preschooler|preschoolers)\b`:      "adult",
-		`(?i)\b(tween|tweens|preteen|preteens|pre-teen|pre-teens)\b`:                              "adult",
-		`(?i)\b(young adult|young person|young people|young ones|young individual)\b`:             "adult",
+		`(?i)\b(pre-k|pre k|child|children|kid|kids|kiddo|kiddies|kiddie|youngster|youngsters)\b`: replAdult,
+		`(?i)\b(teen|teens|teenager|teenagers|teenage|adolescent|adolescents)\b`:                  replAdult,
+		`(?i)\b(youth|youths|juvenile|juveniles|minor|minors|underage)\b`:                         replAdult,
+		`(?i)\b(baby|bby|babies|infant|infants|toddler|toddlers|preschooler|preschoolers)\b`:      replAdult,
+		`(?i)\b(tween|tweens|preteen|preteens|pre-teen|pre-teens)\b`:                              replAdult,
+		`(?i)\b(young adult|young person|young people|young ones|young individual)\b`:             replAdult,
 
 		// Size descriptor bypasses (mini/small/tiny + human/person)
-		`(?i)\b(mini|small|tiny|little|petite)\s+(human|humans|person|persons|people)\b`: "adult",
+		`(?i)\b(mini|small|tiny|little|petite)\s+(human|humans|person|persons|people)\b`: replAdult,
 
 		// School and education terms
-		`(?i)\b(elementary school|grade school|primary school)\b`:               "workplace",
-		`(?i)\b(middle school|junior high|intermediate school)\b`:               "workplace",
-		`(?i)\b(high school|secondary school|prep school|preparatory school)\b`: "workplace",
-		`(?i)\b(daycare|day care|nursery|preschool|kindergarten)\b`:             "workplace",
+		`(?i)\b(elementary school|grade school|primary school)\b`:               replWorkplace,
+		`(?i)\b(middle school|junior high|intermediate school)\b`:               replWorkplace,
+		`(?i)\b(high school|secondary school|prep school|preparatory school)\b`: replWorkplace,
+		`(?i)\b(daycare|day care|nursery|preschool|kindergarten)\b`:             replWorkplace,
 		`(?i)\b(playground|playroom|play area|jungle gym|swing set)\b`:          "recreation area",
 		`(?i)\b(classroom|schoolroom|homeroom|study hall)\b`:                    "meeting room",
 
 		// Physical description terms
-		`(?i)\b(young body|young figure|youthful figure|youthful appearance)\b`: "mature appearance",
-		`(?i)\b(underdeveloped|developing body|growing body|maturing)\b`:        "mature appearance",
-		`(?i)\b(innocent look|innocent appearance|pure|pure looking)\b`:         "mature appearance",
-		`(?i)\b(developing figure|budding|blossoming)\b`:                        "mature appearance",
+		`(?i)\b(young body|young figure|youthful figure|youthful appearance)\b`: replMatureAppearance,
+		`(?i)\b(underdeveloped|developing body|growing body|maturing)\b`:        replMatureAppearance,
+		`(?i)\b(innocent look|innocent appearance|pure|pure looking)\b`:         replMatureAppearance,
+		`(?i)\b(developing figure|budding|blossoming)\b`:                        replMatureAppearance,
 
 		// Age patterns with extended range (1-20) and comprehensive variations
 		// Basic age patterns
 		`(?i)\b(?:[1-9]|1\d|20)\s*(?:yr|yrs|year|years|y\.o\.|yo|yos|year-old|years-old)\b`: "25 years",
-		`(?i)\bage[d]?\s+(?:[1-9]|1\d|20)\b`:                                                "age 25",
-		`(?i)\b(?:[1-9]|1\d|20)\s*years?\s*old\b`:                                           "25 years old",
+		`(?i)\bage[d]?\s+(?:[1-9]|1\d|20)\b`:                                                replAge25,
+		`(?i)\b(?:[1-9]|1\d|20)\s*years?\s*old\b`:                                           repl25YearsOld,
 
 		// Variations with "aged"
-		`(?i)\baged?\s*(?:[1-9]|1\d|20)\s*(?:yr|yrs|year|years)?\b`: "age 25",
+		`(?i)\baged?\s*(?:[1-9]|1\d|20)\s*(?:yr|yrs|year|years)?\b`: replAge25,
 		`(?i)\b(?:[1-9]|1\d|20)\s*(?:yr|yrs|year|years)-?aged\b`:    "25-year-aged",
 
 		// Age of/at age variations
@@ -107,7 +120,7 @@ func init() {
 
 		// Descriptive age patterns
 		`(?i)\bis\s+(?:[1-9]|1\d|20)\s*(?:yr|yrs|year|years)?\s*old\b`:                                                "is 25 years old",
-		`(?i)\b(?:just|only|about|around|approximately|near(?:ly)?)\s+(?:[1-9]|1\d|20)\s*(?:yr|yrs|years?)?\s*old?\b`: "25 years old",
+		`(?i)\b(?:just|only|about|around|approximately|near(?:ly)?)\s+(?:[1-9]|1\d|20)\s*(?:yr|yrs|years?)?\s*old?\b`: repl25YearsOld,
 		`(?i)\baround\s+(?:[1-9]|1\d|20)\s*(?:yr|yrs|year|years)?\s*old\b`:                                            "around 25 years old",
 
 		// "Under" age patterns
@@ -116,27 +129,27 @@ func init() {
 
 		// Specific age descriptors
 		`(?i)\b(?:turned|turning)\s+(?:[1-9]|1\d|20)\b`:                       "turned 25",
-		`(?i)\b(?:[1-9]|1\d|20)\s*(?:yr|yrs|year|years)?\s*young\b`:           "25 years old",
+		`(?i)\b(?:[1-9]|1\d|20)\s*(?:yr|yrs|year|years)?\s*young\b`:           repl25YearsOld,
 		`(?i)\b(?:a|an)\s+(?:[1-9]|1\d|20)\s*(?:yr|yrs|year|years?)?\s*old\b`: "a 25 year old",
 
 		// Age with adjectives
 		`(?i)\b(?:young|mere(?:ly)?|bare(?:ly)?|only)\s+(?:[1-9]|1\d|20)\b`:                                "25",
-		`(?i)\b(?:young|mere(?:ly)?|bare(?:ly)?|only)\s+(?:[1-9]|1\d|20)\s*(?:yr|yrs|year|years)?\s*old\b`: "25 years old",
+		`(?i)\b(?:young|mere(?:ly)?|bare(?:ly)?|only)\s+(?:[1-9]|1\d|20)\s*(?:yr|yrs|year|years)?\s*old\b`: repl25YearsOld,
 
 		// Age ranges
-		`(?i)\b(?:[1-9]|1\d|20)\s*(?:to|-)\s*(?:[1-9]|1\d|20)\s*(?:yr|yrs|year|years)?\s*old\b`:        "25 years old",
+		`(?i)\b(?:[1-9]|1\d|20)\s*(?:to|-)\s*(?:[1-9]|1\d|20)\s*(?:yr|yrs|year|years)?\s*old\b`:        repl25YearsOld,
 		`(?i)\bbetween\s+(?:[1-9]|1\d|20)\s*(?:and|&|-)\s+(?:[1-9]|1\d|20)\s*(?:yr|yrs|year|years)?\b`: "25 years",
 
 		// Specific contexts
 		`(?i)\b(?:appears|looks|seems)\s+(?:[1-9]|1\d|20)\b`:                              "appears 25",
 		`(?i)\b(?:[1-9]|1\d|20)\s*(?:yr|yrs|year|years)?\s*of\s*age\b`:                    "25 years of age",
-		`(?i)\bage[d]?\s*(?:approximately|about|around|near(?:ly)?)\s*(?:[1-9]|1\d|20)\b`: "age 25",
+		`(?i)\bage[d]?\s*(?:approximately|about|around|near(?:ly)?)\s*(?:[1-9]|1\d|20)\b`: replAge25,
 
 		// Written number variations (can add more as needed)
-		`(?i)\b(?:one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|thirteen|fourteen|fifteen|sixteen|seventeen|eighteen|nineteen|twenty)\s*(?:yr|yrs|year|years)?\s*old\b`: "25 years old",
+		`(?i)\b(?:one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|thirteen|fourteen|fifteen|sixteen|seventeen|eighteen|nineteen|twenty)\s*(?:yr|yrs|year|years)?\s*old\b`: repl25YearsOld,
 
 		// Age with decimals
-		`(?i)\b(?:[1-9]|1\d)\.5\s*(?:yr|yrs|year|years)?\s*old\b`: "25 years old",
+		`(?i)\b(?:[1-9]|1\d)\.5\s*(?:yr|yrs|year|years)?\s*old\b`: repl25YearsOld,
 
 		// Possessive forms
 		`(?i)\b(?:his|her|their)\s+(?:[1-9]|1\d|20)\s*(?:yr|yrs|year|years)\b`: "their 25 years",
@@ -146,10 +159,10 @@ func init() {
 		`(?i)\b(?:since|for)\s+(?:[1-9]|1\d|20)\s*(?:yr|yrs|year|years)\b`:    "for 25 years",
 
 		// Angel-related patterns
-		`(?i)\b(young|little|small|tiny|pure|innocent)\s*(angel|angels)\b`:                             "person",
-		`(?i)\b(angel|angels)\s*(model|models)\b`:                                                      "person",
-		`(?i)\b(angelic)\s*(youth|child|children|girl|girls|boy|boys|teen|teens|teenager|teenagers)\b`: "person",
-		`(?i)\b(cherub|cherubs|cherubic)\b`:                                                            "person",
+		`(?i)\b(young|little|small|tiny|pure|innocent)\s*(angel|angels)\b`:                             replPerson,
+		`(?i)\b(angel|angels)\s*(model|models)\b`:                                                      replPerson,
+		`(?i)\b(angelic)\s*(youth|child|children|girl|girls|boy|boys|teen|teens|teenager|teenagers)\b`: replPerson,
+		`(?i)\b(cherub|cherubs|cherubic)\b`:                                                            replPerson,
 	}
 
 	compiledReplacements = make([]compiledReplacement, 0, len(raw))
@@ -355,7 +368,7 @@ func CleanPrompt(message string) string {
 		"girlband",
 		"girls generation",
 		"spice girls",
-		"teenage mutant ninja turtles",
+		replTMNT,
 		"hells angels",
 		"angel food",
 		"angel hair",

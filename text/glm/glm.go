@@ -49,16 +49,23 @@ func handleResetCommand(irc state.State) (bool, string) {
 	return true, "Cache reset"
 }
 
+// GLM API role and thinking type constants.
+const (
+	roleSystem       = "system"
+	roleUser         = "user"
+	thinkingDisabled = "disabled"
+)
+
 // buildRequestBody creates the request body for the GLM API call.
 func buildRequestBody(irc state.State, message string) *GlmRequestBody {
 	body := &GlmRequestBody{
 		Model:  irc.Config.Glm.DefaultModel,
 		Stream: false,
 		Thinking: &GlmThinking{
-			Type: "disabled",
+			Type: thinkingDisabled,
 		},
 		Messages: []text.Message{
-			{Role: "system", Content: irc.User.GetBasePrompt()},
+			{Role: roleSystem, Content: irc.User.GetBasePrompt()},
 		},
 	}
 
@@ -66,7 +73,7 @@ func buildRequestBody(irc state.State, message string) *GlmRequestBody {
 		body.Messages = append(body.Messages, history...)
 	}
 
-	body.Messages = append(body.Messages, text.Message{Role: "user", Content: message})
+	body.Messages = append(body.Messages, text.Message{Role: roleUser, Content: message})
 	return body
 }
 
@@ -105,15 +112,15 @@ func SingleRequest(prompt string, config settings.GlmConfig) (string, error) {
 func SingleRequestWithSystem(systemPrompt, userPrompt string, config settings.GlmConfig) (string, error) {
 	messages := []text.Message{}
 	if systemPrompt != "" {
-		messages = append(messages, text.Message{Role: "system", Content: systemPrompt})
+		messages = append(messages, text.Message{Role: roleSystem, Content: systemPrompt})
 	}
-	messages = append(messages, text.Message{Role: "user", Content: userPrompt})
+	messages = append(messages, text.Message{Role: roleUser, Content: userPrompt})
 
 	body := &GlmRequestBody{
 		Model:  config.DefaultModel,
 		Stream: false,
 		Thinking: &GlmThinking{
-			Type: "disabled",
+			Type: thinkingDisabled,
 		},
 		Messages: messages,
 	}

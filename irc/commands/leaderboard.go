@@ -11,7 +11,7 @@ import (
 
 func ParseLeaderboard(irc state.State) {
 	switch irc.Command.Action {
-	case "leaderboard":
+	case cmdLeaderboard:
 		handleLeaderboard(irc)
 	}
 }

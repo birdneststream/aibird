@@ -19,6 +19,17 @@ import (
 // Pre-compiled regex for birdhole URL validation
 var reBirdholeURL = regexp.MustCompile(`^https://hole\.birdnest\.live/derived/([a-zA-Z0-9]+)\.png/([a-zA-Z0-9]+)\.txt$`)
 
+// Command name constants for standard commands.
+const (
+	cmdHelp        = "help"
+	cmdHello       = "hello"
+	cmdSeen        = "seen"
+	cmdStatus      = "status"
+	cmdSupport     = "support"
+	cmdModels      = "models"
+	cmdLeaderboard = "leaderboard"
+)
+
 func ParseStandard(irc state.State) {
 	// For backward compatibility, call the version with queue
 	ParseStandardWithQueue(irc, nil)
@@ -44,7 +55,7 @@ func filterHelp(commands []help.Help, irc state.State) []help.Help {
 
 func ParseStandardWithQueue(irc state.State, q *queue.ProcessingQueue) {
 	switch irc.Command.Action {
-	case "help":
+	case cmdHelp:
 		irc.Send("Type  <command> --help for more information on a command.")
 
 		irc.Send(girc.Fmt(formatHelp("IRC: ", filterHelp(help.StandardHelp(), irc))))
@@ -76,10 +87,10 @@ func ParseStandardWithQueue(irc state.State, q *queue.ProcessingQueue) {
 		}
 
 		return
-	case "hello":
+	case cmdHello:
 		irc.Send(girc.Fmt("{b}hello{b} {blue}" + irc.User.NickName + "{c}!"))
 		return
-	case "seen":
+	case cmdSeen:
 		user, _ := irc.Channel.GetUserWithNick(irc.Message())
 		if user == nil {
 			irc.Send("I have not seen this user")
@@ -93,7 +104,7 @@ func ParseStandardWithQueue(irc state.State, q *queue.ProcessingQueue) {
 
 		irc.Send(user.Seen())
 		return
-	case "status":
+	case cmdStatus:
 		client := status.NewClient(irc.Config.AiBird)
 		formattedStatus, err := client.GetFormattedStatus()
 		if err != nil {
@@ -126,14 +137,14 @@ func ParseStandardWithQueue(irc state.State, q *queue.ProcessingQueue) {
 			}
 		}
 
-	case "support":
+	case cmdSupport:
 		for _, support := range irc.Config.AiBird.Support {
 			irc.Send(girc.Fmt("💲 " + support.Name + ": " + support.Value))
 		}
 		irc.Send(girc.Fmt("After you have {b}supported{b} contact an admin to enable your support only features."))
 		return
 
-	case "models":
+	case cmdModels:
 		// List all available image generation models/workflows
 		if irc.Channel.Sd {
 			irc.Send(girc.Fmt("📸 Available image generation models/workflows: " + comfyui.GetWorkFlows(true)))
@@ -149,7 +160,7 @@ func ParseStandardWithQueue(irc state.State, q *queue.ProcessingQueue) {
 		ParsePlay(irc)
 	case "record":
 		ParseRecordCommand(irc)
-	case "leaderboard":
+	case cmdLeaderboard:
 		ParseLeaderboard(irc)
 	case "summary":
 		ParseSummary(irc, q)
@@ -167,7 +178,7 @@ func ParseStandardWithQueue(irc state.State, q *queue.ProcessingQueue) {
 }
 
 func ParsePlay(irc state.State) {
-	if irc.Message() == "--help" || irc.Message() == "" {
+	if irc.Message() == argHelp || irc.Message() == "" {
 		irc.Send(help.FindHelp(irc))
 		return
 	}

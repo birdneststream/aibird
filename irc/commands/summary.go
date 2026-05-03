@@ -25,7 +25,7 @@ func ParseSummary(irc state.State, q *queue.ProcessingQueue) {
 		return
 	}
 
-	if irc.Message() == "--help" {
+	if irc.Message() == argHelp {
 		irc.Send("Usage: !summary [hours] [--persona <angle>] — Summarizes the last N hours of channel activity.")
 		irc.Send("Examples: !summary, !summary 6h, !summary 12 --persona \"a western cowboy\"")
 		irc.Send("Defaults: 24h, max: 168h (7 days). --persona: optional creative angle for the summary.")

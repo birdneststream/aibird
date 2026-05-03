@@ -81,7 +81,7 @@ func RunQueueableCommand(ctx context.Context, s state.State, gpu meta.GPUType) {
 
 func isImageCommand(action string) bool {
 	entry := getRegistry().lookup(action)
-	if entry != nil && entry.Type == "image" {
+	if entry != nil && entry.Type == cmdTypeImage {
 		return true
 	}
 	meta := comfyui.GetCachedMeta(action)
@@ -93,7 +93,7 @@ func isImageCommand(action string) bool {
 
 func isVideoCommand(action string) bool {
 	entry := getRegistry().lookup(action)
-	if entry != nil && entry.Type == "video" {
+	if entry != nil && entry.Type == cmdTypeVideo {
 		return true
 	}
 	meta := comfyui.GetCachedMeta(action)
@@ -105,7 +105,7 @@ func isVideoCommand(action string) bool {
 
 func isSoundCommand(action string) bool {
 	entry := getRegistry().lookup(action)
-	if entry != nil && entry.Type == "sound" {
+	if entry != nil && entry.Type == cmdTypeSound {
 		return true
 	}
 	meta := comfyui.GetCachedMeta(action)

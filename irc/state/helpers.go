@@ -16,6 +16,17 @@ import (
 	"github.com/google/uuid"
 )
 
+// Field name constants for the updateField switch statements.
+// These are lowercased keys matched against user-supplied arguments.
+const (
+	fieldHost      = "host"
+	fieldIsAdmin   = "isadmin"
+	fieldIgnored   = "ignored"
+	fieldAiService = "aiservice"
+	fieldName      = "name"
+	fieldUser      = "user"
+)
+
 // connectionGracePeriod is the time after connect before mode enforcement begins.
 const connectionGracePeriod = 30 * time.Second
 
@@ -317,12 +328,12 @@ func (s *State) updateUserField(user *users.User, originalKey string, value inte
 	key := strings.ToLower(originalKey)
 	switch key {
 	// Immutable fields — blocked
-	case "nickname", "ident", "host", "preservedmodes", "currentmodes", "gircuser":
+	case "nickname", "ident", fieldHost, "preservedmodes", "currentmodes", "gircuser":
 		s.SendWarning(fmt.Sprintf("Cannot change protected %s", helpers.CapitaliseFirst(originalKey)))
 		return true
 
 	// Bool fields
-	case "isadmin":
+	case fieldIsAdmin:
 		val, err := toBoolE(value)
 		if err != nil {
 			s.SendError(fmt.Sprintf("Error updating IsAdmin: %v", err))
@@ -338,7 +349,7 @@ func (s *State) updateUserField(user *users.User, originalKey string, value inte
 		}
 		user.IsOwner = val
 		s.SendSuccess(fmt.Sprintf("Updated IsOwner to %t", user.IsOwner))
-	case "ignored":
+	case fieldIgnored:
 		val, err := toBoolE(value)
 		if err != nil {
 			s.SendError(fmt.Sprintf("Error updating Ignored: %v", err))
@@ -374,7 +385,7 @@ func (s *State) updateUserField(user *users.User, originalKey string, value inte
 		s.SendSuccess(fmt.Sprintf("Updated LatestActivity to %d", user.LatestActivity))
 
 	// String fields
-	case "aiservice":
+	case fieldAiService:
 		user.AiService = toString(value)
 		s.SendSuccess(fmt.Sprintf("Updated AiService to %s", user.AiService))
 	case "aimodel":
@@ -413,7 +424,7 @@ func (s *State) updateChannelField(originalKey string, value interface{}) bool {
 	key := strings.ToLower(originalKey)
 	switch key {
 	// Immutable fields — blocked
-	case "name", "users", "denycommands":
+	case fieldName, "users", "denycommands":
 		s.SendWarning(fmt.Sprintf("Cannot change protected %s", helpers.CapitaliseFirst(originalKey)))
 		return true
 
@@ -539,7 +550,7 @@ func (s *State) updateNetworkField(originalKey string, value interface{}) bool {
 	key := strings.ToLower(originalKey)
 	switch key {
 	// Immutable fields — blocked (includes sensitive and runtime fields)
-	case "name", "networkname", "nick", "users", "channels", "servers", "modesatonce",
+	case fieldName, "networkname", "nick", "users", "channels", "servers", "modesatonce",
 		"pass", "nickservpass", "connectedat", "ignorednicks", "adminhosts", "denycommands":
 		s.SendWarning(fmt.Sprintf("Cannot change protected %s", helpers.CapitaliseFirst(originalKey)))
 		return true
@@ -595,7 +606,7 @@ func (s *State) updateNetworkField(originalKey string, value interface{}) bool {
 	case "actiontrigger":
 		s.Network.ActionTrigger = toString(value)
 		s.SendSuccess(fmt.Sprintf("Updated ActionTrigger to %s", s.Network.ActionTrigger))
-	case "user":
+	case fieldUser:
 		s.Network.User = toString(value)
 		s.SendSuccess(fmt.Sprintf("Updated User to %s", s.Network.User))
 

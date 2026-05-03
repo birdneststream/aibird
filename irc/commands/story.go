@@ -23,7 +23,7 @@ func ParseStory(irc state.State, q *queue.ProcessingQueue) {
 		return
 	}
 
-	if irc.Message() == "--help" {
+	if irc.Message() == argHelp {
 		irc.Send("Usage: !story [hours] [--persona <genre>] — Turns channel events into a short story.")
 		irc.Send("Example: !story, !story 6h --persona \"fantasy\", !story --persona \"film noir\"")
 		return

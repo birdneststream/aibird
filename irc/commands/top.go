@@ -16,7 +16,7 @@ func ParseTop(irc state.State) {
 	}
 
 	hours := 24
-	if irc.Message() != "" && irc.Message() != "--help" {
+	if irc.Message() != "" && irc.Message() != argHelp {
 		msg := strings.TrimSpace(irc.Message())
 		cleaned := strings.TrimSuffix(msg, "h")
 		if parsed, err := parseIntSafe(cleaned); err == nil && parsed > 0 && parsed <= 168 {
@@ -24,7 +24,7 @@ func ParseTop(irc state.State) {
 		}
 	}
 
-	if irc.Message() == "--help" {
+	if irc.Message() == argHelp {
 		irc.Send("Usage: !top [hours] — Shows channel activity stats.")
 		irc.Send("Example: !top, !top 6h, !top 168h")
 		return
@@ -55,13 +55,13 @@ func ParseTop(irc state.State) {
 
 	// Event breakdown
 	var eventParts []string
-	for _, et := range []string{"privmsg", "action", "join", "part", "quit", "kick"} {
+	for _, et := range []string{eventPrivmsg, eventAction, eventJoin, eventPart, "quit", eventKick} {
 		if count, ok := stats.EventCounts[et]; ok && count > 0 {
 			label := et
 			switch et {
-			case "privmsg":
+			case eventPrivmsg:
 				label = "messages"
-			case "action":
+			case eventAction:
 				label = "actions"
 			}
 			eventParts = append(eventParts, fmt.Sprintf("%d %s", count, label))

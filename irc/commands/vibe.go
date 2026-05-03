@@ -38,7 +38,7 @@ func ParseVibe(irc state.State, q *queue.ProcessingQueue) {
 		return
 	}
 
-	if irc.Message() == "--help" {
+	if irc.Message() == argHelp {
 		irc.Send("Usage: !vibe [hours] — Generates a visual artwork capturing the channel's vibe.")
 		irc.Send("The bot analyzes recent conversation, creates an AI image prompt, and generates an image.")
 		irc.Send("Example: !vibe, !vibe 6h")

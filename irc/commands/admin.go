@@ -13,6 +13,15 @@ import (
 	"github.com/lrstanley/girc"
 )
 
+// Admin command name constants.
+const (
+	cmdDebug = "debug"
+	cmdUser  = "user"
+	cmdKick  = "kick"
+	cmdJoin  = "join"
+	cmdPart  = "part"
+)
+
 func ParseAdminWithQueue(irc state.State, q *queue.ProcessingQueue) {
 	parseAdminCommands(irc, q)
 }
@@ -21,7 +30,7 @@ func parseAdminCommands(irc state.State, q *queue.ProcessingQueue) {
 	if irc.User.IsAdmin {
 		switch irc.Command.Action {
 
-		case "debug":
+		case cmdDebug:
 			logger.Debug("IRC Client Debug Info",
 				"channels", irc.Client.Channels(),
 				"users", irc.Client.Users(),
@@ -36,7 +45,7 @@ func parseAdminCommands(irc state.State, q *queue.ProcessingQueue) {
 			}
 
 			return
-		case "user":
+		case cmdUser:
 			var user *users.User
 
 			// Check if we're dealing with ident@host format
@@ -114,7 +123,7 @@ func parseAdminCommands(irc state.State, q *queue.ProcessingQueue) {
 		case "devoice":
 			irc.Client.Cmd.Mode(irc.Channel.Name, "-v", irc.Command.Message)
 			return
-		case "kick":
+		case cmdKick:
 			irc.Client.Cmd.Kick(irc.Channel.Name, irc.Command.Message, "You have been kicked by "+irc.User.NickName)
 			return
 		case "ban":
@@ -126,10 +135,10 @@ func parseAdminCommands(irc state.State, q *queue.ProcessingQueue) {
 		case "topic":
 			irc.Client.Cmd.Topic(irc.Channel.Name, irc.Command.Message)
 			return
-		case "join":
+		case cmdJoin:
 			irc.Client.Cmd.Join(irc.Command.Message)
 			return
-		case "part":
+		case cmdPart:
 			irc.Client.Cmd.Part(irc.Command.Message)
 			return
 		case "ignore":

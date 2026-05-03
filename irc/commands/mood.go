@@ -13,6 +13,18 @@ import (
 	"aibird/text"
 )
 
+// Event type constants for message storage.
+const (
+	eventPrivmsg = "privmsg"
+	eventAction  = "action"
+	eventJoin    = "join"
+	eventPart    = "part"
+	eventKick    = "kick"
+)
+
+// Argument constants.
+const argHelp = "--help"
+
 func ParseMood(irc state.State, q *queue.ProcessingQueue) {
 	if irc.Channel == nil {
 		irc.Send("Error: mood can only be used in a channel.")
@@ -24,7 +36,7 @@ func ParseMood(irc state.State, q *queue.ProcessingQueue) {
 		return
 	}
 
-	if irc.Message() == "--help" {
+	if irc.Message() == argHelp {
 		irc.Send("Usage: !mood [hours] — Analyzes the current mood/vibe of the channel.")
 		irc.Send("Example: !mood, !mood 6h")
 		return
@@ -114,17 +126,17 @@ func formatEventLog(channelName string, hours int, messages []birdbase.ChannelMe
 
 	for _, msg := range messages {
 		switch msg.EventType {
-		case "privmsg":
+		case eventPrivmsg:
 			logBuilder.WriteString(fmt.Sprintf("<%s> %s\n", msg.Nickname, msg.Message))
-		case "action":
+		case eventAction:
 			logBuilder.WriteString(fmt.Sprintf("* %s %s\n", msg.Nickname, msg.Message))
-		case "join":
+		case eventJoin:
 			logBuilder.WriteString(fmt.Sprintf("--> %s joined\n", msg.Nickname))
-		case "part":
+		case eventPart:
 			logBuilder.WriteString(fmt.Sprintf("<-- %s left\n", msg.Nickname))
 		case "quit":
 			logBuilder.WriteString(fmt.Sprintf("<-- %s quit\n", msg.Nickname))
-		case "kick":
+		case eventKick:
 			logBuilder.WriteString(fmt.Sprintf("<-- %s was kicked by %s\n", msg.Nickname, msg.Message))
 		}
 	}

@@ -10,10 +10,21 @@ import (
 	"aibird/settings"
 )
 
+// Command type constants used across the commands package.
+const (
+	cmdTypeStandard = "standard"
+	cmdTypeAdmin    = "admin"
+	cmdTypeOwner    = "owner"
+	cmdTypeText     = "text"
+	cmdTypeImage    = "image"
+	cmdTypeVideo    = "video"
+	cmdTypeSound    = "sound"
+)
+
 // CommandEntry holds metadata about a single command for O(1) lookups.
 type CommandEntry struct {
 	Name      string // Original case from help definition
-	Type      string // "standard", "admin", "owner", "image", "video", "sound", "text"
+	Type      string // One of the cmdType* constants
 	Queueable bool
 }
 
@@ -57,13 +68,13 @@ func InitRegistry(config settings.AiBird) {
 		}
 	}
 
-	addAll(help.StandardHelp(), "standard")
-	addAll(help.AdminHelp(), "admin")
-	addAll(help.OwnerHelp(), "owner")
-	addAll(help.TextHelp(), "text")
-	addAll(help.ImageHelp(config), "image")
-	addAll(help.VideoHelp(config), "video")
-	addAll(help.SoundHelp(config), "sound")
+	addAll(help.StandardHelp(), cmdTypeStandard)
+	addAll(help.AdminHelp(), cmdTypeAdmin)
+	addAll(help.OwnerHelp(), cmdTypeOwner)
+	addAll(help.TextHelp(), cmdTypeText)
+	addAll(help.ImageHelp(config), cmdTypeImage)
+	addAll(help.VideoHelp(config), cmdTypeVideo)
+	addAll(help.SoundHelp(config), cmdTypeSound)
 
 	registryMu.Lock()
 	cachedRegistry = r
@@ -95,29 +106,29 @@ func GetAllCommands(enableAi, enableSd, enableSound, enableVideo bool, isAdmin, 
 	var result []string
 	for _, entry := range r.byLower {
 		switch entry.Type {
-		case "standard":
+		case cmdTypeStandard:
 			result = append(result, entry.Name)
-		case "admin":
+		case cmdTypeAdmin:
 			if isAdmin {
 				result = append(result, entry.Name)
 			}
-		case "owner":
+		case cmdTypeOwner:
 			if isOwner {
 				result = append(result, entry.Name)
 			}
-		case "text":
+		case cmdTypeText:
 			if enableAi {
 				result = append(result, entry.Name)
 			}
-		case "image":
+		case cmdTypeImage:
 			if enableSd {
 				result = append(result, entry.Name)
 			}
-		case "video":
+		case cmdTypeVideo:
 			if enableVideo {
 				result = append(result, entry.Name)
 			}
-		case "sound":
+		case cmdTypeSound:
 			if enableSound {
 				result = append(result, entry.Name)
 			}
@@ -147,19 +158,19 @@ func IsValidCommandForChannel(command string, enableAi, enableSd, enableSound, e
 		return false
 	}
 	switch entry.Type {
-	case "standard":
+	case cmdTypeStandard:
 		return true
-	case "admin":
+	case cmdTypeAdmin:
 		return isAdmin
-	case "owner":
+	case cmdTypeOwner:
 		return isOwner
-	case "text":
+	case cmdTypeText:
 		return enableAi
-	case "image":
+	case cmdTypeImage:
 		return enableSd
-	case "video":
+	case cmdTypeVideo:
 		return enableVideo
-	case "sound":
+	case cmdTypeSound:
 		return enableSound
 	default:
 		return false
@@ -169,41 +180,41 @@ func IsValidCommandForChannel(command string, enableAi, enableSd, enableSound, e
 // IsStandardCommand checks if a command is in the list of standard commands (case-sensitive).
 func IsStandardCommand(command string) bool {
 	entry := getRegistry().lookup(command)
-	return entry != nil && entry.Type == "standard" && entry.Name == command
+	return entry != nil && entry.Type == cmdTypeStandard && entry.Name == command
 }
 
 // IsAdminCommand checks if a command is in the list of admin commands (case-sensitive).
 func IsAdminCommand(command string) bool {
 	entry := getRegistry().lookup(command)
-	return entry != nil && entry.Type == "admin" && entry.Name == command
+	return entry != nil && entry.Type == cmdTypeAdmin && entry.Name == command
 }
 
 // IsOwnerCommand checks if a command is in the list of owner commands (case-sensitive).
 func IsOwnerCommand(command string) bool {
 	entry := getRegistry().lookup(command)
-	return entry != nil && entry.Type == "owner" && entry.Name == command
+	return entry != nil && entry.Type == cmdTypeOwner && entry.Name == command
 }
 
 // IsSoundCommand checks if a command is in the list of sound commands (case-insensitive).
 func IsSoundCommand(command string) bool {
 	entry := getRegistry().lookup(command)
-	return entry != nil && entry.Type == "sound"
+	return entry != nil && entry.Type == cmdTypeSound
 }
 
 // IsVideoCommand checks if a command is in the list of video commands (case-insensitive).
 func IsVideoCommand(command string) bool {
 	entry := getRegistry().lookup(command)
-	return entry != nil && entry.Type == "video"
+	return entry != nil && entry.Type == cmdTypeVideo
 }
 
 // IsTextCommand checks if a command is a text command (case-insensitive).
 func IsTextCommand(action string) bool {
 	entry := getRegistry().lookup(action)
-	return entry != nil && entry.Type == "text"
+	return entry != nil && entry.Type == cmdTypeText
 }
 
 // IsImageCommand checks if a command is an image generation command (case-insensitive).
 func IsImageCommand(command string) bool {
 	entry := getRegistry().lookup(command)
-	return entry != nil && entry.Type == "image"
+	return entry != nil && entry.Type == cmdTypeImage
 }

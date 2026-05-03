@@ -23,6 +23,12 @@ import (
 // checkLlamaCppAvailable checks if llama.cpp is running. Returns true if
 // available (or if health check fails, assuming it's running). Returns false
 // and sends an error message if confirmed offline.
+// AI service name constants.
+const (
+	serviceGLM      = "glm"
+	serviceLlamacpp = "llamacpp"
+)
+
 func checkLlamaCppAvailable(irc state.State) bool {
 	isRunning, err := llamacpp.IsLlamaCppRunning(irc.Config.LlamaCpp.Url, irc.Config.LlamaCpp.Port)
 	if err != nil {
@@ -120,12 +126,12 @@ func ParseAiText(irc state.State) bool {
 
 		setAiService, _ := irc.GetStringArg("setAiService", "")
 		if setAiService != "" {
-			if setAiService != "llamacpp" && setAiService != "glm" {
+			if setAiService != serviceLlamacpp && setAiService != serviceGLM {
 				irc.SendError("🧠 AI service not found. Please choose between llamacpp or glm")
 				return true
 			}
 
-			if setAiService == "glm" && irc.Config.Glm.ApiKey == "" {
+			if setAiService == serviceGLM && irc.Config.Glm.ApiKey == "" {
 				irc.SendError("🧠 GLM is not configured. Please set up GLM before using it as AI service.")
 				return true
 			}
@@ -137,7 +143,7 @@ func ParseAiText(irc state.State) bool {
 		}
 
 		if irc.GetBoolArg("clearAiService") {
-			irc.User.SetAiService("llamacpp")
+			irc.User.SetAiService(serviceLlamacpp)
 			irc.Send(girc.Fmt("🧠 AI service defaulting to llamacpp"))
 			irc.Network.Save()
 			return true
@@ -145,11 +151,11 @@ func ParseAiText(irc state.State) bool {
 
 		service := irc.User.GetAiService()
 		if service == "" {
-			service = "llamacpp"
+			service = serviceLlamacpp
 		}
 
 		switch service {
-		case "glm":
+		case serviceGLM:
 			if irc.Config.Glm.ApiKey == "" {
 				irc.SendError("🧠 GLM is not configured")
 				return true
@@ -170,7 +176,7 @@ func ParseAiText(irc state.State) bool {
 			}()
 			return true
 
-		case "llamacpp":
+		case serviceLlamacpp:
 			if irc.IsEmptyMessage() {
 				return true
 			}
@@ -429,10 +435,10 @@ func ShouldQueueLlamaCppAi(irc state.State) bool {
 	// Queue all non-GLM requests (llamacpp, default, and any legacy/unknown services)
 	service := irc.User.GetAiService()
 	if service == "" {
-		service = "llamacpp"
+		service = serviceLlamacpp
 	}
 
-	return service != "glm"
+	return service != serviceGLM
 }
 
 // CheckAiCanUse checks if the AI system is available (respects can_use flag)
