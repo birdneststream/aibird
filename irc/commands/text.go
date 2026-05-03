@@ -8,6 +8,7 @@ import (
 	"strings"
 	"time"
 
+	"aibird/helpers"
 	"aibird/http/request"
 	"aibird/http/uploaders/birdhole"
 	"aibird/irc/state"
@@ -164,7 +165,7 @@ func ParseAiText(irc state.State) bool {
 				return true
 			}
 			irc.ReplyTo(girc.Fmt("🧠 Processing AI request, please wait..."))
-			go func() {
+			helpers.GoSafe(func() {
 				response, err := glm.Request(irc)
 				if err != nil {
 					logger.Error("Error processing AI request", "error", err)
@@ -173,7 +174,7 @@ func ParseAiText(irc state.State) bool {
 					logger.Debug("Calling handleAiResponse from GLM path")
 					handleAiResponse(irc, response)
 				}
-			}()
+			})
 			return true
 
 		case serviceLlamacpp:
@@ -228,7 +229,7 @@ func ParseAiText(irc state.State) bool {
 
 		irc.ReplyTo(girc.Fmt("🧠 Processing GLM request, please wait..."))
 
-		go func() {
+		helpers.GoSafe(func() {
 			response, err := glm.Request(irc)
 			if err != nil {
 				logger.Error("GLM request failed", "error", err)
@@ -236,7 +237,7 @@ func ParseAiText(irc state.State) bool {
 			} else {
 				irc.TextToBirdhole(response)
 			}
-		}()
+		})
 		return true
 	}
 
@@ -249,7 +250,7 @@ func ParseAiText(irc state.State) bool {
 		size, _ := irc.GetStringArg("size", "1024x1024")
 		irc.ReplyTo(girc.Fmt("🎨 Generating image with CogView-4, please wait..."))
 
-		go func() {
+		helpers.GoSafe(func() {
 			imageUrl, err := glm.ImageRequest(irc.Message(), size, irc.Config.Glm)
 			if err != nil {
 				logger.Error("GLM image request failed", "error", err)
@@ -285,7 +286,7 @@ func ParseAiText(irc state.State) bool {
 			}
 
 			irc.ReplyTo(fmt.Sprintf("🎨 %s", upload))
-		}()
+		})
 		return true
 	}
 

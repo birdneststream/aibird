@@ -6,6 +6,7 @@ import (
 	"os"
 	"time"
 
+	"aibird/helpers"
 	"aibird/image/comfyui"
 	"aibird/logger"
 	"aibird/shared/meta"
@@ -94,10 +95,10 @@ func (pq *ProcessingQueue) processQueueItem(parentCtx context.Context, queue *Qu
 
 		done := make(chan struct{})
 
-		go func() {
+		helpers.GoSafe(func() {
 			item.Function(ctx, item.State, item.GPU)
 			close(done)
-		}()
+		})
 
 		select {
 		case <-done:

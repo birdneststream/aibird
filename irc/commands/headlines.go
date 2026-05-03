@@ -13,6 +13,7 @@ import (
 	"sync"
 	"time"
 
+	"aibird/helpers"
 	"aibird/irc/state"
 	"aibird/queue"
 	"aibird/settings"
@@ -156,7 +157,7 @@ func queueAIAndSend(irc state.State, q *queue.ProcessingQueue, prompt string, me
 }
 
 func ParseHeadlines(irc state.State, q *queue.ProcessingQueue) {
-	go func() {
+	helpers.GoSafe(func() {
 		headlines, err := fetchRedditHeadlines(irc.Config.AiBird.Proxy)
 		if err != nil {
 			irc.Send(err.Error())
@@ -181,11 +182,11 @@ func ParseHeadlines(irc state.State, q *queue.ProcessingQueue) {
 		message := "fetching a summary of the latest headlines..."
 
 		queueAIAndSend(irc, q, prompt, message, "headlies")
-	}()
+	})
 }
 
 func ParseIrcNews(irc state.State, q *queue.ProcessingQueue) {
-	go func() {
+	helpers.GoSafe(func() {
 		headlines, err := fetchRedditHeadlines(irc.Config.AiBird.Proxy)
 		if err != nil {
 			irc.Send(err.Error())
@@ -261,5 +262,5 @@ Headline to rewrite: %s`, randomHeadline)
 		message := "Getting the latest IRC news..."
 
 		queueAIAndSend(irc, q, prompt, message, "ircnews")
-	}()
+	})
 }
