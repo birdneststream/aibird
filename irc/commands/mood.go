@@ -122,22 +122,22 @@ func sanitizePersona(input string) string {
 // formatEventLog builds a conversation log from messages for AI consumption.
 func formatEventLog(channelName string, hours int, messages []birdbase.ChannelMessage) string {
 	var logBuilder strings.Builder
-	logBuilder.WriteString(fmt.Sprintf("Channel: %s | Time period: last %d hours\n\n", channelName, hours))
+	fmt.Fprintf(&logBuilder, "Channel: %s | Time period: last %d hours\n\n", channelName, hours)
 
 	for _, msg := range messages {
 		switch msg.EventType {
 		case eventPrivmsg:
-			logBuilder.WriteString(fmt.Sprintf("<%s> %s\n", msg.Nickname, msg.Message))
+			fmt.Fprintf(&logBuilder, "<%s> %s\n", msg.Nickname, msg.Message)
 		case eventAction:
-			logBuilder.WriteString(fmt.Sprintf("* %s %s\n", msg.Nickname, msg.Message))
+			fmt.Fprintf(&logBuilder, "* %s %s\n", msg.Nickname, msg.Message)
 		case eventJoin:
-			logBuilder.WriteString(fmt.Sprintf("--> %s joined\n", msg.Nickname))
+			fmt.Fprintf(&logBuilder, "--> %s joined\n", msg.Nickname)
 		case eventPart:
-			logBuilder.WriteString(fmt.Sprintf("<-- %s left\n", msg.Nickname))
+			fmt.Fprintf(&logBuilder, "<-- %s left\n", msg.Nickname)
 		case "quit":
-			logBuilder.WriteString(fmt.Sprintf("<-- %s quit\n", msg.Nickname))
+			fmt.Fprintf(&logBuilder, "<-- %s quit\n", msg.Nickname)
 		case eventKick:
-			logBuilder.WriteString(fmt.Sprintf("<-- %s was kicked by %s\n", msg.Nickname, msg.Message))
+			fmt.Fprintf(&logBuilder, "<-- %s was kicked by %s\n", msg.Nickname, msg.Message)
 		}
 	}
 

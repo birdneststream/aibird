@@ -27,6 +27,7 @@ const (
 	argHours       = "<hours>"
 	argChannelName = "<channel_name>"
 	valTrueFalse   = "true, false"
+	valText        = "text"
 )
 
 type (
@@ -317,15 +318,15 @@ func AdminHelp() []Help {
 				{Argument: argNickname, Help: "Specify the nickname of the user.", Values: ""},
 				{Argument: "--latestActivity", Help: "Set the latest activity timestamp.", Values: "unix timestamp"},
 				{Argument: "--firstSeen", Help: "Set the first seen timestamp.", Values: "unix timestamp"},
-				{Argument: "--latestChat", Help: "Set the latest chat message.", Values: "text"},
+				{Argument: "--latestChat", Help: "Set the latest chat message.", Values: valText},
 				{Argument: "--isAdmin", Help: "Set the admin status.", Values: valTrueFalse},
 				{Argument: "--isOwner", Help: "Set the owner status.", Values: valTrueFalse},
 				{Argument: "--ignored", Help: "Set the ignored status.", Values: valTrueFalse},
 				{Argument: "--accessLevel", Help: "Set the access level.", Values: "integer"},
 				{Argument: "--aiService", Help: "Set the AI service.", Values: "llamacpp, glm"},
 				{Argument: "--aiModel", Help: "Set the AI model.", Values: "model name"},
-				{Argument: "--aiBasePrompt", Help: "Set the AI base prompt.", Values: "text"},
-				{Argument: "--aiPersonality", Help: "Set the AI personality.", Values: "text"},
+				{Argument: "--aiBasePrompt", Help: "Set the AI base prompt.", Values: valText},
+				{Argument: "--aiPersonality", Help: "Set the AI personality.", Values: valText},
 			},
 			Queueable: false,
 		},
@@ -340,7 +341,7 @@ func AdminHelp() []Help {
 				{Argument: "--imageDescribe", Help: "Enable or disable image description features.", Values: valTrueFalse},
 				{Argument: "--sound", Help: "Enable or disable sound features.", Values: valTrueFalse},
 				{Argument: "--video", Help: "Enable or disable video features.", Values: valTrueFalse},
-				{Argument: "--actionTrigger", Help: "Set the trigger for actions.", Values: "text"},
+				{Argument: "--actionTrigger", Help: "Set the trigger for actions.", Values: valText},
 				{Argument: "--trimOutput", Help: "Enable or disable trimming of output for responses.", Values: valTrueFalse},
 			},
 			Queueable: false,
@@ -506,7 +507,7 @@ func FindHelp(irc state.State) string {
 	var foundItems []Help
 	processed := make(map[string]bool)
 
-	if name == "help" {
+	if name == typeHelp {
 		for _, help := range helpItems {
 			if !IsCommandDenied(help.Name, irc) && !processed[help.Name] {
 				foundItems = append(foundItems, help)
@@ -567,7 +568,7 @@ func Format(helpItems []Help) string {
 			queueableIndicator = " [Queueable]"
 		}
 
-		result.WriteString(fmt.Sprintf("%s - %s%s\n", help.Name, help.Help, queueableIndicator))
+		fmt.Fprintf(&result, "%s - %s%s\n", help.Name, help.Help, queueableIndicator)
 		if len(help.Arguments) > 0 {
 			for i, arg := range help.Arguments {
 				// Determine the prefix based on whether the argument is the last in the slice
@@ -584,7 +585,7 @@ func Format(helpItems []Help) string {
 			}
 		}
 		if help.Example != "" {
-			result.WriteString(fmt.Sprintf(" Example: %s\n", help.Example))
+			fmt.Fprintf(&result, " Example: %s\n", help.Example)
 		}
 		result.WriteString("\n") // Add an extra newline for better separation
 	}

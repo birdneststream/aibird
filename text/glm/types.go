@@ -25,7 +25,7 @@ type (
 		Model   string      `json:"model"`
 	}
 
-	// Image generation types
+	// GlmImageRequestBody is the request body for GLM image generation (CogView-4).
 	GlmImageRequestBody struct {
 		Model  string `json:"model"`
 		Prompt string `json:"prompt"`

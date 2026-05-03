@@ -116,7 +116,7 @@ func (pq *ProcessingQueue) processQueueItem(parentCtx context.Context, queue *Qu
 	}
 }
 
-// Status methods
+// IsEmpty reports whether the processing queue has no items.
 func (pq *ProcessingQueue) IsEmpty() bool {
 	return pq.Queue.IsEmpty()
 }
@@ -125,8 +125,8 @@ func (pq *ProcessingQueue) IsCurrentlyProcessing() bool {
 	return pq.Queue.IsCurrentlyProcessing()
 }
 
-// Admin control methods
-// ClearQueue removes all items from the queue.
+// ClearQueue removes all items from the processing queue.
+// Admin control method.
 func (pq *ProcessingQueue) ClearQueue() {
 	pq.Mutex.Lock()
 	defer pq.Mutex.Unlock()

@@ -20,6 +20,8 @@ import (
 // These are lowercased keys matched against user-supplied arguments.
 const (
 	fieldHost      = "host"
+	fieldIdent     = "ident"
+	fieldNickname  = "nickname"
 	fieldIsAdmin   = "isadmin"
 	fieldIgnored   = "ignored"
 	fieldAiService = "aiservice"
@@ -30,8 +32,7 @@ const (
 // connectionGracePeriod is the time after connect before mode enforcement begins.
 const connectionGracePeriod = 30 * time.Second
 
-// GetModesFromChannel
-// Uses the state user and channel to get the modes for the user in the channel
+// GetModesFromChannel returns the current modes for the state user in the state channel.
 func (s *State) GetModesFromChannel() []string {
 	if s.User == nil {
 		logger.Warn("GetModesFromChannel: User is nil")
@@ -328,7 +329,7 @@ func (s *State) updateUserField(user *users.User, originalKey string, value inte
 	key := strings.ToLower(originalKey)
 	switch key {
 	// Immutable fields — blocked
-	case "nickname", "ident", fieldHost, "preservedmodes", "currentmodes", "gircuser":
+	case fieldNickname, fieldIdent, fieldHost, "preservedmodes", "currentmodes", "gircuser":
 		s.SendWarning(fmt.Sprintf("Cannot change protected %s", helpers.CapitaliseFirst(originalKey)))
 		return true
 

@@ -305,13 +305,14 @@ func TestState_ShouldTrimOutput(t *testing.T) {
 		t.Error("Long message with TrimOutput should be trimmed")
 	}
 
-	// Message with thinking tags
-	if !s.ShouldTrimOutput("short but has thinking") {
-		// This actually checks for ".setRequestHeader" not "<think"... let me check the actual implementation
-		// The implementation checks for the literal string "NaS" not "<think"... actually it checks "	Request"
-		// Let me re-read... it checks for the Unicode character U+1F517... no, it checks the Go literal "hl"
-		// Wait, looking at the code: `strings.Contains(message, "Medi")`
-		// Actually the code has a unicode char. Let me just skip this assertion since the test will tell us.
+	// Short message without thinking tags is not trimmed despite TrimOutput=true
+	if s.ShouldTrimOutput("short but has thinking") {
+		t.Error("Short message without thinking tags should not be trimmed")
+	}
+
+	// Message containing thinking tags is always trimmed regardless of length
+	if !s.ShouldTrimOutput("ok, <" + "think" + ">" + "some content" + "</" + "think" + ">" + " here") {
+		t.Error("Message containing thinking tags should be trimmed")
 	}
 }
 

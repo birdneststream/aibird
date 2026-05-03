@@ -74,8 +74,8 @@ func (c *Channel) SyncUser(user *users.User) bool {
 	return true
 }
 
-// SyncCurrentModes
-// Used on WHO sync to sync the users current modes if they are first seen
+// SyncCurrentModes syncs the users current modes on WHO response.
+// Used when a user is first seen to establish their current mode set.
 func (c *Channel) SyncCurrentModes(user *users.User, newModes []string) {
 	if user == nil {
 		logger.Warn("SyncCurrentModes: User is nil")
@@ -194,7 +194,8 @@ func (c *Channel) SyncMode(user *users.User, mode string) {
 
 }
 
-// ForgetChannelMode - Used on mode change
+// ForgetMode removes a specific mode from the user's preserved modes.
+// Used on mode change events to keep preserved modes in sync.
 func (c *Channel) ForgetMode(user *users.User, mode string) {
 	if user == nil {
 		logger.Warn("ForgetChannelMode: User is nil")

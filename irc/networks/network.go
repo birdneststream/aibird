@@ -200,23 +200,6 @@ func (n *Network) SaveNormalized() error {
 	logger.Debug("SaveNormalized called", "network", n.NetworkName, "user_count", len(n.Users))
 	logger.Debug("Saving normalized network data (users only)", "network", n.NetworkName, "user_count", len(n.Users))
 
-	// Convert channels from config to ChannelData for database
-	var channelsData []birdbase.ChannelData
-	for _, channel := range n.Channels {
-		channelsData = append(channelsData, birdbase.ChannelData{
-			Name:          channel.Name,
-			PreserveModes: channel.PreserveModes,
-			Ai:            channel.Ai,
-			Sd:            channel.Sd,
-			ImageDescribe: channel.ImageDescribe,
-			Sound:         channel.Sound,
-			Video:         channel.Video,
-			ActionTrigger: channel.ActionTrigger,
-			TrimOutput:    channel.TrimOutput,
-			DenyCommands:  channel.DenyCommands,
-		})
-	}
-
 	// Convert and save users (runtime/persistent data) with channel info
 	var usersData []birdbase.UserData
 	for _, user := range n.Users {

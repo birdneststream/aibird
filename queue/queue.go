@@ -203,7 +203,8 @@ func (q *Queue) setProcessingItem(item *QueueItem) {
 	q.processingItem = item
 }
 
-// Get the currently processing action (or empty string if none)
+// GetProcessingAction returns the action name of the currently processing item,
+// or an empty string if none.
 func (q *Queue) GetProcessingAction() string {
 	q.processingMutex.Lock()
 	defer q.processingMutex.Unlock()

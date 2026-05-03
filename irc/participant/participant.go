@@ -358,7 +358,7 @@ func (p *Participant) isHighlighted(message, botNick string) bool {
 	return strings.Contains(strings.ToLower(message), strings.ToLower(botNick))
 }
 
-// Global participant instance - will be initialized in main.go
+// GlobalParticipant is the global participant instance, initialized in main.go.
 var GlobalParticipant *Participant
 
 // InitParticipant initializes the global participant system

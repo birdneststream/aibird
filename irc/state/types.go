@@ -37,9 +37,8 @@ type (
 		Value interface{}
 	}
 
-	// ModeDifference
-	// Used to work out differences between preserved and current modes
-	// After we will do a mass update of any out of sync modes
+	// ModeDifference represents the difference between preserved and current modes
+	// for a user, used during mass mode synchronization.
 	ModeDifference struct {
 		Nick  string
 		Modes []string
