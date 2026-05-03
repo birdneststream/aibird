@@ -27,10 +27,10 @@ var (
 // Pre-compiled regexes for CleanPrompt — compiled once at init instead of per-call.
 var (
 	// allowedChars filters to only allow alphanumeric, spaces, and common punctuation.
-	allowedChars = regexp.MustCompile(`[^a-zA-Z0-9 ?!\-\(\)\[\]\.,;:'"]+`)
+	allowedChars = regexp.MustCompile(`[^a-zA-Z0-9 ?!\-\(\)\[\].,;:'"]+`)
 
 	// bracketBypass removes brackets/parentheses/punctuation when directly adjacent to letters.
-	bracketBypass = regexp.MustCompile(`[\(\)\[\]\.,;:'"!?\-][a-zA-Z]|[a-zA-Z][\(\)\[\];:'"!?\-]`)
+	bracketBypass = regexp.MustCompile(`[\(\)\[\].,;:'"!?\-][a-zA-Z]|[a-zA-Z][\(\)\[\];:'"!?\-]`)
 
 	// compiledReplacements is the pre-compiled replacement rules for CleanPrompt.
 	// Compiled once at package init instead of per function call.

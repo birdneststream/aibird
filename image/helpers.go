@@ -79,7 +79,7 @@ func ConvertPngToJpg(fileName string) string {
 }
 
 // Pre-compiled URL extraction regex
-var urlRegex = regexp.MustCompile(`https?://[^\s/$.?#].[^\s]*`)
+var urlRegex = regexp.MustCompile(`https?://[^\s/$.?#].\S*`)
 
 func ExtractURLs(input string) ([]string, error) {
 	return urlRegex.FindAllString(input, -1), nil

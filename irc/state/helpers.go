@@ -117,21 +117,21 @@ func (s *State) CompareUserModes() { //nolint:gocyclo
 	}
 
 	counter := 0
-	var users []string
+	var userNicks []string
 	var modes string
 
 	for i, diff := range differences {
-		users = append(users, diff.Nick)
+		userNicks = append(userNicks, diff.Nick)
 		for _, mode := range diff.Modes {
 			modes += "+" + helpers.ReverseModeMap(mode)
 		}
 
 		counter++
 		if counter == 4 || i == len(differences)-1 {
-			s.Client.Cmd.SendRaw("MODE " + s.Channel.Name + " " + modes + " " + strings.Join(users, " "))
+			s.Client.Cmd.SendRaw("MODE " + s.Channel.Name + " " + modes + " " + strings.Join(userNicks, " "))
 
 			counter = 0
-			users = []string{}
+			userNicks = []string{}
 			modes = ""
 		}
 	}

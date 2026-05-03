@@ -53,19 +53,19 @@ func (s *SQLiteDB) SaveNetwork(networkName string, network *NetworkData) error {
 		return err
 	}
 
-	if err = saveNetworkServers(tx, networkID, network.Servers); err != nil {
+	if err := saveNetworkServers(tx, networkID, network.Servers); err != nil {
 		return err
 	}
-	if err = saveNetworkAdminHosts(tx, networkID, network.AdminHosts); err != nil {
+	if err := saveNetworkAdminHosts(tx, networkID, network.AdminHosts); err != nil {
 		return err
 	}
-	if err = saveNetworkChannels(tx, networkID, network.Channels); err != nil {
+	if err := saveNetworkChannels(tx, networkID, network.Channels); err != nil {
 		return err
 	}
-	if err = saveNetworkIgnoredNicks(tx, networkID, network.IgnoredNicks); err != nil {
+	if err := saveNetworkIgnoredNicks(tx, networkID, network.IgnoredNicks); err != nil {
 		return err
 	}
-	if err = saveNetworkDeniedCommands(tx, networkID, network.DenyCommands); err != nil {
+	if err := saveNetworkDeniedCommands(tx, networkID, network.DenyCommands); err != nil {
 		return err
 	}
 
@@ -177,7 +177,7 @@ func saveNetworkChannels(tx *sql.Tx, networkID int64, channels []ChannelData) er
 				return err
 			}
 
-			if err = saveChannelDeniedCommands(tx, channelID, channel.DenyCommands); err != nil {
+			if err := saveChannelDeniedCommands(tx, channelID, channel.DenyCommands); err != nil {
 				return err
 			}
 		}
@@ -331,7 +331,7 @@ func (s *SQLiteDB) LoadNetwork(networkName string) (*NetworkData, error) {
 		}
 		network.Servers = append(network.Servers, server)
 	}
-	if err = serverRows.Err(); err != nil {
+	if err := serverRows.Err(); err != nil {
 		return nil, err
 	}
 
@@ -352,7 +352,7 @@ func (s *SQLiteDB) LoadNetwork(networkName string) (*NetworkData, error) {
 		}
 		network.AdminHosts = append(network.AdminHosts, admin)
 	}
-	if err = adminRows.Err(); err != nil {
+	if err := adminRows.Err(); err != nil {
 		return nil, err
 	}
 
@@ -373,7 +373,7 @@ func (s *SQLiteDB) LoadNetwork(networkName string) (*NetworkData, error) {
 		}
 		network.IgnoredNicks = append(network.IgnoredNicks, nick)
 	}
-	if err = ignoredRows.Err(); err != nil {
+	if err := ignoredRows.Err(); err != nil {
 		return nil, err
 	}
 
@@ -394,7 +394,7 @@ func (s *SQLiteDB) LoadNetwork(networkName string) (*NetworkData, error) {
 		}
 		network.DenyCommands = append(network.DenyCommands, cmd)
 	}
-	if err = deniedRows.Err(); err != nil {
+	if err := deniedRows.Err(); err != nil {
 		return nil, err
 	}
 
@@ -435,7 +435,7 @@ func (s *SQLiteDB) LoadNetworkChannels(networkName string) ([]ChannelData, error
 		}
 		channels = append(channels, ch)
 	}
-	if err = rows.Err(); err != nil {
+	if err := rows.Err(); err != nil {
 		return nil, err
 	}
 
@@ -508,7 +508,7 @@ func (s *SQLiteDB) GetAllNetworkNames() ([]string, error) {
 		}
 		networks = append(networks, networkName)
 	}
-	if err = rows.Err(); err != nil {
+	if err := rows.Err(); err != nil {
 		return nil, err
 	}
 
@@ -658,15 +658,15 @@ func (s *SQLiteDB) saveUsersToDatabase(tx *sql.Tx, networkID int64, users []User
 	logger.Debug("saveUsersToDatabase called", "network_id", networkID, "users_count", len(users))
 
 	userMap := make(map[string]*UserData)
-	for i, user := range users {
-		key := fmt.Sprintf("%s@%s", user.Ident, user.Host)
+	for i := range users {
+		key := fmt.Sprintf("%s@%s", users[i].Ident, users[i].Host)
 		if existing, exists := userMap[key]; exists {
-			logger.Warn("Duplicate user detected (same ident@host), keeping latest activity", "network_id", networkID, "index", i, "existing_nick", existing.NickName, "new_nick", user.NickName, "ident", user.Ident, "host", user.Host)
-			if user.LatestActivity > existing.LatestActivity {
-				logger.Debug("Keeping newer nick", "old_nick", existing.NickName, "new_nick", user.NickName, "ident", user.Ident, "host", user.Host)
+			logger.Warn("Duplicate user detected (same ident@host), keeping latest activity", "network_id", networkID, "index", i, "existing_nick", existing.NickName, "new_nick", users[i].NickName, "ident", users[i].Ident, "host", users[i].Host)
+			if users[i].LatestActivity > existing.LatestActivity {
+				logger.Debug("Keeping newer nick", "old_nick", existing.NickName, "new_nick", users[i].NickName, "ident", users[i].Ident, "host", users[i].Host)
 				userMap[key] = &users[i]
 			} else {
-				logger.Debug("Keeping older nick", "kept_nick", existing.NickName, "discarded_nick", user.NickName, "ident", user.Ident, "host", user.Host)
+				logger.Debug("Keeping older nick", "kept_nick", existing.NickName, "discarded_nick", users[i].NickName, "ident", users[i].Ident, "host", users[i].Host)
 			}
 		} else {
 			userMap[key] = &users[i]
@@ -680,8 +680,8 @@ func (s *SQLiteDB) saveUsersToDatabase(tx *sql.Tx, networkID int64, users []User
 
 	logger.Debug("Deduplicated users", "network_id", networkID, "original_count", len(users), "deduplicated_count", len(deduplicatedUsers))
 
-	for i, user := range deduplicatedUsers {
-		logger.Debug("Upserting user", "network_id", networkID, "index", i, "nickname", user.NickName, "ident", user.Ident, "host", user.Host)
+	for i := range deduplicatedUsers {
+		logger.Debug("Upserting user", "network_id", networkID, "index", i, "nickname", deduplicatedUsers[i].NickName, "ident", deduplicatedUsers[i].Ident, "host", deduplicatedUsers[i].Host)
 
 		var userID int64
 		err := tx.QueryRow(`
@@ -703,15 +703,15 @@ func (s *SQLiteDB) saveUsersToDatabase(tx *sql.Tx, networkID int64, users []User
 				ai_personality = excluded.ai_personality,
 				updated_at = datetime('now')
 			RETURNING id
-		`, networkID, user.NickName, user.Ident, user.Host, user.FirstSeen, user.LatestActivity,
-			user.LatestChat, user.IsAdmin, user.IsOwner, user.Ignored, user.AccessLevel,
-			user.AiService, user.AiModel, user.AiBasePrompt, user.AiPersonality).Scan(&userID)
+		`, networkID, deduplicatedUsers[i].NickName, deduplicatedUsers[i].Ident, deduplicatedUsers[i].Host, deduplicatedUsers[i].FirstSeen, deduplicatedUsers[i].LatestActivity,
+			deduplicatedUsers[i].LatestChat, deduplicatedUsers[i].IsAdmin, deduplicatedUsers[i].IsOwner, deduplicatedUsers[i].Ignored, deduplicatedUsers[i].AccessLevel,
+			deduplicatedUsers[i].AiService, deduplicatedUsers[i].AiModel, deduplicatedUsers[i].AiBasePrompt, deduplicatedUsers[i].AiPersonality).Scan(&userID)
 
 		if err != nil {
 			return err
 		}
 
-		for _, modeData := range user.PreservedModes {
+		for _, modeData := range deduplicatedUsers[i].PreservedModes {
 			modesJSON, jsonErr := json.Marshal(modeData.Modes)
 			if jsonErr != nil {
 				return jsonErr
@@ -744,7 +744,7 @@ func (s *SQLiteDB) saveUsersToDatabase(tx *sql.Tx, networkID int64, users []User
 			}
 		}
 
-		for _, modeData := range user.CurrentModes {
+		for _, modeData := range deduplicatedUsers[i].CurrentModes {
 			modesJSON, jsonErr := json.Marshal(modeData.Modes)
 			if jsonErr != nil {
 				return jsonErr
@@ -849,7 +849,7 @@ func (s *SQLiteDB) LoadNetworkUsers(networkName string) ([]UserData, error) {
 			}
 		}
 	}
-	if err = rows.Err(); err != nil {
+	if err := rows.Err(); err != nil {
 		return nil, fmt.Errorf("failed to iterate users: %w", err)
 	}
 

@@ -24,10 +24,10 @@ func handleWelcome(c *girc.Client, e girc.Event, network *networks.Network) {
 			logger.Warn("Error sending NickServ identify", "network", network.Name, "error", err)
 		}
 	}
-	for _, channel := range network.Channels {
-		c.Cmd.Join(channel.Name)
-		if err := c.Cmd.SendRaw("WHO " + channel.Name); err != nil {
-			logger.Warn("Error sending WHO command", "channel", channel.Name, "network", network.Name, "error", err)
+	for i := range network.Channels {
+		c.Cmd.Join(network.Channels[i].Name)
+		if err := c.Cmd.SendRaw("WHO " + network.Channels[i].Name); err != nil {
+			logger.Warn("Error sending WHO command", "channel", network.Channels[i].Name, "network", network.Name, "error", err)
 		}
 	}
 }
@@ -204,9 +204,9 @@ func handleQuit(c *girc.Client, e girc.Event, network *networks.Network) {
 		if len(e.Params) > 0 {
 			quitMsg = e.Last()
 		}
-		for _, ch := range network.Channels {
-			if user, err := ch.GetUserWithNick(e.Source.Name); err == nil && user != nil {
-				birdbase.StoreChannelMessage(networkID, ch.Name, e.Source.Name, "quit", quitMsg)
+		for i := range network.Channels {
+			if user, err := network.Channels[i].GetUserWithNick(e.Source.Name); err == nil && user != nil {
+				birdbase.StoreChannelMessage(networkID, network.Channels[i].Name, e.Source.Name, "quit", quitMsg)
 			}
 		}
 	}
@@ -222,7 +222,7 @@ func handleMode(c *girc.Client, e girc.Event, network *networks.Network) {
 	}
 
 	modeChanges := e.Params[1]
-	users := e.Params[2:]
+	modeUsers := e.Params[2:]
 	isAdding := false
 	userIndex := 0
 
@@ -231,8 +231,8 @@ func handleMode(c *girc.Client, e girc.Event, network *networks.Network) {
 		case '+', '-':
 			isAdding = (mode == '+')
 		default:
-			if userIndex < len(users) {
-				user, _ := irc.Channel.GetUserWithNick(users[userIndex])
+			if userIndex < len(modeUsers) {
+				user, _ := irc.Channel.GetUserWithNick(modeUsers[userIndex])
 				if user != nil {
 					mappedMode := helpers.ModeMap(mode)
 					if isAdding {

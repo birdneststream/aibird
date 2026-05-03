@@ -123,19 +123,9 @@ func ConvertPNGToIRCArt(pngFilePath string, useHalfblocks bool) ([]string, error
 					}
 
 					// Use most compact format while maintaining irssi compatibility
-					if actualFg < 10 && bgColor < 10 {
-						// Both single digit - shortest format: \x035,7 (5 bytes)
-						line.WriteString(fmt.Sprintf("\x03%d,%d", actualFg, bgColor))
-					} else if actualFg < 10 {
-						// Only fg is single digit: \x035,15 (6 bytes)
-						line.WriteString(fmt.Sprintf("\x03%d,%d", actualFg, bgColor))
-					} else if bgColor < 10 {
-						// Only bg is single digit: \x0315,5 (6 bytes)
-						line.WriteString(fmt.Sprintf("\x03%d,%d", actualFg, bgColor))
-					} else {
-						// Both double digit: \x0315,20 (7 bytes)
-						line.WriteString(fmt.Sprintf("\x03%d,%d", actualFg, bgColor))
-					}
+					// IRC color code format: \x03FG,BG
+					// The format string handles both single and double digit color codes.
+					line.WriteString(fmt.Sprintf("\x03%d,%d", actualFg, bgColor))
 					lastFgColor = fgColor
 					lastBgColor = bgColor
 				}
@@ -162,13 +152,7 @@ func ConvertPNGToIRCArt(pngFilePath string, useHalfblocks bool) ([]string, error
 				// Add background color code only if it changed
 				if ircColor.Code != lastColorCode {
 					// Use most compact fg,bg format for irssi compatibility
-					if ircColor.Code < 10 {
-						// Single digit - shortest format: \x035,5 (5 bytes)
-						line.WriteString(fmt.Sprintf("\x03%d,%d", ircColor.Code, ircColor.Code))
-					} else {
-						// Double digit: \x0315,15 (7 bytes)
-						line.WriteString(fmt.Sprintf("\x03%d,%d", ircColor.Code, ircColor.Code))
-					}
+					line.WriteString(fmt.Sprintf("\x03%d,%d", ircColor.Code, ircColor.Code))
 					lastColorCode = ircColor.Code
 				}
 

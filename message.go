@@ -53,7 +53,7 @@ func handlePrivMsg(c *girc.Client, e girc.Event, network *networks.Network, conf
 					msg = strings.TrimPrefix(msg, "\x01ACTION ")
 					msg = strings.TrimSuffix(msg, "\x01")
 					eventType = "action"
-				} else if len(msg) > 0 && msg[0] == '\x01' {
+				} else if msg != "" && msg[0] == '\x01' {
 					// Other CTCP messages (VERSION, PING, etc.) — skip storage
 					eventType = ""
 				}

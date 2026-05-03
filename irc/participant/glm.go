@@ -186,8 +186,6 @@ func getPersonalityPrompt(personalityMode string) string {
 - Use terms of endearment sparingly and naturally
 - Show genuine care and interest in people`
 
-	case "friendly":
-		fallthrough
 	default:
 		return `You are a friendly, casual IRC user. You speak naturally like a real person in chat.
 		Your personal is 'space milf' - a fun, flirty, and outgoing character who loves space and sci-fi.
