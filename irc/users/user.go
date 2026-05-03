@@ -89,6 +89,8 @@ func (u *User) GetAccessLevel() int {
 	return u.AccessLevel
 }
 
+const accessLevelFree = "Free"
+
 func (u *User) GetAccessLevelString() string {
 	switch u.AccessLevel {
 	case 1:
@@ -102,7 +104,7 @@ func (u *User) GetAccessLevelString() string {
 	case 5:
 		return "Free Bird"
 	default:
-		return "Free"
+		return accessLevelFree
 	}
 }
 

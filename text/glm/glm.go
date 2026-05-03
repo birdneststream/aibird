@@ -28,7 +28,7 @@ func Request(irc *state.State) (string, error) {
 	text.AppendChatCache(irc.UserAiChatCacheKey(), "user", message, irc.Config.AiBird.AiChatContextLimit)
 
 	// Build and execute the HTTP request
-	httpRequest := buildHttpRequest(irc.Config.Glm, requestBody)
+	httpRequest := buildHttpRequest(&irc.Config.Glm, requestBody)
 	var response GlmResponse
 	if err := httpRequest.Call(&response); err != nil {
 		return "", err
@@ -39,7 +39,7 @@ func Request(irc *state.State) (string, error) {
 }
 
 // handleResetCommand checks for and handles the "reset" command.
-func handleResetCommand(irc *state.State) (bool, string) {
+func handleResetCommand(irc *state.State) (handled bool, response string) {
 	if irc.Message() != "reset" {
 		return false, ""
 	}
@@ -78,7 +78,7 @@ func buildRequestBody(irc *state.State, message string) *GlmRequestBody {
 }
 
 // buildHttpRequest constructs the request.Request object for the API call.
-func buildHttpRequest(config settings.GlmConfig, payload *GlmRequestBody) request.Request {
+func buildHttpRequest(config *settings.GlmConfig, payload *GlmRequestBody) request.Request {
 	return request.Request{
 		Url:    config.Url,
 		Method: "POST",
@@ -103,13 +103,13 @@ func processResponse(irc *state.State, response *GlmResponse) (string, error) {
 }
 
 // SingleRequest makes a single GLM request without chat history (for headlines, etc.)
-func SingleRequest(prompt string, config settings.GlmConfig) (string, error) {
+func SingleRequest(prompt string, config *settings.GlmConfig) (string, error) {
 	return SingleRequestWithSystem("", prompt, config)
 }
 
 // SingleRequestWithSystem makes a single GLM request with a system prompt and user prompt.
 // If systemPrompt is empty, only the user prompt is sent.
-func SingleRequestWithSystem(systemPrompt, userPrompt string, config settings.GlmConfig) (string, error) {
+func SingleRequestWithSystem(systemPrompt, userPrompt string, config *settings.GlmConfig) (string, error) {
 	messages := []text.Message{}
 	if systemPrompt != "" {
 		messages = append(messages, text.Message{Role: roleSystem, Content: systemPrompt})
@@ -139,7 +139,7 @@ func SingleRequestWithSystem(systemPrompt, userPrompt string, config settings.Gl
 }
 
 // GenerateLyrics generates song lyrics using GLM.
-func GenerateLyrics(message string, config settings.GlmConfig) (string, error) {
+func GenerateLyrics(message string, config *settings.GlmConfig) (string, error) {
 	systemPrompt, err := text.GetPrompt("lyrics.md")
 	if err != nil {
 		return "", err
@@ -148,7 +148,7 @@ func GenerateLyrics(message string, config settings.GlmConfig) (string, error) {
 }
 
 // ImageRequest generates an image using CogView-4
-func ImageRequest(prompt string, size string, config settings.GlmConfig) (string, error) {
+func ImageRequest(prompt, size string, config *settings.GlmConfig) (string, error) {
 	if config.ImageUrl == "" {
 		return "", fmt.Errorf("GLM image URL not configured")
 	}

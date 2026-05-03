@@ -40,7 +40,7 @@ func GetPersonalityFile(personality string) (string, error) {
 		return "", errors.New("invalid personality path")
 	}
 
-	file, err := os.ReadFile(filePath)
+	file, err := os.ReadFile(filePath) //nolint:gosec // G304: path sanitized by filepath.Base + prefix check above
 	if err != nil {
 		return "", err
 	}
@@ -72,7 +72,7 @@ func GetPrompt(promptName string) (string, error) {
 		return "", errors.New("invalid prompt path")
 	}
 
-	file, err := os.ReadFile(filePath)
+	file, err := os.ReadFile(filePath) //nolint:gosec // G304: path sanitized by filepath.Base + prefix check above
 	if err != nil {
 		return "", err
 	}

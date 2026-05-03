@@ -65,7 +65,7 @@ func ConvertPngToJpg(fileName string) string {
 		}
 
 		fileName = strings.TrimSuffix(fileName, ".png") + ".jpg"
-		err = os.WriteFile(fileName, jpegBytes, 0600) // Use restrictive permissions
+		err = os.WriteFile(fileName, jpegBytes, 0600) //nolint:gosec // G703: fileName validated for traversal above
 
 		if err != nil {
 			logger.Error("Failed to write JPEG file", "file", fileName, "error", err)

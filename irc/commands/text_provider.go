@@ -34,7 +34,7 @@ func singleRequestWithFallback(systemPrompt, userPrompt string, config *settings
 
 		// Fallback to GLM if configured
 		if config.Glm.ApiKey != "" {
-			return glm.SingleRequestWithSystem(systemPrompt, userPrompt, config.Glm)
+			return glm.SingleRequestWithSystem(systemPrompt, userPrompt, &config.Glm)
 		}
 
 		// No GLM fallback available — return the original LlamaCpp error
@@ -43,7 +43,7 @@ func singleRequestWithFallback(systemPrompt, userPrompt string, config *settings
 
 	// LlamaCpp not configured — try GLM directly
 	if config.Glm.ApiKey != "" {
-		return glm.SingleRequestWithSystem(systemPrompt, userPrompt, config.Glm)
+		return glm.SingleRequestWithSystem(systemPrompt, userPrompt, &config.Glm)
 	}
 
 	return "", fmt.Errorf("no AI provider available (LlamaCpp not configured and GLM not configured)")

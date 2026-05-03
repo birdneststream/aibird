@@ -129,6 +129,7 @@ func saveNetworkAdminHosts(tx *sql.Tx, networkID int64, admins []AdminHost) erro
 			args = append(args, admin.Host, admin.Ident)
 		}
 
+		//nolint:gosec // G201: admin host pairs are parameterized placeholders, not user input
 		deleteQuery := fmt.Sprintf(`
 			DELETE FROM admin_hosts 
 			WHERE network_id = ? AND NOT (%s)
@@ -570,8 +571,8 @@ func saveUserModes(tx *sql.Tx, userID, networkID int64, modes []UserModeData, mo
 		}
 
 		if ensureChannel {
-			if _, err := tx.Exec(`INSERT INTO channels (network_id, name) VALUES (?, ?) ON CONFLICT(network_id, name) DO NOTHING`, networkID, modeData.Channel); err != nil {
-				return err
+			if _, ensureErr := tx.Exec(`INSERT INTO channels (network_id, name) VALUES (?, ?) ON CONFLICT(network_id, name) DO NOTHING`, networkID, modeData.Channel); ensureErr != nil {
+				return ensureErr
 			}
 		}
 
@@ -964,7 +965,7 @@ func syncSimpleCollection(tx *sql.Tx, table, keyCol, parentIDCol string, parentI
 			args[i+1] = val
 		}
 
-		deleteQuery := fmt.Sprintf(
+		deleteQuery := fmt.Sprintf( //nolint:gosec // G201: table/col names are hardcoded, values are parameterized
 			"DELETE FROM %s WHERE %s = ? AND %s NOT IN (%s)",
 			table, parentIDCol, keyCol, strings.Join(placeholders, ","),
 		)

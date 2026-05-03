@@ -177,12 +177,13 @@ func ParseAiText(irc *state.State) bool {
 			})
 			return true
 
+		case serviceLlamacpp:
+			handleLlamaCppRequest(irc)
+			return true
+
 		default:
 			// Fallback for unknown/legacy service values → use llamacpp
 			logger.Info("Unknown AI service, defaulting to llamacpp", "service", service)
-			handleLlamaCppRequest(irc)
-			return true
-		case serviceLlamacpp:
 			handleLlamaCppRequest(irc)
 			return true
 		}
@@ -217,7 +218,7 @@ func ParseAiText(irc *state.State) bool {
 		irc.ReplyTo(girc.Fmt("🎨 Generating image with CogView-4, please wait..."))
 
 		helpers.GoSafe(func() {
-			imageUrl, err := glm.ImageRequest(irc.Message(), size, irc.Config.Glm)
+			imageUrl, err := glm.ImageRequest(irc.Message(), size, &irc.Config.Glm)
 			if err != nil {
 				logger.Error("GLM image request failed", "error", err)
 				irc.SendError(fmt.Sprintf("🎨 GLM image error: %s", err))
