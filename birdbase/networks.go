@@ -270,87 +270,87 @@ func (s *SQLiteDB) LoadNetwork(networkName string) (*NetworkData, error) {
 		return nil, err
 	}
 
-	rows, err := s.db.Query(`
+	serverRows, err := s.db.Query(`
 		SELECT host, port, ssl, skip_ssl_verify
 		FROM servers WHERE network_id = ?
 	`, networkID)
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
+	defer serverRows.Close()
 
-	for rows.Next() {
+	for serverRows.Next() {
 		var server ServerData
-		err = rows.Scan(&server.Host, &server.Port, &server.SSL, &server.SkipSSLVerify)
+		err = serverRows.Scan(&server.Host, &server.Port, &server.SSL, &server.SkipSSLVerify)
 		if err != nil {
 			return nil, err
 		}
 		network.Servers = append(network.Servers, server)
 	}
-	if err = rows.Err(); err != nil {
+	if err = serverRows.Err(); err != nil {
 		return nil, err
 	}
 
-	rows, err = s.db.Query(`
+	adminRows, err := s.db.Query(`
 		SELECT host, ident, is_owner
 		FROM admin_hosts WHERE network_id = ?
 	`, networkID)
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
+	defer adminRows.Close()
 
-	for rows.Next() {
+	for adminRows.Next() {
 		var admin AdminHost
-		err = rows.Scan(&admin.Host, &admin.Ident, &admin.Owner)
+		err = adminRows.Scan(&admin.Host, &admin.Ident, &admin.Owner)
 		if err != nil {
 			return nil, err
 		}
 		network.AdminHosts = append(network.AdminHosts, admin)
 	}
-	if err = rows.Err(); err != nil {
+	if err = adminRows.Err(); err != nil {
 		return nil, err
 	}
 
-	rows, err = s.db.Query(`
+	ignoredRows, err := s.db.Query(`
 		SELECT nickname
 		FROM ignored_nicks WHERE network_id = ?
 	`, networkID)
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
+	defer ignoredRows.Close()
 
-	for rows.Next() {
+	for ignoredRows.Next() {
 		var nick string
-		err = rows.Scan(&nick)
+		err = ignoredRows.Scan(&nick)
 		if err != nil {
 			return nil, err
 		}
 		network.IgnoredNicks = append(network.IgnoredNicks, nick)
 	}
-	if err = rows.Err(); err != nil {
+	if err = ignoredRows.Err(); err != nil {
 		return nil, err
 	}
 
-	rows, err = s.db.Query(`
+	deniedRows, err := s.db.Query(`
 		SELECT command
 		FROM denied_commands WHERE network_id = ?
 	`, networkID)
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
+	defer deniedRows.Close()
 
-	for rows.Next() {
+	for deniedRows.Next() {
 		var cmd string
-		err = rows.Scan(&cmd)
+		err = deniedRows.Scan(&cmd)
 		if err != nil {
 			return nil, err
 		}
 		network.DenyCommands = append(network.DenyCommands, cmd)
 	}
-	if err = rows.Err(); err != nil {
+	if err = deniedRows.Err(); err != nil {
 		return nil, err
 	}
 
