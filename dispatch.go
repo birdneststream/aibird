@@ -17,24 +17,8 @@ import (
 func dispatchCommand(irc state.State, q *queue.ProcessingQueue) {
 	// Check if the command is denied at any level
 	action := irc.Action()
-	if irc.Channel != nil {
-		for _, deniedCmd := range irc.Channel.DenyCommands {
-			if strings.EqualFold(action, deniedCmd) {
-				return
-			}
-		}
-	}
-	if irc.Network != nil {
-		for _, deniedCmd := range irc.Network.DenyCommands {
-			if strings.EqualFold(action, deniedCmd) {
-				return
-			}
-		}
-	}
-	for _, deniedCmd := range irc.Config.AiBird.DenyCommands {
-		if strings.EqualFold(action, deniedCmd) {
-			return
-		}
+	if isCommandDenied(action, irc) {
+		return
 	}
 
 	if helpArg, ok := irc.FindArgument("help", false).(bool); ok && helpArg {
@@ -112,4 +96,28 @@ func dispatchCommand(irc state.State, q *queue.ProcessingQueue) {
 			logger.Warn("Command was valid but no parser was found", "command", irc.Action())
 		}
 	}
+}
+
+// isCommandDenied checks if the action is denied at channel, network, or global level.
+func isCommandDenied(action string, irc state.State) bool {
+	if irc.Channel != nil {
+		for _, deniedCmd := range irc.Channel.DenyCommands {
+			if strings.EqualFold(action, deniedCmd) {
+				return true
+			}
+		}
+	}
+	if irc.Network != nil {
+		for _, deniedCmd := range irc.Network.DenyCommands {
+			if strings.EqualFold(action, deniedCmd) {
+				return true
+			}
+		}
+	}
+	for _, deniedCmd := range irc.Config.AiBird.DenyCommands {
+		if strings.EqualFold(action, deniedCmd) {
+			return true
+		}
+	}
+	return false
 }

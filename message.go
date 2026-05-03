@@ -18,50 +18,16 @@ import (
 )
 
 func handlePrivMsg(c *girc.Client, e girc.Event, network *networks.Network, config *settings.Config, q *queue.ProcessingQueue) { //nolint:gocritic // girc library mandates Event by value
-	// Grace period after connect to ignore ZNC buffer playback commands
-	const zncBufferGrace = 15 * time.Second
-
 	// Ignore ZNC buffer playback
-	if !network.ConnectedAt.IsZero() {
-		// Method 1: If server-time is supported, check if message is from before we connected
-		if !e.Timestamp.IsZero() && e.Timestamp.Before(network.ConnectedAt) {
-			logger.Debug("Ignoring ZNC buffer playback (server-time)", "network", network.NetworkName, "msg_time", e.Timestamp, "connected_at", network.ConnectedAt)
-			return
-		}
-		// Method 2: For networks without server-time (like EFNet), ignore commands in first 15 seconds
-		// ZNC buffer playback happens immediately on connect, longer grace period for networks with many channels
-		if e.Timestamp.IsZero() && time.Since(network.ConnectedAt) < zncBufferGrace {
-			if strings.HasPrefix(e.Last(), config.AiBird.ActionTrigger) {
-				logger.Debug("Ignoring potential ZNC buffer command (startup grace period)", "network", network.NetworkName, "elapsed", time.Since(network.ConnectedAt))
-				return
-			}
-		}
+	if isZncBufferPlayback(e, network, config) {
+		return
 	}
 
 	// Check if this is a command (starts with trigger)
 	isCommand := strings.HasPrefix(e.Last(), config.AiBird.ActionTrigger)
 
 	if !isCommand {
-		// Store non-command message for summary feature (skip bot's own messages and non-channel messages)
-		if e.Source.Name != network.Nick && len(e.Params) > 0 && strings.HasPrefix(e.Params[0], "#") {
-			networkID := birdbase.ResolveNetworkID(network.NetworkName)
-			if networkID > 0 {
-				msg := e.Last()
-				eventType := "privmsg"
-				// Detect CTCP ACTION (/me): \x01ACTION text\x01
-				if len(msg) > 8 && strings.HasPrefix(msg, "\x01ACTION ") && strings.HasSuffix(msg, "\x01") {
-					msg = strings.TrimPrefix(msg, "\x01ACTION ")
-					msg = strings.TrimSuffix(msg, "\x01")
-					eventType = "action"
-				} else if msg != "" && msg[0] == '\x01' {
-					// Other CTCP messages (VERSION, PING, etc.) — skip storage
-					eventType = ""
-				}
-				if eventType != "" {
-					birdbase.StoreChannelMessage(networkID, e.Params[0], e.Source.Name, eventType, msg)
-				}
-			}
-		}
+		storeChannelEvent(e, network)
 		// Not a command - check if we should handle it as a chat message for participant system
 		participant.HandleChatMessage(c, e, network, config)
 		return
@@ -116,6 +82,59 @@ func handlePrivMsg(c *girc.Client, e girc.Event, network *networks.Network, conf
 
 		dispatchCommand(irc, q)
 	}
+}
+
+// isZncBufferPlayback checks if a message is likely ZNC buffer replay and should be ignored.
+func isZncBufferPlayback(e girc.Event, network *networks.Network, config *settings.Config) bool {
+	const zncBufferGrace = 15 * time.Second
+
+	if network.ConnectedAt.IsZero() {
+		return false
+	}
+
+	// Method 1: If server-time is supported, check if message is from before we connected
+	if !e.Timestamp.IsZero() && e.Timestamp.Before(network.ConnectedAt) {
+		logger.Debug("Ignoring ZNC buffer playback (server-time)", "network", network.NetworkName, "msg_time", e.Timestamp, "connected_at", network.ConnectedAt)
+		return true
+	}
+
+	// Method 2: For networks without server-time (like EFNet), ignore commands in first 15 seconds
+	if e.Timestamp.IsZero() && time.Since(network.ConnectedAt) < zncBufferGrace {
+		if strings.HasPrefix(e.Last(), config.AiBird.ActionTrigger) {
+			logger.Debug("Ignoring potential ZNC buffer command (startup grace period)", "network", network.NetworkName, "elapsed", time.Since(network.ConnectedAt))
+			return true
+		}
+	}
+
+	return false
+}
+
+// storeChannelEvent stores a non-command message for the summary feature.
+// Skips bot's own messages and non-channel messages.
+func storeChannelEvent(e girc.Event, network *networks.Network) {
+	if e.Source.Name == network.Nick || len(e.Params) == 0 || !strings.HasPrefix(e.Params[0], "#") {
+		return
+	}
+
+	networkID := birdbase.ResolveNetworkID(network.NetworkName)
+	if networkID <= 0 {
+		return
+	}
+
+	msg := e.Last()
+	eventType := "privmsg"
+
+	// Detect CTCP ACTION (/me): \x01ACTION text\x01
+	if len(msg) > 8 && strings.HasPrefix(msg, "\x01ACTION ") && strings.HasSuffix(msg, "\x01") {
+		msg = strings.TrimPrefix(msg, "\x01ACTION ")
+		msg = strings.TrimSuffix(msg, "\x01")
+		eventType = "action"
+	} else if msg != "" && msg[0] == '\x01' {
+		// Other CTCP messages (VERSION, PING, etc.) — skip storage
+		return
+	}
+
+	birdbase.StoreChannelMessage(networkID, e.Params[0], e.Source.Name, eventType, msg)
 }
 
 // checkFlood implements the first tier of flood protection.
