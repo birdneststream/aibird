@@ -164,8 +164,6 @@ func ParseAiImageWithGPU(irc state.State, gpu meta.GPUType) bool {
 			irc.Send(girc.Fmt(help.FindHelp(&irc)))
 			return true
 		}
-		var aiEnhancedPrompt string
-		message := comfyui.CleanPrompt(irc.Message())
 
 		if irc.IsAction("flux-img2img") && imgArg == "" {
 			irc.SendError("--img argument is required for flux-img2img")
@@ -189,28 +187,24 @@ func ParseAiImageWithGPU(irc state.State, gpu meta.GPUType) bool {
 			return true
 		}
 
-		if irc.IsAction("img2ltx") && message == "" {
+		if irc.IsAction("img2ltx") && irc.Message() == "" {
 			irc.SendError("Prompt required for ltx model")
 			return true
 		}
 
-		aiEnhancedPrompt = ""
-		if (irc.IsAction("ltx") || irc.IsAction("img2ltx")) || irc.GetBoolArg("pe") {
+		// ltx models always get AI enhancement (independent of --pe flag)
+		var ltxEnhanced string
+		if irc.IsAction("ltx") || irc.IsAction("img2ltx") {
 			irc.Send("✨ Enhancing prompt with ai! ✨")
-			aiEnhancedPrompt, _ = llamacpp.EnhancePrompt(message, irc.Config.LlamaCpp)
+			ltxEnhanced, _ = llamacpp.EnhancePrompt(comfyui.CleanPrompt(irc.Message()), irc.Config.LlamaCpp)
 		}
 
-		// Use a safe display message to prevent leaking blocked prompts in IRC output
-		displayMessage := message
-		if comfyui.BadWordsCheck(message, &irc.Config.ComfyUi) {
-			displayMessage = irc.Config.ComfyUi.BadWordsPrompt
-		}
+		// Shared prompt processing: clean, --pe enhancement, bad words check, processing message
+		aiEnhancedPrompt, displayMessage := preparePromptAndDisplay(&irc, gpu)
 
-		// Send processing message before starting the actual processing
-		if irc.User.CanUsePremiumGPU() {
-			irc.Send(fmt.Sprintf("%s: Birdnest pal! Enjoy the 🔥rtx %s🔥 processing '%s'... please wait.", irc.User.NickName, gpu, displayMessage))
-		} else {
-			irc.Send(fmt.Sprintf("%s: Queued item '%s' has started processing... please wait.", irc.User.NickName, displayMessage))
+		// Override with ltx enhancement if available (takes priority over --pe)
+		if ltxEnhanced != "" {
+			aiEnhancedPrompt = ltxEnhanced
 		}
 
 		// Use the provided GPU parameter instead of hardcoded GPU4090
