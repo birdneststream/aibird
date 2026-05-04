@@ -73,6 +73,7 @@ func (s *SQLiteDB) SaveNetwork(networkName string, network *NetworkData) error {
 }
 
 // saveNetworkServers persists server entries for a network.
+// Note: servers use a complex ServerData struct and cannot use saveStringCollection.
 func saveNetworkServers(tx *sql.Tx, networkID int64, servers []ServerData) error {
 	if len(servers) > 0 {
 		for _, server := range servers {
@@ -202,93 +203,20 @@ func saveNetworkChannels(tx *sql.Tx, networkID int64, channels []ChannelData) er
 
 // saveChannelDeniedCommands persists denied commands for a single channel.
 func saveChannelDeniedCommands(tx *sql.Tx, channelID int64, denyCommands []string) error {
-	if len(denyCommands) > 0 {
-		for _, cmd := range denyCommands {
-			_, err := tx.Exec(`
-				INSERT INTO denied_commands (network_id, channel_id, command)
-				VALUES (NULL, ?, ?)
-				ON CONFLICT(network_id, channel_id, command) DO NOTHING
-			`, channelID, cmd)
-			if err != nil {
-				return err
-			}
-		}
-
-		var chanCmds []interface{}
-		for _, cmd := range denyCommands {
-			chanCmds = append(chanCmds, cmd)
-		}
-
-		if err := syncSimpleCollection(tx, "denied_commands", "command", "channel_id", channelID, chanCmds); err != nil {
-			return err
-		}
-	} else {
-		_, err := tx.Exec("DELETE FROM denied_commands WHERE channel_id = ?", channelID)
-		if err != nil {
-			return err
-		}
-	}
-	return nil
+	return saveStringCollection(tx, "denied_commands", "command", "channel_id", channelID, denyCommands,
+		`INSERT INTO denied_commands (network_id, channel_id, command) VALUES (NULL, ?, ?) ON CONFLICT(network_id, channel_id, command) DO NOTHING`)
 }
 
 // saveNetworkIgnoredNicks persists ignored nick entries for a network.
 func saveNetworkIgnoredNicks(tx *sql.Tx, networkID int64, nicks []string) error {
-	if len(nicks) > 0 {
-		for _, nick := range nicks {
-			_, err := tx.Exec(`
-				INSERT INTO ignored_nicks (network_id, nickname)
-				VALUES (?, ?)
-				ON CONFLICT(network_id, nickname) DO NOTHING
-			`, networkID, nick)
-			if err != nil {
-				return err
-			}
-		}
-
-		var nickInterfaces []interface{}
-		for _, nick := range nicks {
-			nickInterfaces = append(nickInterfaces, nick)
-		}
-		if err := syncSimpleCollection(tx, "ignored_nicks", "nickname", "network_id", networkID, nickInterfaces); err != nil {
-			return err
-		}
-	} else {
-		_, err := tx.Exec("DELETE FROM ignored_nicks WHERE network_id = ?", networkID)
-		if err != nil {
-			return err
-		}
-	}
-	return nil
+	return saveStringCollection(tx, "ignored_nicks", "nickname", "network_id", networkID, nicks,
+		`INSERT INTO ignored_nicks (network_id, nickname) VALUES (?, ?) ON CONFLICT(network_id, nickname) DO NOTHING`)
 }
 
 // saveNetworkDeniedCommands persists network-level denied commands.
 func saveNetworkDeniedCommands(tx *sql.Tx, networkID int64, cmds []string) error {
-	if len(cmds) > 0 {
-		for _, cmd := range cmds {
-			_, err := tx.Exec(`
-				INSERT INTO denied_commands (network_id, channel_id, command)
-				VALUES (?, NULL, ?)
-				ON CONFLICT(network_id, channel_id, command) DO NOTHING
-			`, networkID, cmd)
-			if err != nil {
-				return err
-			}
-		}
-
-		var cmdInterfaces []interface{}
-		for _, cmd := range cmds {
-			cmdInterfaces = append(cmdInterfaces, cmd)
-		}
-		if err := syncSimpleCollection(tx, "denied_commands", "command", "network_id", networkID, cmdInterfaces); err != nil {
-			return err
-		}
-	} else {
-		_, err := tx.Exec("DELETE FROM denied_commands WHERE network_id = ?", networkID)
-		if err != nil {
-			return err
-		}
-	}
-	return nil
+	return saveStringCollection(tx, "denied_commands", "command", "network_id", networkID, cmds,
+		`INSERT INTO denied_commands (network_id, channel_id, command) VALUES (?, NULL, ?) ON CONFLICT(network_id, channel_id, command) DO NOTHING`)
 }
 
 func LoadNetwork(networkName string) (*NetworkData, error) {
@@ -975,5 +903,29 @@ func syncSimpleCollection(tx *sql.Tx, table, keyCol, parentIDCol string, parentI
 	}
 
 	_, err := tx.Exec(fmt.Sprintf("DELETE FROM %s WHERE %s = ?", table, parentIDCol), parentID)
+	return err
+}
+
+// saveStringCollection is a generic helper that persists a collection of string values
+// for a parent entity. It upserts each value using insertQuery, syncs stale rows via
+// syncSimpleCollection, and deletes all rows if the values slice is empty.
+//
+// insertQuery must have exactly two "?" placeholders: the first for parentID, the second
+// for the string value. table, keyCol, and parentIDCol must be compile-time string literals.
+func saveStringCollection(tx *sql.Tx, table, keyCol, parentIDCol string, parentID int64, values []string, insertQuery string) error {
+	if len(values) > 0 {
+		for _, v := range values {
+			if _, err := tx.Exec(insertQuery, parentID, v); err != nil {
+				return err
+			}
+		}
+
+		interfaces := make([]interface{}, len(values))
+		for i, v := range values {
+			interfaces[i] = v
+		}
+		return syncSimpleCollection(tx, table, keyCol, parentIDCol, parentID, interfaces)
+	}
+	_, err := tx.Exec(fmt.Sprintf("DELETE FROM %s WHERE %s = ?", table, parentIDCol), parentID) //nolint:gosec // G201: table/col names are hardcoded
 	return err
 }
