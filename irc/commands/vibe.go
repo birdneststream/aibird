@@ -1,7 +1,6 @@
 package commands
 
 import (
-	"context"
 	"fmt"
 
 	"aibird/birdbase"
@@ -74,24 +73,9 @@ func ParseVibe(irc *state.State, q *queue.ProcessingQueue) {
 	}
 
 	// Queue the entire vibe pipeline — both AI text gen and ComfyUI image gen use the GPU
-	queueItem := queue.QueueItem{
-		Item: queue.Item{
-			State: *irc,
-			Function: func(ctx context.Context, s state.State, gpu meta.GPUType) {
-				generateVibe(&s, messages, hours)
-			},
-		},
-		Model: "vibe",
-		User:  irc.User,
-		GPU:   meta.GPU4090,
-	}
-
-	msg, err := q.Enqueue(queueItem)
-	if err != nil {
-		irc.SendError(err.Error())
-	} else if msg != "" {
-		irc.Send(msg)
-	}
+	enqueueAITask(irc, q, "vibe", meta.GPU4090, func(s *state.State) {
+		generateVibe(s, messages, hours)
+	})
 }
 
 // generateVibe runs the two-step pipeline in a goroutine:

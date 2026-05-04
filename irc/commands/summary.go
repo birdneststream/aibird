@@ -1,7 +1,6 @@
 package commands
 
 import (
-	"context"
 	"fmt"
 	"strconv"
 	"strings"
@@ -100,24 +99,9 @@ func ParseSummary(irc *state.State, q *queue.ProcessingQueue) {
 	}
 
 	// Queue the AI generation — LlamaCpp uses the GPU and must be serialized
-	queueItem := queue.QueueItem{
-		Item: queue.Item{
-			State: *irc,
-			Function: func(ctx context.Context, s state.State, gpu meta.GPUType) {
-				generateSummary(&s, messages, hours, persona)
-			},
-		},
-		Model: "summary",
-		User:  irc.User,
-		GPU:   meta.GPU4090,
-	}
-
-	msg, err := q.Enqueue(queueItem)
-	if err != nil {
-		irc.SendError(err.Error())
-	} else if msg != "" {
-		irc.Send(msg)
-	}
+	enqueueAITask(irc, q, "summary", meta.GPU4090, func(s *state.State) {
+		generateSummary(s, messages, hours, persona)
+	})
 }
 
 func generateSummary(irc *state.State, messages []birdbase.ChannelMessage, hours int, persona string) {

@@ -1,7 +1,6 @@
 package commands
 
 import (
-	"context"
 	"fmt"
 
 	"aibird/birdbase"
@@ -53,24 +52,9 @@ func ParseMood(irc *state.State, q *queue.ProcessingQueue) {
 	}
 
 	// Queue the AI generation — LlamaCpp uses the GPU and must be serialized
-	queueItem := queue.QueueItem{
-		Item: queue.Item{
-			State: *irc,
-			Function: func(ctx context.Context, s state.State, gpu meta.GPUType) {
-				generateMood(&s, messages, hours)
-			},
-		},
-		Model: "mood",
-		User:  irc.User,
-		GPU:   meta.GPU4090,
-	}
-
-	msg, err := q.Enqueue(queueItem)
-	if err != nil {
-		irc.SendError(err.Error())
-	} else if msg != "" {
-		irc.Send(msg)
-	}
+	enqueueAITask(irc, q, "mood", meta.GPU4090, func(s *state.State) {
+		generateMood(s, messages, hours)
+	})
 }
 
 func generateMood(irc *state.State, messages []birdbase.ChannelMessage, hours int) {
