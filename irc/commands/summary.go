@@ -2,7 +2,6 @@ package commands
 
 import (
 	"fmt"
-	"strconv"
 	"strings"
 
 	"aibird/birdbase"
@@ -58,7 +57,7 @@ func ParseSummary(irc *state.State, q *queue.ProcessingQueue) {
 		}
 
 		cleaned := strings.TrimSuffix(hoursStr, "h")
-		if parsed, err := strconv.Atoi(cleaned); err == nil && parsed > 0 {
+		if parsed, err := parseIntSafe(cleaned); err == nil && parsed > 0 {
 			if parsed > 168 {
 				parsed = 168
 			}

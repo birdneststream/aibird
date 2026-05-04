@@ -15,14 +15,7 @@ func ParseTop(irc *state.State) {
 		return
 	}
 
-	hours := 24
-	if irc.Message() != "" && irc.Message() != argHelp {
-		msg := strings.TrimSpace(irc.Message())
-		cleaned := strings.TrimSuffix(msg, "h")
-		if parsed, err := parseIntSafe(cleaned); err == nil && parsed > 0 && parsed <= 168 {
-			hours = parsed
-		}
-	}
+	hours := parseHoursFromMessage(irc.Message(), 24, 168)
 
 	if irc.Message() == argHelp {
 		irc.Send("Usage: !top [hours] — Shows channel activity stats.")
@@ -86,5 +79,3 @@ func ParseTop(irc *state.State) {
 		irc.Send(fmt.Sprintf("🏆 Top chatters: %s", strings.Join(chatterParts, ", ")))
 	}
 }
-
-
