@@ -15,7 +15,7 @@ func TestGoSafe_NormalExecution(t *testing.T) {
 		called.Store(true)
 	})
 
-	assert.Eventually(t, func() bool { return called.Load() }, time.Second, 10*time.Millisecond)
+	assert.Eventually(t, called.Load, time.Second, 10*time.Millisecond)
 }
 
 func TestGoSafe_PanicRecovery(t *testing.T) {
@@ -29,7 +29,7 @@ func TestGoSafe_PanicRecovery(t *testing.T) {
 	GoSafe(func() {
 		done.Store(true)
 	})
-	assert.Eventually(t, func() bool { return done.Load() }, time.Second, 10*time.Millisecond)
+	assert.Eventually(t, done.Load, time.Second, 10*time.Millisecond)
 }
 
 func TestGoSafe_ConcurrentExecution(t *testing.T) {

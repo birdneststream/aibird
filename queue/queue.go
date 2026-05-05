@@ -22,6 +22,7 @@ type Queue struct {
 
 // maxQueueSize is the maximum number of items allowed in the queue.
 const maxQueueSize = 10
+
 // Enqueue adds an element to the end of the queue
 func (q *Queue) Enqueue(element QueueItem) (string, error) { //nolint:gocritic // element copied by value for goroutine isolation
 	q.mutex.Lock()
