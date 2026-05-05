@@ -4,7 +4,7 @@ package main
 import (
 	"context"
 	"crypto/tls"
-	"log"
+	"log/slog"
 	"os"
 	"os/signal"
 	"sync"
@@ -22,13 +22,12 @@ import (
 	"github.com/lrstanley/girc"
 )
 
-var shutdown = make(chan struct{})
-
 func main() {
 	// Load configuration
 	config, err := settings.LoadConfig()
 	if err != nil {
-		log.Fatalf("Failed to load config: %v", err)
+		slog.Error("Failed to load config", "error", err)
+		os.Exit(1)
 	}
 
 	logger.Init(config.Logging)
@@ -57,7 +56,6 @@ func main() {
 		sig := <-signalCh
 		logger.Info("SIGNAL RECEIVED: Initiating shutdown", "signal", sig, "timestamp", time.Now())
 		cancel()
-		close(shutdown)
 
 		// Force exit after timeout if shutdown hangs
 		go func() {
