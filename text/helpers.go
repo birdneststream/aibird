@@ -16,28 +16,35 @@ func AppendFullStop(message string) string {
 	return message
 }
 
-func GetPersonalityFile(personality string) (string, error) {
-	// Sanitize the personality input to prevent path traversal.
-	// We only want to allow simple filenames.
-	cleanPersonality := filepath.Base(personality)
-	if strings.Contains(cleanPersonality, "/") || strings.Contains(cleanPersonality, "\\") || cleanPersonality == ".." || cleanPersonality == "." {
-		return "", errors.New("invalid personality name")
+// readSanitizedFile reads a file from the given base directory after sanitizing
+// the filename to prevent path traversal attacks. It validates the resolved path
+// stays within the base directory.
+func readSanitizedFile(baseDir, name string) (string, error) {
+	// Reject path traversal in raw input before normalization
+	if strings.Contains(name, "/") || strings.Contains(name, "\\") || strings.Contains(name, "..") {
+		return "", errors.New("invalid name: path separators or traversal detected")
 	}
 
-	// Construct the full path safely.
-	baseDir, err := filepath.Abs("personalities")
+	// Normalize to just the filename component
+	clean := filepath.Base(name)
+	if clean == "." || clean == ".." {
+		return "", errors.New("invalid name: empty or traversal")
+	}
+
+	// Resolve the base directory to an absolute path
+	absBaseDir, err := filepath.Abs(baseDir)
 	if err != nil {
 		return "", fmt.Errorf("failed to resolve base directory: %w", err)
 	}
-	filePath := filepath.Join(baseDir, cleanPersonality+".txt")
+	filePath := filepath.Join(absBaseDir, clean)
 
-	// Final check to ensure the path is within the personalities directory.
+	// Verify the resolved path stays within the base directory
 	resolvedPath, err := filepath.EvalSymlinks(filePath)
 	if err != nil {
 		return "", fmt.Errorf("failed to resolve file path: %w", err)
 	}
-	if !strings.HasPrefix(resolvedPath, baseDir) {
-		return "", errors.New("invalid personality path")
+	if !strings.HasPrefix(resolvedPath, absBaseDir) {
+		return "", errors.New("invalid path: escapes base directory")
 	}
 
 	file, err := os.ReadFile(filePath) //nolint:gosec // G304: path sanitized by filepath.Base + prefix check above
@@ -48,34 +55,10 @@ func GetPersonalityFile(personality string) (string, error) {
 	return string(file), nil
 }
 
+func GetPersonalityFile(personality string) (string, error) {
+	return readSanitizedFile("personalities", personality+".txt")
+}
+
 func GetPrompt(promptName string) (string, error) {
-	// Sanitize the prompt name input to prevent path traversal.
-	cleanPromptName := filepath.Base(promptName)
-	if strings.Contains(cleanPromptName, "/") || strings.Contains(cleanPromptName, "\\") || cleanPromptName == ".." || cleanPromptName == "." {
-		return "", errors.New("invalid prompt name")
-	}
-
-	// Construct the full path safely.
-	// Prompts are in text/prompts now
-	baseDir, err := filepath.Abs("text/prompts")
-	if err != nil {
-		return "", fmt.Errorf("failed to resolve base directory: %w", err)
-	}
-	filePath := filepath.Join(baseDir, cleanPromptName)
-
-	// Final check to ensure the path is within the prompts directory.
-	resolvedPath, err := filepath.EvalSymlinks(filePath)
-	if err != nil {
-		return "", fmt.Errorf("failed to resolve file path: %w", err)
-	}
-	if !strings.HasPrefix(resolvedPath, baseDir) {
-		return "", errors.New("invalid prompt path")
-	}
-
-	file, err := os.ReadFile(filePath) //nolint:gosec // G304: path sanitized by filepath.Base + prefix check above
-	if err != nil {
-		return "", err
-	}
-
-	return string(file), nil
+	return readSanitizedFile("text/prompts", promptName)
 }
