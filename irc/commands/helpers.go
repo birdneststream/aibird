@@ -8,8 +8,10 @@ import (
 
 	"aibird/birdbase"
 	"aibird/irc/state"
+	"aibird/logger"
 	"aibird/queue"
 	"aibird/shared/meta"
+	"aibird/text"
 )
 
 // Event type constants for message storage and formatting.
@@ -129,5 +131,78 @@ func enqueueAITask(irc *state.State, q *queue.ProcessingQueue, model string, gpu
 		irc.SendError(err.Error())
 	} else if msg != "" {
 		irc.Send(msg)
+	}
+}
+
+// fetchHistoryAndEnqueue encapsulates the shared tail pattern used by AI channel commands
+// (summary, mood, story): resolve networkID → fetch channel messages → check for empty
+// result → enqueue AI task. Each command keeps its own parsing logic and passes a
+// generateFn closure that captures parsed parameters (hours, persona, messages).
+func fetchHistoryAndEnqueue(irc *state.State, q *queue.ProcessingQueue, model string, hours, maxMessages int, generateFn func(*state.State, []birdbase.ChannelMessage, int)) {
+	networkID := birdbase.ResolveNetworkID(irc.Network.NetworkName)
+	if networkID == 0 {
+		irc.Send("Error: network not found in database.")
+		return
+	}
+
+	messages, err := birdbase.GetChannelMessages(networkID, irc.Channel.Name, hours, maxMessages)
+	if err != nil {
+		logger.Error("Failed to get channel messages for "+model, "error", err)
+		irc.Send("Error retrieving channel history.")
+		return
+	}
+
+	if len(messages) == 0 {
+		irc.Send(fmt.Sprintf("No activity found in %s over the last %dh.", irc.Channel.Name, hours))
+		return
+	}
+
+	enqueueAITask(irc, q, model, meta.GPU4090, func(s *state.State) {
+		generateFn(s, messages, hours)
+	})
+}
+
+// channelAIOpts configures the shared AI channel response generation.
+// This groups the command-specific parameters that vary between mood/story/summary,
+// keeping the function signature clean and self-documenting.
+type channelAIOpts struct {
+	statusMsg    string // Pre-formatted status message sent before processing
+	promptFile   string // System prompt filename (e.g., "mood.md")
+	personaLabel string // Label prepended to persona text (e.g., "Genre/Style for this story: "); empty disables persona
+	persona      string // User-provided persona/style text (already sanitized)
+	emojiPrefix  string // Prepended to the AI response when non-empty (e.g., "🌡️ ")
+	errorContext string // Command name for error messages (e.g., "mood", "story")
+}
+
+// generateChannelAIResponse encapsulates the shared generate pattern used by AI channel
+// commands: send status message → load system prompt → format event log → append optional
+// persona suffix → call AI with fallback → send response with optional emoji prefix.
+func generateChannelAIResponse(irc *state.State, messages []birdbase.ChannelMessage, hours int, opts channelAIOpts) {
+	irc.Send(fmt.Sprintf("%s, %s", irc.User.NickName, opts.statusMsg))
+
+	systemPrompt, err := text.GetPrompt(opts.promptFile)
+	if err != nil {
+		logger.Error("Failed to load "+opts.promptFile, "error", err)
+		irc.Send(fmt.Sprintf("Error: could not load %s prompt.", opts.errorContext))
+		return
+	}
+
+	userPrompt := formatEventLog(irc.Channel.Name, hours, messages)
+
+	if opts.persona != "" && opts.personaLabel != "" {
+		userPrompt += fmt.Sprintf("\n\n%s%s", opts.personaLabel, opts.persona)
+	}
+
+	answer, err := singleRequestWithFallback(systemPrompt, userPrompt, irc.Config)
+	if err != nil {
+		logger.Error("Failed to generate "+opts.errorContext, "error", err)
+		irc.Send(fmt.Sprintf("Error: failed to generate %s. Please try again later.", opts.errorContext))
+		return
+	}
+
+	if opts.emojiPrefix != "" {
+		irc.Send(fmt.Sprintf("%s%s", opts.emojiPrefix, answer))
+	} else {
+		irc.Send(answer)
 	}
 }

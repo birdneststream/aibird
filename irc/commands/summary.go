@@ -6,10 +6,7 @@ import (
 
 	"aibird/birdbase"
 	"aibird/irc/state"
-	"aibird/logger"
 	"aibird/queue"
-	"aibird/shared/meta"
-	"aibird/text"
 )
 
 func ParseSummary(irc *state.State, q *queue.ProcessingQueue) {
@@ -79,52 +76,13 @@ func ParseSummary(irc *state.State, q *queue.ProcessingQueue) {
 		maxMessages = 200
 	}
 
-	networkID := birdbase.ResolveNetworkID(irc.Network.NetworkName)
-	if networkID == 0 {
-		irc.Send("Error: network not found in database.")
-		return
-	}
-
-	messages, err := birdbase.GetChannelMessages(networkID, irc.Channel.Name, hours, maxMessages)
-	if err != nil {
-		logger.Error("Failed to get channel messages for summary", "error", err)
-		irc.Send("Error retrieving channel history.")
-		return
-	}
-
-	if len(messages) == 0 {
-		irc.Send(fmt.Sprintf("No activity found in %s over the last %dh.", irc.Channel.Name, hours))
-		return
-	}
-
-	// Queue the AI generation — LlamaCpp uses the GPU and must be serialized
-	enqueueAITask(irc, q, "summary", meta.GPU4090, func(s *state.State) {
-		generateSummary(s, messages, hours, persona)
+	fetchHistoryAndEnqueue(irc, q, "summary", hours, maxMessages, func(s *state.State, messages []birdbase.ChannelMessage, h int) {
+		generateChannelAIResponse(s, messages, h, channelAIOpts{
+			statusMsg:    fmt.Sprintf("generating summary of the last %dh (%d events)...", h, len(messages)),
+			promptFile:   "summary.md",
+			personaLabel: "Persona/Angle for this summary: ",
+			persona:      persona,
+			errorContext: "summary",
+		})
 	})
-}
-
-func generateSummary(irc *state.State, messages []birdbase.ChannelMessage, hours int, persona string) {
-	irc.Send(fmt.Sprintf("%s, generating summary of the last %dh (%d events)...", irc.User.NickName, hours, len(messages)))
-
-	systemPrompt, err := text.GetPrompt("summary.md")
-	if err != nil {
-		logger.Error("Failed to load summary prompt", "error", err)
-		irc.Send("Error: could not load summary prompt.")
-		return
-	}
-
-	userPrompt := formatEventLog(irc.Channel.Name, hours, messages)
-
-	if persona != "" {
-		userPrompt += fmt.Sprintf("\n\nPersona/Angle for this summary: %s", persona)
-	}
-
-	answer, err := singleRequestWithFallback(systemPrompt, userPrompt, irc.Config)
-	if err != nil {
-		logger.Error("Failed to generate summary", "error", err)
-		irc.Send("Error: failed to generate summary. Please try again later.")
-		return
-	}
-
-	irc.Send(answer)
 }
