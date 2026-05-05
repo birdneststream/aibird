@@ -184,7 +184,7 @@ func ircClient(ctx context.Context, network *networks.Network, config *settings.
 		select {
 		case <-ctx.Done():
 			logger.Info("Disconnecting from network", "network", network.Name)
-			client.Close()
+			// client.Close() already called by the goroutine above to unblock Connect()
 			return
 		default:
 			logger.Info("Attempting to connect to IRC", "network", network.Name, "server", client.Server())

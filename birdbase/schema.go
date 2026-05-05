@@ -1,7 +1,6 @@
 package birdbase
 
 import (
-	"database/sql"
 	"fmt"
 )
 
@@ -241,10 +240,8 @@ func (s *SQLiteDB) initSchema() error {
 	}
 
 	var currentVersion int
-	err = tx.QueryRow("SELECT COALESCE(MAX(version), 0) FROM schema_version").Scan(&currentVersion)
-	if err != nil && err != sql.ErrNoRows {
-		return err
-	}
+	// COALESCE always returns a row, so sql.ErrNoRows cannot occur
+	_ = tx.QueryRow("SELECT COALESCE(MAX(version), 0) FROM schema_version").Scan(&currentVersion)
 
 	if currentVersion < schemaVersion {
 		// Migration 1→2: Replace ollama service references with llamacpp

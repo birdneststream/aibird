@@ -18,7 +18,7 @@ func TestStripThinkingContent(t *testing.T) {
 	}{
 		{
 			name:            "removes think block",
-			input:           "Hello <think let me think about this </think > world",
+			input:           "Hello <think let me think about this</think > world",
 			wantContains:    []string{"Hello", "world"},
 			wantNotContains: []string{"<think", "</think", "let me think"},
 		},
@@ -27,6 +27,18 @@ func TestStripThinkingContent(t *testing.T) {
 			input:           "Hello <think\nline1\nline2\n</think > world",
 			wantContains:    []string{"Hello", "world"},
 			wantNotContains: []string{"<think", "</think", "line1", "line2"},
+		},
+		{
+			name:            "removes think block with space before closing",
+			input:           "Hello <think reasoning here</think > world",
+			wantContains:    []string{"Hello", "world"},
+			wantNotContains: []string{"<think", "</think", "reasoning"},
+		},
+		{
+			name:            "removes think block with attributes",
+			input:           "Hello <think type=reasoning>some reasoning</think > world",
+			wantContains:    []string{"Hello", "world"},
+			wantNotContains: []string{"<think", "</think", "reasoning"},
 		},
 		{
 			name:            "no think block unchanged",

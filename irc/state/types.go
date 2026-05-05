@@ -36,13 +36,6 @@ type (
 		Key   string
 		Value interface{}
 	}
-
-	// ModeDifference represents the difference between preserved and current modes
-	// for a user, used during mass mode synchronization.
-	ModeDifference struct {
-		Nick  string
-		Modes []string
-	}
 )
 
 func (s *State) GetConfig() *settings.Config {

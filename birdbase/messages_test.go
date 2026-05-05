@@ -301,6 +301,87 @@ func TestSearchChannelMessages_NoResults(t *testing.T) {
 	}
 }
 
+func TestSearchChannelMessages_LikeInjection(t *testing.T) {
+	tests := []struct {
+		name          string
+		message       string
+		keyword       string
+		expectMatches int
+	}{
+		{
+			name:          "percent wildcard is escaped",
+			message:       "hello world",
+			keyword:       "%",
+			expectMatches: 0,
+		},
+		{
+			name:          "underscore wildcard is escaped",
+			message:       "hello world",
+			keyword:       "_",
+			expectMatches: 0,
+		},
+		{
+			name:          "backslash is escaped",
+			message:       "normal text",
+			keyword:       `\`,
+			expectMatches: 0,
+		},
+		{
+			name:          "percent does not match everything",
+			message:       "specific content only",
+			keyword:       "%",
+			expectMatches: 0,
+		},
+		{
+			name:          "normal keyword still works after escaping",
+			message:       "hello world",
+			keyword:       "hello",
+			expectMatches: 1,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			setupMessagesTest(t)
+			networkID := seedNetworkForMessages(t, "testnet")
+
+			StoreChannelMessage(networkID, "#test", "alice", "privmsg", tt.message)
+			flushMessagesForTesting()
+
+			results, err := SearchChannelMessages(networkID, "#test", tt.keyword, 10)
+			if err != nil {
+				t.Fatalf("SearchChannelMessages failed: %v", err)
+			}
+			if len(results) != tt.expectMatches {
+				t.Errorf("Expected %d results for keyword %q, got %d", tt.expectMatches, tt.keyword, len(results))
+			}
+		})
+	}
+}
+
+func TestEscapeLike(t *testing.T) {
+	tests := []struct {
+		input  string
+		output string
+	}{
+		{"hello", "hello"},
+		{"100%", `100\%`},
+		{"a_b", `a\_b`},
+		{`path\to`, `path\\to`},
+		{`100%_done`, `100\%\_done`},
+		{"", ""},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.input, func(t *testing.T) {
+			got := escapeLike(tt.input)
+			if got != tt.output {
+				t.Errorf("escapeLike(%q) = %q, want %q", tt.input, got, tt.output)
+			}
+		})
+	}
+}
+
 func TestGetChannelStats(t *testing.T) {
 	setupMessagesTest(t)
 	networkID := seedNetworkForMessages(t, "testnet")

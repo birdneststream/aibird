@@ -24,8 +24,8 @@ func NewProcessingQueue() *ProcessingQueue {
 }
 
 func (pq *ProcessingQueue) Enqueue(item QueueItem) (string, error) { //nolint:gocyclo,gocritic // item copied by value for goroutine isolation
-	pq.Mutex.Lock()
-	defer pq.Mutex.Unlock()
+	pq.mutex.Lock()
+	defer pq.mutex.Unlock()
 
 	// Check if this is a ComfyUI workflow by checking if the workflow file exists
 	workflowFile := "comfyuijson/" + item.Model + ".json"
@@ -132,23 +132,23 @@ func (pq *ProcessingQueue) IsCurrentlyProcessing() bool {
 // ClearQueue removes all items from the processing queue.
 // Admin control method.
 func (pq *ProcessingQueue) ClearQueue() {
-	pq.Mutex.Lock()
-	defer pq.Mutex.Unlock()
+	pq.mutex.Lock()
+	defer pq.mutex.Unlock()
 
 	pq.Queue.Clear()
 	logger.Info("Queue cleared by admin")
 }
 
 func (pq *ProcessingQueue) RemoveCurrentItem() bool {
-	pq.Mutex.Lock()
-	defer pq.Mutex.Unlock()
+	pq.mutex.Lock()
+	defer pq.mutex.Unlock()
 
 	return pq.Queue.RemoveCurrent()
 }
 
 func (pq *ProcessingQueue) GetDetailedStatus() *QueueStatus {
-	pq.Mutex.Lock()
-	defer pq.Mutex.Unlock()
+	pq.mutex.Lock()
+	defer pq.mutex.Unlock()
 
 	return &QueueStatus{
 		QueueLength: pq.Queue.Len(),

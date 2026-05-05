@@ -93,73 +93,6 @@ func (s *State) GetModesFromChannel() []string {
 	return modesToSet
 }
 
-func (s *State) CompareUserModes() { //nolint:gocyclo
-	var differences []ModeDifference
-
-	for _, user := range s.Channel.Users {
-		var diffModes []string
-		preservedModeMap := make(map[string]bool)
-		currentModeMap := make(map[string]bool)
-
-		// Map preserved modes for easy comparison
-		for _, mode := range user.PreservedModes {
-			if mode.Channel == s.Channel.Name {
-				for _, m := range mode.Modes {
-					preservedModeMap[m] = true
-				}
-			}
-		}
-
-		// Map current modes for easy comparison
-		for _, mode := range user.CurrentModes {
-			if mode.Channel == s.Channel.Name {
-				for _, m := range mode.Modes {
-					currentModeMap[m] = true
-					// If the mode is not in preserved modes, add it to diffModes
-					if !preservedModeMap[m] {
-						diffModes = append(diffModes, m)
-					}
-				}
-			}
-		}
-
-		// Check for modes in preserved not in current
-		for mode := range preservedModeMap {
-			if !currentModeMap[mode] {
-				diffModes = append(diffModes, mode)
-			}
-		}
-
-		if len(diffModes) > 0 {
-			differences = append(differences, ModeDifference{
-				Nick:  user.NickName,
-				Modes: diffModes,
-			})
-		}
-	}
-
-	counter := 0
-	var userNicks []string
-	var modes string
-
-	for i, diff := range differences {
-		userNicks = append(userNicks, diff.Nick)
-		for _, mode := range diff.Modes {
-			modes += "+" + helpers.ReverseModeMap(mode)
-		}
-
-		counter++
-		if counter == 4 || i == len(differences)-1 {
-			s.Client.Cmd.SendRaw("MODE " + s.Channel.Name + " " + modes + " " + strings.Join(userNicks, " "))
-
-			counter = 0
-			userNicks = []string{}
-			modes = ""
-		}
-	}
-
-}
-
 // MessageFloodCheck implements the second tier of flood protection.
 // Called from Verify() before command execution. Uses ident+host-based keys
 // (survives nick changes) and silently ignores the user on threshold breach.
@@ -294,9 +227,10 @@ func (s *State) SyncUsersFromWho() {
 	s.Channel.SyncCurrentModes(&user, modes)
 	s.Channel.SyncPreservedModes(&user, modes)
 
-	// append to s.Network.Users
+	// append to s.Network.Users — use pointer to the actual slice element
+	// so Channel.Users shares the same underlying User as Network.Users
 	s.Network.Users = append(s.Network.Users, user)
-	s.Channel.SyncUser(&user)
+	s.Channel.SyncUser(&s.Network.Users[len(s.Network.Users)-1])
 
 	// Track user-channel membership in database for new user from WHO response
 	if err := birdbase.AddUserToChannel(s.Network.NetworkName, user.Ident, user.Host, s.Channel.Name); err != nil {

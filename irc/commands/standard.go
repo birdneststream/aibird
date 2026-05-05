@@ -216,9 +216,9 @@ func ParsePlay(irc *state.State) {
 	irc.Send(girc.Fmt("🎭 Playing ASCII art..."))
 
 	// Send each line with a small delay to create scrolling effect
-	for _, line := range lines {
+	for i, line := range lines {
 		// Skip empty lines at the beginning/end but preserve internal spacing
-		if strings.TrimSpace(line) == "" && (line == lines[0] || line == lines[len(lines)-1]) {
+		if strings.TrimSpace(line) == "" && (i == 0 || i == len(lines)-1) {
 			continue
 		}
 

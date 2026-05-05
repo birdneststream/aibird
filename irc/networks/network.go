@@ -196,7 +196,6 @@ func (n *Network) Save() {
 // - Only saves runtime/persistent data (users) to database
 // - Configuration data stays in config.toml and is not persisted to DB
 func (n *Network) SaveNormalized() error {
-	logger.Debug("SaveNormalized called", "network", n.NetworkName, "user_count", len(n.Users))
 	logger.Debug("Saving normalized network data (users only)", "network", n.NetworkName, "user_count", len(n.Users))
 
 	// Convert and save users (runtime/persistent data) with channel info

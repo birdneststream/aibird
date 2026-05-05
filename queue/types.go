@@ -16,7 +16,7 @@ type Item struct {
 // ProcessingQueue manages a single GPU processing queue
 type ProcessingQueue struct {
 	Queue *Queue
-	Mutex sync.Mutex
+	mutex sync.Mutex
 }
 
 type QueueItem struct {

@@ -196,18 +196,6 @@ func GetCachedWorkflows() []string {
 	return names
 }
 
-// RefreshWorkflowCache re-reads all workflow files from disk and rebuilds the cache.
-// Thread-safe. Can be called at any time to pick up new/changed workflow files.
-func RefreshWorkflowCache() {
-	newCache := buildWorkflowCache() // I/O outside the lock
-
-	workflowCacheMu.Lock()
-	workflowCache = newCache
-	workflowCacheOk = true
-	workflowCacheMu.Unlock()
-	logger.Info("Workflow cache refreshed", "count", len(newCache))
-}
-
 // ensureWorkflowCache lazily initializes the workflow cache on first access.
 func ensureWorkflowCache() {
 	workflowCacheMu.RLock()

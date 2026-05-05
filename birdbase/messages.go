@@ -285,12 +285,16 @@ func (s *SQLiteDB) SearchChannelMessages(networkID int64, channelName, keyword s
 		maxResults = 10
 	}
 
+	// Escape special LIKE pattern characters to prevent injection
+	escapedKeyword := escapeLike(keyword)
+	pattern := "%" + escapedKeyword + "%"
+
 	rows, err := s.db.Query(`
 		SELECT nickname, event_type, message, timestamp FROM channel_messages
-		WHERE network_id = ? AND channel_name = ? AND message LIKE ? AND event_type IN ('privmsg', 'action')
+		WHERE network_id = ? AND channel_name = ? AND message LIKE ? ESCAPE '\' AND event_type IN ('privmsg', 'action')
 		ORDER BY timestamp DESC
 		LIMIT ?
-	`, networkID, strings.ToLower(channelName), "%"+keyword+"%", maxResults)
+	`, networkID, strings.ToLower(channelName), pattern, maxResults)
 	if err != nil {
 		return nil, fmt.Errorf("failed to search channel messages: %w", err)
 	}
@@ -407,4 +411,12 @@ func (s *SQLiteDB) GetChannelStats(networkID int64, channelName string, hours in
 	}
 
 	return stats, nil
+}
+
+// escapeLike escapes special characters in a SQL LIKE pattern (%, _, \).
+func escapeLike(s string) string {
+	s = strings.ReplaceAll(s, `\`, `\\`)
+	s = strings.ReplaceAll(s, `%`, `\%`)
+	s = strings.ReplaceAll(s, `_`, `\_`)
+	return s
 }

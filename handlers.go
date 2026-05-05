@@ -84,6 +84,9 @@ func handleEndOfWho(c *girc.Client, e girc.Event, network *networks.Network, con
 }
 
 func handleJoin(c *girc.Client, e girc.Event, network *networks.Network, config *settings.Config) { //nolint:gocritic // girc library mandates Event by value in handler signatures
+	if len(e.Params) < 1 {
+		return
+	}
 	logger.Debug("JOIN event", "network", network.NetworkName, "nick", e.Source.Name, "channel", e.Params[0], "ident", e.Source.Ident, "host", e.Source.Host)
 
 	if e.Source.Name == network.Nick {
@@ -146,15 +149,12 @@ func handleJoin(c *girc.Client, e girc.Event, network *networks.Network, config 
 	if networkID > 0 {
 		birdbase.StoreChannelMessage(networkID, e.Params[0], e.Source.Name, "join", "")
 	}
-
-	// Skip DelayedWhoTimer for performance during netsplits - user_channels are already tracked above
-	// irc := state.Init(c, e, network, config)
-	// if irc.Channel != nil {
-	//	go irc.DelayedWhoTimer()
-	// }
 }
 
 func handlePart(c *girc.Client, e girc.Event, network *networks.Network) { //nolint:gocritic // girc library mandates Event by value in handler signatures
+	if len(e.Params) < 1 {
+		return
+	}
 	logger.Debug("PART event", "network", network.NetworkName, "nick", e.Source.Name, "channel", e.Params[0], "ident", e.Source.Ident, "host", e.Source.Host)
 
 	if e.Source.Name == network.Nick {
@@ -245,6 +245,9 @@ func handleMode(c *girc.Client, e girc.Event, network *networks.Network) { //nol
 }
 
 func handleKick(c *girc.Client, e girc.Event, network *networks.Network, config *settings.Config) { //nolint:gocritic // girc library mandates Event by value in handler signatures
+	if len(e.Params) < 2 {
+		return
+	}
 	// e.Params[0] = channel, e.Params[1] = kicked user, e.Params[2] = reason
 	kickedNick := e.Params[1]
 	channelName := e.Params[0]

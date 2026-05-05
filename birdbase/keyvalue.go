@@ -1,7 +1,6 @@
 package birdbase
 
 import (
-	"database/sql"
 	"strconv"
 	"time"
 )
@@ -15,13 +14,12 @@ func (s *SQLiteDB) Get(key string) ([]byte, error) {
 	defer s.mu.RUnlock()
 
 	var value []byte
-	var expiresAt sql.NullTime
 
 	err := s.db.QueryRow(`
-        SELECT value_data, expires_at 
-        FROM key_value_store 
+        SELECT value_data
+        FROM key_value_store
         WHERE key_name = ? AND (expires_at IS NULL OR expires_at > datetime('now'))
-    `, key).Scan(&value, &expiresAt)
+    `, key).Scan(&value)
 
 	if err != nil {
 		return nil, err
@@ -115,8 +113,4 @@ func PutBytesExpireHours(key string, value []byte, hours int) error {
 
 func PutStringExpireSeconds(key, value string, seconds int) error {
 	return PutWithTTL(key, []byte(value), time.Duration(seconds)*time.Second)
-}
-
-func PutIntExpireHours(key string, value, hours int) error {
-	return PutWithTTL(key, []byte(strconv.Itoa(value)), time.Duration(hours)*time.Hour)
 }

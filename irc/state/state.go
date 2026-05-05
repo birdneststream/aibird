@@ -67,10 +67,6 @@ func (s *State) SendSuccess(response string) {
 	s.Client.Cmd.Reply(s.Event, girc.Fmt("{b}{green}[SUCCESS] {reset}"+response))
 }
 
-func (s *State) SendInfo(response string) {
-	s.Client.Cmd.Reply(s.Event, girc.Fmt("{b}{blue}[INFO] {reset}"+response))
-}
-
 func (s *State) SendWarning(response string) {
 	s.Client.Cmd.Reply(s.Event, girc.Fmt("{b}{yellow}[WARNING] {reset}"+response))
 }
@@ -379,11 +375,7 @@ func (s *State) Verify() error { //nolint:gocyclo
 }
 
 func (s *State) ShouldPreserveModes() bool {
-	if s.Channel.PreserveModes {
-		return s.Channel.PreserveModes
-	}
-
-	return s.Network.PreserveModes
+	return s.Channel.PreserveModes || s.Network.PreserveModes
 }
 
 func Init(c *girc.Client, e girc.Event, network *networks.Network, config *settings.Config) State { //nolint:gocritic // girc library mandates Event by value

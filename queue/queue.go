@@ -104,13 +104,6 @@ func (q *Queue) HasOneOrEmpty() bool {
 	return len(q.elements) <= 1
 }
 
-// HasElements checks if the queue has elements
-func (q *Queue) HasElements(amount int) bool {
-	q.mutex.Lock()
-	defer q.mutex.Unlock()
-	return q.hasElementsUnsafe(amount)
-}
-
 // IsCurrentlyProcessing returns whether an item is actively being processed
 func (q *Queue) IsCurrentlyProcessing() bool {
 	return q.isProcessing()

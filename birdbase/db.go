@@ -95,8 +95,10 @@ func Close() {
 	// Flush and stop the message storage worker
 	if messageChan != nil {
 		close(messageChan)
-		// Give worker time to flush remaining messages
-		time.Sleep(500 * time.Millisecond)
+		// Wait for the worker to finish processing remaining messages
+		if messageWorkerDone != nil {
+			<-messageWorkerDone
+		}
 	}
 
 	if Data != nil {

@@ -59,7 +59,7 @@ func checkLlamaCppAvailable(irc *state.State) bool {
 }
 
 var (
-	reThinkingBlock   = regexp.MustCompile(`(?is)<think.*?</think >`)
+	reThinkingBlock   = regexp.MustCompile(`(?is)<think\b.*?</think\s*>`)
 	reNewlines        = regexp.MustCompile(`\n+`)
 	reWhitespace      = regexp.MustCompile(`\s+`)
 	reBold            = regexp.MustCompile(`\*\*([^*]+)\*\*`)
