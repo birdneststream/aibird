@@ -36,7 +36,7 @@ func TestUpload_Success(t *testing.T) {
 		assert.Equal(t, "extra", r.FormValue("extra_field"))
 
 		w.Header().Set("Content-Type", "application/json")
-		_, _ = w.Write([]byte(fmt.Sprintf(`{"url":"%s"}`, expectedURL)))
+		_, _ = fmt.Fprintf(w, `{"url":"%s"}`, expectedURL)
 	}))
 	defer ts.Close()
 
@@ -119,7 +119,7 @@ func TestBirdHolePNG_Wrapper(t *testing.T) {
 	expectedURL := "https://hole.birdnest.live/derived/xyz.png"
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
-		_, _ = w.Write([]byte(fmt.Sprintf(`{"url":"%s"}`, expectedURL)))
+		_, _ = fmt.Fprintf(w, `{"url":"%s"}`, expectedURL)
 	}))
 	defer ts.Close()
 

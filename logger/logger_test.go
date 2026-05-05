@@ -2,12 +2,15 @@ package logger
 
 import (
 	"bytes"
+	"context"
 	"log/slog"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
+
+const formatJSON = "json"
 
 // captureAndRestoreLogger saves the current global logger state and restores it after the test.
 func captureAndRestoreLogger(t *testing.T) {
@@ -28,13 +31,13 @@ func TestConfigValidate_ValidConfigs(t *testing.T) {
 		format string
 	}{
 		{"debug text", LevelDebug, "text"},
-		{"debug json", LevelDebug, "json"},
+		{"debug json", LevelDebug, formatJSON},
 		{"info text", LevelInfo, "text"},
-		{"info json", LevelInfo, "json"},
+		{"info json", LevelInfo, formatJSON},
 		{"warn text", LevelWarn, "text"},
-		{"warn json", LevelWarn, "json"},
+		{"warn json", LevelWarn, formatJSON},
 		{"error text", LevelError, "text"},
-		{"error json", LevelError, "json"},
+		{"error json", LevelError, formatJSON},
 	}
 
 	for _, tt := range tests {
@@ -81,7 +84,7 @@ func TestInit_ValidConfig(t *testing.T) {
 	})
 
 	assert.NotNil(t, defaultLogger)
-	assert.True(t, defaultLogger.Handler().Enabled(nil, slog.LevelDebug))
+	assert.True(t, defaultLogger.Handler().Enabled(context.TODO(), slog.LevelDebug))
 }
 
 func TestInit_InvalidConfig(t *testing.T) {
@@ -115,7 +118,7 @@ func TestInit_LevelMapping(t *testing.T) {
 			config := Config{Level: tt.level, Format: "text"}
 			Init(config)
 
-			assert.True(t, defaultLogger.Handler().Enabled(nil, tt.expected))
+			assert.True(t, defaultLogger.Handler().Enabled(context.TODO(), tt.expected))
 		})
 	}
 }
@@ -123,7 +126,7 @@ func TestInit_LevelMapping(t *testing.T) {
 func TestInit_JSONFormat(t *testing.T) {
 	captureAndRestoreLogger(t)
 
-	config := Config{Level: LevelInfo, Format: "json"}
+	config := Config{Level: LevelInfo, Format: formatJSON}
 	Init(config)
 
 	assert.NotNil(t, defaultLogger)

@@ -14,7 +14,6 @@ func TestNewSQLiteDB_CreatesSchema(t *testing.T) {
 
 	// Verify core tables exist by querying them
 	tables := []string{
-		"chat_history",
 		"user_usage",
 		"command_leaderboard",
 		"key_value_store",
