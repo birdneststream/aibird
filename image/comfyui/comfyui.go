@@ -24,7 +24,13 @@ import (
 	"github.com/schollz/progressbar/v3"
 )
 
-const boolType = "bool"
+const (
+	boolType        = "bool"
+	paramTypeVoice  = "voice"
+	paramTypeString = "string"
+	paramTypeInt    = "int"
+	paramTypeFloat  = "float"
+)
 
 func freeVram(clientAddr string, clientPort int) error {
 	url := fmt.Sprintf("http://%s:%d/free", clientAddr, clientPort)
@@ -272,7 +278,7 @@ func processParameter(irc *state.State, paramName string, paramDef *ParameterDef
 	}
 
 	// Handle special case for voice filename to add .wav suffix
-	if paramName == "voice" {
+	if paramName == paramTypeVoice {
 		if voiceStr, ok := finalValue.(string); ok && !strings.HasSuffix(voiceStr, ".wav") {
 			finalValue = voiceStr + ".wav"
 		}
@@ -284,11 +290,11 @@ func processParameter(irc *state.State, paramName string, paramDef *ParameterDef
 // parseUserInput converts raw user input to the appropriate type based on parameter definition.
 func parseUserInput(irc *state.State, paramName string, paramDef *ParameterDef, rawUserInput interface{}) interface{} { //nolint:gocyclo
 	switch paramDef.Type {
-	case "string":
+	case paramTypeString:
 		if strVal, ok := rawUserInput.(string); ok {
 			return strVal
 		}
-	case "bool":
+	case boolType:
 		if paramName == "fullblocks" {
 			if boolVal, ok := rawUserInput.(bool); ok {
 				return !boolVal // Invert: --fullblocks means disable halfblock mode
@@ -298,7 +304,7 @@ func parseUserInput(irc *state.State, paramName string, paramDef *ParameterDef, 
 				return boolVal
 			}
 		}
-	case "int":
+	case paramTypeInt:
 		if strVal, ok := rawUserInput.(string); ok {
 			val, err := strconv.ParseInt(strVal, 10, 64)
 			if err != nil {
@@ -312,7 +318,7 @@ func parseUserInput(irc *state.State, paramName string, paramDef *ParameterDef, 
 			}
 			return val
 		}
-	case "float":
+	case paramTypeFloat:
 		if strVal, ok := rawUserInput.(string); ok {
 			val, err := strconv.ParseFloat(strVal, 64)
 			if err != nil {

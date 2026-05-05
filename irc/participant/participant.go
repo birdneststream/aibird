@@ -17,6 +17,16 @@ import (
 	"github.com/lrstanley/girc"
 )
 
+const (
+	activityQuiet       = "quiet"
+	activityActive      = "active"
+	personalityFriendly = "friendly"
+	timeMorning         = "morning"
+	timeAfternoon       = "afternoon"
+	timeEvening         = "evening"
+	timeNight           = "night"
+)
+
 // Participant manages the AI participant system
 type Participant struct {
 	config *settings.Config
@@ -95,7 +105,7 @@ func (p *Participant) shouldRespond(memory *ConversationMemory, channel *channel
 	}
 
 	// Increase response rate if channel has been quiet
-	if p.analyzeChannelActivity(memory) == "quiet" {
+	if p.analyzeChannelActivity(memory) == activityQuiet {
 		memory.mu.RLock()
 		msgCount := memory.MessageCount
 		memory.mu.RUnlock()
@@ -141,7 +151,7 @@ func (p *Participant) shouldRespond(memory *ConversationMemory, channel *channel
 // generateAndSendResponse creates and sends an AI-generated response
 func (p *Participant) generateAndSendResponse(c *girc.Client, e girc.Event, network *networks.Network, channel *channels.Channel, memory *ConversationMemory) { //nolint:gocritic // girc library mandates Event by value
 	// Build context for response generation
-	ctx := p.buildMessageContext(memory, channel, network, e, "reactive")
+	ctx := p.buildMessageContext(memory, channel, network, e, modeReactive)
 
 	// Generate response using GLM
 	response, err := GenerateParticipantMessage(&ctx, &p.config.Glm)
@@ -260,7 +270,7 @@ func (p *Participant) recordMessage(memory *ConversationMemory, username, messag
 func (p *Participant) getChannelPersonality(channel *channels.Channel) PersonalityConfig {
 	// Default personality
 	return PersonalityConfig{
-		Name:          "friendly",
+		Name:          personalityFriendly,
 		SystemPrompt:  "You are a friendly, casual IRC user. Keep responses short and conversational.",
 		Chattiness:    0.3,
 		CompanionMode: false,
@@ -271,13 +281,13 @@ func (p *Participant) getTimeOfDay() string {
 	hour := time.Now().Hour()
 	switch {
 	case hour >= 5 && hour < 12:
-		return "morning"
+		return timeMorning
 	case hour >= 12 && hour < 17:
-		return "afternoon"
+		return timeAfternoon
 	case hour >= 17 && hour < 21:
-		return "evening"
+		return timeEvening
 	default:
-		return "night"
+		return timeNight
 	}
 }
 
@@ -298,9 +308,9 @@ func (p *Participant) analyzeChannelActivity(memory *ConversationMemory) string 
 	case recentCount >= 5:
 		return "very_active"
 	case recentCount >= 2:
-		return "active"
+		return activityActive
 	default:
-		return "quiet"
+		return activityQuiet
 	}
 }
 
@@ -406,7 +416,7 @@ func (p *Participant) handleBurstResponse(c *girc.Client, e girc.Event, network 
 		if pending {
 			logger.Debug("Burst delay expired, sending response", "user", username)
 
-			ctx := p.buildMessageContext(memory, channel, network, e, "reactive")
+			ctx := p.buildMessageContext(memory, channel, network, e, modeReactive)
 			response, err := GenerateParticipantMessage(&ctx, &p.config.Glm)
 			if err != nil {
 				logger.Error("Failed to generate burst response", "error", err)

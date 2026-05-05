@@ -10,6 +10,12 @@ import (
 	"aibird/text"
 )
 
+const (
+	roleUser        = "user"
+	modeSpontaneous = "spontaneous"
+	modeReactive    = "reactive"
+)
+
 // ParticipantRequest represents a chat completion request for the participant system
 type ParticipantRequest struct {
 	Model       string         `json:"model"`
@@ -52,7 +58,7 @@ func GenerateParticipantMessage(ctx *MessageContext, config *settings.GlmConfig)
 	// Add conversation history for better context
 	for _, msgText := range ctx.RecentMessages {
 		messages = append(messages, text.Message{
-			Role:    "user",
+			Role:    roleUser,
 			Content: msgText,
 		})
 	}
@@ -60,7 +66,7 @@ func GenerateParticipantMessage(ctx *MessageContext, config *settings.GlmConfig)
 	// Add a final instruction to prevent repetition
 	if len(ctx.RecentMessages) > 0 {
 		messages = append(messages, text.Message{
-			Role:    "user",
+			Role:    roleUser,
 			Content: "Please respond naturally considering the conversation above. Don't repeat greetings or questions already asked.",
 		})
 	}
@@ -118,7 +124,7 @@ Keep it natural and brief - like a real person heading to bed.
 Generate a natural goodnight message:`,
 			basePrompt, ctx.TimeOfDay, ctx.ChannelActivity)
 
-	case "spontaneous":
+	case modeSpontaneous:
 		contextStr := ""
 		if len(ctx.RecentMessages) > 0 {
 			contextStr = "Recent messages: " + strings.Join(ctx.RecentMessages, " | ")
@@ -141,7 +147,7 @@ Generate a caring check-in message. Be sweet but not overwhelming.
 1-2 sentences max:`,
 			basePrompt, ctx.TriggerUser, ctx.DaysSinceLastChat, ctx.TimeOfDay)
 
-	case "reactive":
+	case modeReactive:
 		highlightedStr := ""
 		if ctx.IsHighlighted {
 			highlightedStr = fmt.Sprintf("You were mentioned by %s. ", ctx.TriggerUser)
