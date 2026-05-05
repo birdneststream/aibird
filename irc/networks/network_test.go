@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"aibird/irc/channels"
+	"aibird/irc/servers"
 	"aibird/irc/users"
 	"aibird/logger"
 )
@@ -151,5 +152,96 @@ func TestGetModesAtOnce_Custom(t *testing.T) {
 	n := &Network{ModesAtOnce: 6}
 	if n.GetModesAtOnce() != 6 {
 		t.Errorf("expected 6, got %d", n.GetModesAtOnce())
+	}
+}
+
+func TestGetRandomServer_EmptyServers(t *testing.T) {
+	n := &Network{Servers: nil}
+	if s := n.GetRandomServer(); s != nil {
+		t.Errorf("expected nil for empty servers, got %v", s)
+	}
+}
+
+func TestGetRandomServer_SingleServer(t *testing.T) {
+	n := &Network{
+		Servers: []servers.Server{
+			{Host: "irc.test.net", Port: 6667},
+		},
+	}
+	s := n.GetRandomServer()
+	if s == nil {
+		t.Fatal("expected server, got nil")
+	}
+	if s.Host != "irc.test.net" {
+		t.Errorf("expected host irc.test.net, got %s", s.Host)
+	}
+}
+
+func TestGetRandomServer_MultipleServers(t *testing.T) {
+	n := &Network{
+		Servers: []servers.Server{
+			{Host: "irc1.test.net", Port: 6667},
+			{Host: "irc2.test.net", Port: 6667},
+			{Host: "irc3.test.net", Port: 6667},
+		},
+	}
+	// Run multiple times to ensure we get a valid server each time
+	for i := 0; i < 20; i++ {
+		s := n.GetRandomServer()
+		if s == nil {
+			t.Fatal("expected server, got nil")
+		}
+		found := s.Host == "irc1.test.net" || s.Host == "irc2.test.net" || s.Host == "irc3.test.net"
+		if !found {
+			t.Errorf("unexpected host: %s", s.Host)
+		}
+	}
+}
+
+func TestNetwork_String(t *testing.T) {
+	n := newTestNetwork()
+	s := n.String()
+	if s == "" {
+		t.Error("String() should not be empty")
+	}
+	if len(s) < 10 {
+		t.Errorf("String() seems too short: %q", s)
+	}
+}
+
+func TestProvideStateInit_FoundBoth(t *testing.T) {
+	n := newTestNetwork()
+	n.Channels = []channels.Channel{
+		{Name: "#test"},
+	}
+	ch, u := n.ProvideStateInit("#test", "~bob", "bob.host")
+	if ch == nil {
+		t.Error("expected channel, got nil")
+	}
+	if u == nil {
+		t.Error("expected user, got nil")
+	}
+}
+
+func TestProvideStateInit_ChannelNotFound(t *testing.T) {
+	n := newTestNetwork()
+	ch, u := n.ProvideStateInit("#nonexistent", "~bob", "bob.host")
+	if ch != nil {
+		t.Error("expected nil channel")
+	}
+	if u == nil {
+		t.Error("expected user, got nil")
+	}
+}
+
+func TestProvideStateInit_UserNotFound(t *testing.T) {
+	n := newTestNetwork()
+	n.Channels = []channels.Channel{{Name: "#test"}}
+	ch, u := n.ProvideStateInit("#test", "~nobody", "nowhere.host")
+	if ch == nil {
+		t.Error("expected channel, got nil")
+	}
+	if u != nil {
+		t.Error("expected nil user")
 	}
 }

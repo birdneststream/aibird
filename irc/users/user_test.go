@@ -185,3 +185,66 @@ func TestNewUserFromData(t *testing.T) {
 	assert.Equal(t, "newuser", u.NickName)
 	assert.Equal(t, 5, u.AccessLevel)
 }
+
+func TestUser_Seen_NoActivity(t *testing.T) {
+	u := User{NickName: "ghost", FirstSeen: 1700000000, LatestActivity: 0}
+	s := u.Seen()
+	assert.Contains(t, s, "ghost")
+	assert.Contains(t, s, "not seen any chats")
+}
+
+func TestUser_Seen_WithActivity(t *testing.T) {
+	u := User{NickName: "alice", LatestActivity: 1700000000}
+	s := u.Seen()
+	assert.Contains(t, s, "alice")
+	assert.Contains(t, s, "last seen")
+}
+
+func TestUser_String(t *testing.T) {
+	u := User{NickName: "alice", Ident: "~alice", Host: "alice.host", AccessLevel: 3}
+	s := u.String()
+	assert.Contains(t, s, "alice")
+	assert.NotEmpty(t, s)
+}
+
+func TestUser_IsAdminUser(t *testing.T) {
+	assert.True(t, (&User{IsAdmin: true}).IsAdminUser())
+	assert.False(t, (&User{IsAdmin: false}).IsAdminUser())
+}
+
+func TestUser_IsOwnerUser(t *testing.T) {
+	assert.True(t, (&User{IsOwner: true}).IsOwnerUser())
+	assert.False(t, (&User{IsOwner: false}).IsOwnerUser())
+}
+
+func TestUser_UnIgnore(t *testing.T) {
+	u := User{Ignored: true}
+	u.UnIgnore()
+	assert.False(t, u.Ignored)
+}
+
+func TestUser_IsIgnored(t *testing.T) {
+	assert.True(t, (&User{Ignored: true}).IsIgnored())
+	assert.False(t, (&User{Ignored: false}).IsIgnored())
+}
+
+func TestUser_GetAccessLevel(t *testing.T) {
+	assert.Equal(t, 5, (&User{AccessLevel: 5}).GetAccessLevel())
+	assert.Equal(t, 0, (&User{}).GetAccessLevel())
+}
+
+func TestUser_GetDefaults(t *testing.T) {
+	u := User{}
+	assert.Equal(t, "", u.GetAiService())
+	assert.Equal(t, "", u.GetAiModel())
+	assert.Equal(t, "", u.GetBasePrompt())
+	assert.Equal(t, "", u.GetPersonality())
+}
+
+func TestUser_Touch(t *testing.T) {
+	u := User{NickName: "test"}
+	before := u.LatestActivity
+	u.Touch("hello")
+	assert.True(t, u.LatestActivity >= before)
+	assert.Equal(t, "hello", u.LatestChat)
+}
