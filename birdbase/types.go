@@ -1,31 +1,29 @@
 package birdbase
 
-import "time"
-
 type Message struct {
 	Role    string `json:"role"`
 	Content string `json:"content"`
 }
 
 type LeaderboardEntry struct {
-	Nickname  string    `json:"nickname"`
-	Command   string    `json:"command"`
-	Count     int       `json:"count"`
-	UpdatedAt time.Time `json:"updated_at"`
+	Nickname  string `json:"nickname"`
+	Command   string `json:"command"`
+	Count     int    `json:"count"`
+	UpdatedAt string `json:"updated_at"`
 }
 
 type GlobalLeaderboardEntry struct {
-	Network   string    `json:"network"`
-	Nickname  string    `json:"nickname"`
-	Command   string    `json:"command"`
-	Count     int       `json:"count"`
-	UpdatedAt time.Time `json:"updated_at"`
+	Network   string `json:"network"`
+	Nickname  string `json:"nickname"`
+	Command   string `json:"command"`
+	Count     int    `json:"count"`
+	UpdatedAt string `json:"updated_at"`
 }
 
 type UserTotalEntry struct {
-	Nickname   string    `json:"nickname"`
-	TotalCount int       `json:"total_count"`
-	UpdatedAt  time.Time `json:"updated_at"`
+	Nickname   string `json:"nickname"`
+	TotalCount int    `json:"total_count"`
+	UpdatedAt  string `json:"updated_at"`
 }
 
 type NetworkData struct {

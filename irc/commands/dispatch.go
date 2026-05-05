@@ -79,38 +79,16 @@ func RunQueueableCommand(ctx context.Context, s state.State, gpu meta.GPUType) {
 
 // Helper functions to categorize commands based on registry and workflow metadata
 
-func isImageCommand(action string) bool {
+// isCommandOfType checks if an action matches a given registry type and ComfyUI metadata type.
+func isCommandOfType(action, regType, metaType string) bool {
 	entry := getRegistry().lookup(action)
-	if entry != nil && entry.Type == cmdTypeImage {
+	if entry != nil && entry.Type == regType {
 		return true
 	}
 	meta := comfyui.GetCachedMeta(action)
-	if meta != nil && meta.Type == "image" {
-		return true
-	}
-	return false
+	return meta != nil && meta.Type == metaType
 }
 
-func isVideoCommand(action string) bool {
-	entry := getRegistry().lookup(action)
-	if entry != nil && entry.Type == cmdTypeVideo {
-		return true
-	}
-	meta := comfyui.GetCachedMeta(action)
-	if meta != nil && meta.Type == "video" {
-		return true
-	}
-	return false
-}
-
-func isSoundCommand(action string) bool {
-	entry := getRegistry().lookup(action)
-	if entry != nil && entry.Type == cmdTypeSound {
-		return true
-	}
-	meta := comfyui.GetCachedMeta(action)
-	if meta != nil && meta.Type == "sound" {
-		return true
-	}
-	return false
-}
+func isImageCommand(action string) bool { return isCommandOfType(action, cmdTypeImage, "image") }
+func isVideoCommand(action string) bool { return isCommandOfType(action, cmdTypeVideo, "video") }
+func isSoundCommand(action string) bool { return isCommandOfType(action, cmdTypeSound, "sound") }

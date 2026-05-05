@@ -7,6 +7,7 @@ import (
 	"aibird/birdbase"
 	"aibird/helpers"
 	"aibird/irc/state"
+	"aibird/logger"
 )
 
 func ParseOwner(irc *state.State) {
@@ -16,10 +17,17 @@ func ParseOwner(irc *state.State) {
 			irc.Network.Save()
 			irc.ReplyTo("Saved databases")
 		case "ip":
-			ip, _ := helpers.GetIp()
-			irc.ReplyTo(ip)
+			ip, err := helpers.GetIp()
+			if err != nil {
+				logger.Error("Failed to get IP", "error", err)
+				irc.ReplyTo("Error: failed to get IP")
+			} else {
+				irc.ReplyTo(ip)
+			}
 		case "raw":
-			_ = irc.Client.Cmd.SendRaw(irc.Command.Message)
+			if err := irc.Client.Cmd.SendRaw(irc.Command.Message); err != nil {
+				logger.Error("Raw command failed", "error", err, "command", irc.Command.Message)
+			}
 		case "dbstats":
 			handleDbStats(irc)
 		}
@@ -39,10 +47,10 @@ func handleDbStats(irc *state.State) {
 	fileInfo, err := os.Stat(dbPath)
 	var fileSize int64
 	if err != nil {
-		irc.ReplyTo(fmt.Sprintf("Error getting database file size: %v", err))
-		return
+		logger.Warn("Failed to stat database file", "error", err)
+	} else {
+		fileSize = fileInfo.Size()
 	}
-	fileSize = fileInfo.Size()
 
 	// Format size in human readable format
 	fileSizeStr := formatBytes(fileSize)

@@ -481,7 +481,11 @@ func (s *SQLiteDB) SaveNetworkUsersWithChannels(networkName string, users []User
 		return err
 	}
 
-	return s.saveUsersToDatabase(tx, networkID, users)
+	if err := s.saveUsersToDatabase(tx, networkID, users); err != nil {
+		return err
+	}
+
+	return tx.Commit()
 }
 
 func (s *SQLiteDB) SaveNetworkUsers(networkName string, users []UserData) error {
@@ -643,7 +647,7 @@ func (s *SQLiteDB) saveUsersToDatabase(tx *sql.Tx, networkID int64, users []User
 		}
 	}
 
-	return tx.Commit()
+	return nil
 }
 
 func LoadNetworkUsers(networkName string) ([]UserData, error) {

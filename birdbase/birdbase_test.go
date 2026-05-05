@@ -206,16 +206,6 @@ func TestUserUsage(t *testing.T) {
 	if !shouldNag {
 		t.Error("Should nag at 30 uses")
 	}
-
-	// Test GetUserUsage
-	usage, err := testDB.GetUserUsage(ident, host)
-	if err != nil {
-		t.Fatalf("GetUserUsage failed: %v", err)
-	}
-
-	if usage != 30 {
-		t.Errorf("Expected 30 usage, got %d", usage)
-	}
 }
 
 func TestInMemoryStructures(t *testing.T) {

@@ -1,7 +1,6 @@
 package birdbase
 
 import (
-	"database/sql"
 	"encoding/json"
 )
 
@@ -61,30 +60,20 @@ func (s *SQLiteDB) IncrementUserUsage(ident, host string) (count int, shouldNag 
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	_, err = s.db.Exec(`
+	err = s.db.QueryRow(`
         INSERT INTO user_usage (ident, host, total_uses, updated_at)
         VALUES (?, ?, 1, datetime('now'))
         ON CONFLICT(ident, host) DO UPDATE SET
             total_uses = total_uses + 1,
             updated_at = datetime('now')
-    `, ident, host)
+        RETURNING total_uses
+    `, ident, host).Scan(&count)
 
 	if err != nil {
 		return 0, false, err
 	}
 
-	var totalUses int
-	err = s.db.QueryRow(`
-        SELECT total_uses FROM user_usage WHERE ident = ? AND host = ?
-    `, ident, host).Scan(&totalUses)
-
-	if err != nil {
-		return 0, false, err
-	}
-
-	shouldNag = totalUses > 0 && totalUses%30 == 0
-
-	return totalUses, shouldNag, nil
+	return count, count > 0 && count%30 == 0, nil
 }
 
 // DeleteChatHistory removes a chat history entry by its cache key.
@@ -92,34 +81,10 @@ func DeleteChatHistory(key string) error {
 	return Data.DeleteChatHistory(key)
 }
 
-// DeleteChatHistory removes a chat history entry by its cache key.
 func (s *SQLiteDB) DeleteChatHistory(key string) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
 	_, err := s.db.Exec("DELETE FROM chat_history WHERE cache_key = ?", key)
 	return err
-}
-
-func GetUserUsage(ident, host string) (int, error) {
-	return Data.GetUserUsage(ident, host)
-}
-
-func (s *SQLiteDB) GetUserUsage(ident, host string) (int, error) {
-	s.mu.RLock()
-	defer s.mu.RUnlock()
-
-	var totalUses int
-	err := s.db.QueryRow(`
-        SELECT total_uses FROM user_usage WHERE ident = ? AND host = ?
-    `, ident, host).Scan(&totalUses)
-
-	if err != nil {
-		if err == sql.ErrNoRows {
-			return 0, nil
-		}
-		return 0, err
-	}
-
-	return totalUses, nil
 }

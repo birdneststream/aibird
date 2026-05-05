@@ -30,11 +30,6 @@ const (
 	cmdLeaderboard = "leaderboard"
 )
 
-func ParseStandard(irc *state.State) {
-	// For backward compatibility, call the version with queue
-	ParseStandardWithQueue(irc, nil)
-}
-
 func formatHelp(prefix string, commands []help.Help) string {
 	var names []string
 	for _, cmd := range commands {

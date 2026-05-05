@@ -107,10 +107,6 @@ func PutInt(key string, value int) error {
 	return Put(key, []byte(strconv.Itoa(value)))
 }
 
-func PutBytesExpireHours(key string, value []byte, hours int) error {
-	return PutWithTTL(key, value, time.Duration(hours)*time.Hour)
-}
-
 func PutStringExpireSeconds(key, value string, seconds int) error {
 	return PutWithTTL(key, []byte(value), time.Duration(seconds)*time.Second)
 }

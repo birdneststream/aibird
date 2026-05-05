@@ -1,5 +1,7 @@
 package birdbase
 
+import "aibird/logger"
+
 func IncrementCommandUsage(network, nickname, command string) error {
 	return Data.IncrementCommandUsage(network, nickname, command)
 }
@@ -45,6 +47,7 @@ func (s *SQLiteDB) GetNetworkLeaderboard(network string, limit int) ([]Leaderboa
 		var entry LeaderboardEntry
 		err := rows.Scan(&entry.Nickname, &entry.Command, &entry.Count, &entry.UpdatedAt)
 		if err != nil {
+			logger.Warn("Failed to scan leaderboard entry", "error", err)
 			continue
 		}
 		entries = append(entries, entry)
@@ -84,6 +87,7 @@ func (s *SQLiteDB) GetNetworkUserTotals(network string, limit int) ([]UserTotalE
 		var entry UserTotalEntry
 		err := rows.Scan(&entry.Nickname, &entry.TotalCount, &entry.UpdatedAt)
 		if err != nil {
+			logger.Warn("Failed to scan user total entry", "error", err)
 			continue
 		}
 		entries = append(entries, entry)
@@ -121,6 +125,7 @@ func (s *SQLiteDB) GetGlobalLeaderboard(limit int) ([]GlobalLeaderboardEntry, er
 		var entry GlobalLeaderboardEntry
 		err := rows.Scan(&entry.Network, &entry.Nickname, &entry.Command, &entry.Count, &entry.UpdatedAt)
 		if err != nil {
+			logger.Warn("Failed to scan global leaderboard entry", "error", err)
 			continue
 		}
 		entries = append(entries, entry)
@@ -159,6 +164,7 @@ func (s *SQLiteDB) GetCommandLeaderboard(command string, limit int) ([]GlobalLea
 		var entry GlobalLeaderboardEntry
 		err := rows.Scan(&entry.Network, &entry.Nickname, &entry.Command, &entry.Count, &entry.UpdatedAt)
 		if err != nil {
+			logger.Warn("Failed to scan command leaderboard entry", "error", err)
 			continue
 		}
 		entries = append(entries, entry)

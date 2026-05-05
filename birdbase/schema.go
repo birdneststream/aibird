@@ -240,8 +240,9 @@ func (s *SQLiteDB) initSchema() error {
 	}
 
 	var currentVersion int
-	// COALESCE always returns a row, so sql.ErrNoRows cannot occur
-	_ = tx.QueryRow("SELECT COALESCE(MAX(version), 0) FROM schema_version").Scan(&currentVersion)
+	if queryErr := tx.QueryRow("SELECT COALESCE(MAX(version), 0) FROM schema_version").Scan(&currentVersion); queryErr != nil {
+		return fmt.Errorf("failed to read schema version: %w", queryErr)
+	}
 
 	if currentVersion < schemaVersion {
 		// Migration 1→2: Replace ollama service references with llamacpp

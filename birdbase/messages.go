@@ -168,6 +168,7 @@ func (s *SQLiteDB) ResolveNetworkID(networkName string) int64 {
 	var id int64
 	err := s.db.QueryRow("SELECT id FROM networks WHERE network_name = ?", networkName).Scan(&id)
 	if err != nil {
+		logger.Warn("Failed to resolve network ID", "network", networkName, "error", err)
 		return 0
 	}
 
