@@ -2,7 +2,6 @@ package commands
 
 import (
 	"fmt"
-	"strings"
 
 	"aibird/birdbase"
 	"aibird/irc/state"
@@ -17,8 +16,7 @@ func ParseLeaderboard(irc *state.State) {
 }
 
 func handleLeaderboard(irc *state.State) {
-	// Get the argument to determine which leaderboard to show
-	arg := strings.TrimSpace(irc.Command.Message)
+	arg := irc.Command.Message
 
 	switch arg {
 	case "global":
@@ -28,10 +26,8 @@ func handleLeaderboard(irc *state.State) {
 		}
 		handleGlobalLeaderboard(irc)
 	case "":
-		// Default: show network-specific leaderboard
 		handleNetworkLeaderboard(irc)
 	default:
-		// Check if it's a specific command leaderboard (owner only)
 		if !irc.User.IsOwnerUser() {
 			irc.SendError("Only owners can view command-specific leaderboards")
 			return
@@ -53,28 +49,25 @@ func handleNetworkLeaderboard(irc *state.State) {
 		return
 	}
 
-	// Create table header
-	response := fmt.Sprintf("📊 Top %d users on %s:", len(entries), irc.Network.NetworkName)
-	irc.Send(response)
+	irc.Send(fmt.Sprintf("📊 Top %d users on %s:", len(entries), irc.Network.NetworkName))
 
-	// Table header
-	irc.Send("┌────┬─────────────────┬─────────────────┬───────┐")
-	irc.Send("│ #  │ Nickname        │ Command         │ Count │")
-	irc.Send("├────┼─────────────────┼─────────────────┼───────┤")
-
-	// Table rows
+	rows := make([][]string, len(entries))
 	for i, entry := range entries {
-		rank := fmt.Sprintf("%2d", i+1)
-		nickname := fmt.Sprintf("%-15s", truncateString(entry.Nickname, 15))
-		command := fmt.Sprintf("%-15s", truncateString(entry.Command, 15))
-		count := fmt.Sprintf("%5d", entry.Count)
-
-		row := fmt.Sprintf("│ %s │ %s │ %s │ %s │", rank, nickname, command, count)
-		irc.Send(row)
+		rows[i] = []string{
+			fmt.Sprintf("%2d", i+1),
+			truncateString(entry.Nickname, 15),
+			truncateString(entry.Command, 15),
+			fmt.Sprintf("%5d", entry.Count),
+		}
 	}
 
-	// Table footer
-	irc.Send("└────┴─────────────────┴─────────────────┴───────┘")
+	for _, line := range formatLeaderboardTable(
+		[]int{4, 17, 17, 7},
+		[]string{"#", "Nickname", "Command", "Count"},
+		rows,
+	) {
+		irc.Send(line)
+	}
 }
 
 func handleGlobalLeaderboard(irc *state.State) {
@@ -90,29 +83,26 @@ func handleGlobalLeaderboard(irc *state.State) {
 		return
 	}
 
-	// Create table header
-	response := fmt.Sprintf("🌍 Global Top %d users:", len(entries))
-	irc.Send(response)
+	irc.Send(fmt.Sprintf("🌍 Global Top %d users:", len(entries)))
 
-	// Table header
-	irc.Send("┌────┬─────────────────┬─────────────────┬─────────────────┬───────┐")
-	irc.Send("│ #  │ Network         │ Nickname        │ Command         │ Count │")
-	irc.Send("├────┼─────────────────┼─────────────────┼─────────────────┼───────┤")
-
-	// Table rows
+	rows := make([][]string, len(entries))
 	for i, entry := range entries {
-		rank := fmt.Sprintf("%2d", i+1)
-		network := fmt.Sprintf("%-15s", truncateString(entry.Network, 15))
-		nickname := fmt.Sprintf("%-15s", truncateString(entry.Nickname, 15))
-		command := fmt.Sprintf("%-15s", truncateString(entry.Command, 15))
-		count := fmt.Sprintf("%5d", entry.Count)
-
-		row := fmt.Sprintf("│ %s │ %s │ %s │ %s │ %s │", rank, network, nickname, command, count)
-		irc.Send(row)
+		rows[i] = []string{
+			fmt.Sprintf("%2d", i+1),
+			truncateString(entry.Network, 15),
+			truncateString(entry.Nickname, 15),
+			truncateString(entry.Command, 15),
+			fmt.Sprintf("%5d", entry.Count),
+		}
 	}
 
-	// Table footer
-	irc.Send("└────┴─────────────────┴─────────────────┴─────────────────┴───────┘")
+	for _, line := range formatLeaderboardTable(
+		[]int{4, 17, 17, 17, 7},
+		[]string{"#", "Network", "Nickname", "Command", "Count"},
+		rows,
+	) {
+		irc.Send(line)
+	}
 }
 
 func handleCommandLeaderboard(irc *state.State, command string) {
@@ -128,31 +118,115 @@ func handleCommandLeaderboard(irc *state.State, command string) {
 		return
 	}
 
-	// Create table header
-	response := fmt.Sprintf("🎯 Top %d users for command '%s':", len(entries), command)
-	irc.Send(response)
+	irc.Send(fmt.Sprintf("🎯 Top %d users for command '%s':", len(entries), command))
 
-	// Table header
-	irc.Send("┌────┬─────────────────┬─────────────────┬───────┐")
-	irc.Send("│ #  │ Network         │ Nickname        │ Count │")
-	irc.Send("├────┼─────────────────┼─────────────────┼───────┤")
-
-	// Table rows
+	rows := make([][]string, len(entries))
 	for i, entry := range entries {
-		rank := fmt.Sprintf("%2d", i+1)
-		network := fmt.Sprintf("%-15s", truncateString(entry.Network, 15))
-		nickname := fmt.Sprintf("%-15s", truncateString(entry.Nickname, 15))
-		count := fmt.Sprintf("%5d", entry.Count)
-
-		row := fmt.Sprintf("│ %s │ %s │ %s │ %s │", rank, network, nickname, count)
-		irc.Send(row)
+		rows[i] = []string{
+			fmt.Sprintf("%2d", i+1),
+			truncateString(entry.Network, 15),
+			truncateString(entry.Nickname, 15),
+			fmt.Sprintf("%5d", entry.Count),
+		}
 	}
 
-	// Table footer
-	irc.Send("└────┴─────────────────┴─────────────────┴───────┘")
+	for _, line := range formatLeaderboardTable(
+		[]int{4, 17, 17, 7},
+		[]string{"#", "Network", "Nickname", "Count"},
+		rows,
+	) {
+		irc.Send(line)
+	}
 }
 
-// truncateString truncates a string to the specified length and adds ellipsis if needed
+// leaderboardColumn describes a column in the leaderboard table.
+type leaderboardColumn struct {
+	header string
+	width  int // total column width including padding
+}
+
+// formatLeaderboardTable builds a formatted table with border lines.
+// colWidths is the total width of each column (including 1-space padding on each side).
+// headers and each row must have the same number of elements as colWidths.
+// Returns lines in order: header border, header row, separator, data rows, footer border.
+func formatLeaderboardTable(colWidths []int, headers []string, rows [][]string) []string {
+	if len(colWidths) != len(headers) {
+		return nil
+	}
+
+	cols := make([]leaderboardColumn, len(colWidths))
+	for i, w := range colWidths {
+		cols[i] = leaderboardColumn{header: headers[i], width: w}
+	}
+
+	var lines []string
+
+	// Header border: ┌────┬──────┐
+	lines = append(lines, buildBorder(cols, "┌", "┬", "┐"))
+
+	// Header row: │ #  │ Name │
+	lines = append(lines, buildRow(cols, func(i int) string {
+		return centerText(headers[i], cols[i].width)
+	}))
+
+	// Separator: ├────┼──────┤
+	lines = append(lines, buildBorder(cols, "├", "┼", "┤"))
+
+	// Data rows
+	for _, row := range rows {
+		lines = append(lines, buildRow(cols, func(i int) string {
+			if i < len(row) {
+				return centerText(row[i], cols[i].width)
+			}
+			return centerText("", cols[i].width)
+		}))
+	}
+
+	// Footer border: └────┴──────┘
+	lines = append(lines, buildBorder(cols, "└", "┴", "┘"))
+
+	return lines
+}
+
+// buildBorder creates a horizontal border line.
+func buildBorder(cols []leaderboardColumn, left, mid, right string) string {
+	s := left
+	for i, col := range cols {
+		for j := 0; j < col.width; j++ {
+			s += "─"
+		}
+		if i < len(cols)-1 {
+			s += mid
+		}
+	}
+	return s + right
+}
+
+// buildRow creates a data row line.
+func buildRow(cols []leaderboardColumn, getCell func(int) string) string {
+	s := "│"
+	for i := range cols {
+		s += getCell(i)
+		s += "│"
+	}
+	return s
+}
+
+// centerText pads text to the given width with spaces on both sides.
+func centerText(text string, width int) string {
+	// Left pad 1 space, right pad to fill
+	padded := " " + text
+	for len(padded) < width-1 {
+		padded += " "
+	}
+	padded += " "
+	if len(padded) > width {
+		padded = padded[:width]
+	}
+	return padded
+}
+
+// truncateString truncates a string to the specified length and adds ellipsis if needed.
 func truncateString(s string, maxLen int) string {
 	if len(s) <= maxLen {
 		return s
