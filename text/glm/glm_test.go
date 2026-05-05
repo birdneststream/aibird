@@ -303,7 +303,7 @@ func TestHandleResetCommand_DeletesFromChatHistory(t *testing.T) {
 	require.NoError(t, err)
 
 	// Verify history is actually deleted from chat_history table
-	history, err = birdbase.GetChatHistory(key)
+	history, _ = birdbase.GetChatHistory(key)
 	assert.Nil(t, history, "chat history should be deleted after reset")
 }
 

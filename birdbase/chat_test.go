@@ -61,7 +61,7 @@ func TestDeleteChatHistory_IsolatesOtherKeys(t *testing.T) {
 	assert.Equal(t, "bob msg", got[0].Content)
 
 	// key1 should be gone
-	got, err = db.GetChatHistory(key1)
+	got, _ = db.GetChatHistory(key1)
 	assert.Nil(t, got)
 }
 

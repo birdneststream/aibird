@@ -60,7 +60,7 @@ func TestGetPrompt_InvalidInput(t *testing.T) {
 
 func TestReadSanitizedFile_PathTraversal(t *testing.T) {
 	tests := []struct {
-		name string
+		name  string
 		input string
 	}{
 		{"absolute unix path", "/etc/passwd"},
