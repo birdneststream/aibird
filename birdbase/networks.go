@@ -544,8 +544,26 @@ func (s *SQLiteDB) SaveSingleUser(networkName, ident, host string, user *UserDat
 		return fmt.Errorf("network not found: %w", err)
 	}
 
-	var userID int64
-	err = tx.QueryRow(`
+	userID, err := upsertUser(tx, networkID, user)
+	if err != nil {
+		return err
+	}
+
+	if err := saveUserModes(tx, userID, networkID, user.PreservedModes, "preserved", false); err != nil {
+		return err
+	}
+	if err := saveUserModes(tx, userID, networkID, user.CurrentModes, "current", false); err != nil {
+		return err
+	}
+
+	return tx.Commit()
+}
+
+// upsertUser inserts or updates a user in the irc_users table.
+// Caller owns the transaction lifecycle; this helper must not Commit or Rollback.
+// Returns the user's database ID.
+func upsertUser(tx *sql.Tx, networkID int64, user *UserData) (int64, error) {
+	const upsertSQL = `
 		INSERT INTO irc_users (network_id, nickname, ident, host, first_seen, latest_activity,
 			latest_chat, is_admin, is_owner, ignored, access_level, ai_service, ai_model,
 			ai_base_prompt, ai_personality)
@@ -563,23 +581,17 @@ func (s *SQLiteDB) SaveSingleUser(networkName, ident, host string, user *UserDat
 			ai_base_prompt = excluded.ai_base_prompt,
 			ai_personality = excluded.ai_personality,
 			updated_at = datetime('now')
-		RETURNING id
-	`, networkID, user.NickName, user.Ident, user.Host, user.FirstSeen, user.LatestActivity,
+		RETURNING id`
+
+	var userID int64
+	err := tx.QueryRow(upsertSQL,
+		networkID, user.NickName, user.Ident, user.Host, user.FirstSeen, user.LatestActivity,
 		user.LatestChat, user.IsAdmin, user.IsOwner, user.Ignored, user.AccessLevel,
 		user.AiService, user.AiModel, user.AiBasePrompt, user.AiPersonality).Scan(&userID)
-
 	if err != nil {
-		return err
+		return 0, err
 	}
-
-	if err := saveUserModes(tx, userID, networkID, user.PreservedModes, "preserved", false); err != nil {
-		return err
-	}
-	if err := saveUserModes(tx, userID, networkID, user.CurrentModes, "current", false); err != nil {
-		return err
-	}
-
-	return tx.Commit()
+	return userID, nil
 }
 
 // saveUsersToDatabase performs deduplication and upsert of users within the
@@ -614,30 +626,7 @@ func (s *SQLiteDB) saveUsersToDatabase(tx *sql.Tx, networkID int64, users []User
 	for i := range deduplicatedUsers {
 		logger.Debug("Upserting user", "network_id", networkID, "index", i, "nickname", deduplicatedUsers[i].NickName, "ident", deduplicatedUsers[i].Ident, "host", deduplicatedUsers[i].Host)
 
-		var userID int64
-		err := tx.QueryRow(`
-			INSERT INTO irc_users (network_id, nickname, ident, host, first_seen, latest_activity,
-				latest_chat, is_admin, is_owner, ignored, access_level, ai_service, ai_model,
-				ai_base_prompt, ai_personality)
-			VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-			ON CONFLICT(network_id, ident, host) DO UPDATE SET
-				nickname = excluded.nickname,
-				latest_activity = excluded.latest_activity,
-				latest_chat = excluded.latest_chat,
-				is_admin = excluded.is_admin,
-				is_owner = excluded.is_owner,
-				ignored = excluded.ignored,
-				access_level = excluded.access_level,
-				ai_service = excluded.ai_service,
-				ai_model = excluded.ai_model,
-				ai_base_prompt = excluded.ai_base_prompt,
-				ai_personality = excluded.ai_personality,
-				updated_at = datetime('now')
-			RETURNING id
-		`, networkID, deduplicatedUsers[i].NickName, deduplicatedUsers[i].Ident, deduplicatedUsers[i].Host, deduplicatedUsers[i].FirstSeen, deduplicatedUsers[i].LatestActivity,
-			deduplicatedUsers[i].LatestChat, deduplicatedUsers[i].IsAdmin, deduplicatedUsers[i].IsOwner, deduplicatedUsers[i].Ignored, deduplicatedUsers[i].AccessLevel,
-			deduplicatedUsers[i].AiService, deduplicatedUsers[i].AiModel, deduplicatedUsers[i].AiBasePrompt, deduplicatedUsers[i].AiPersonality).Scan(&userID)
-
+		userID, err := upsertUser(tx, networkID, &deduplicatedUsers[i])
 		if err != nil {
 			return err
 		}

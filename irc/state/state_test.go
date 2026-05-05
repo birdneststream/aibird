@@ -361,3 +361,71 @@ func TestVerify_SentinelErrors(t *testing.T) {
 		})
 	}
 }
+
+// TestVerify_PMUnknownUser_NoPanic verifies that a PM from a user not found
+// in the network returns ErrMissingParams instead of panicking on nil User.
+// This is a regression test for a nil pointer dereference bug where the nil
+// check (ErrMissingParams) came after the HasAnyMode() check.
+func TestVerify_PMUnknownUser_NoPanic(t *testing.T) {
+	net := &networks.Network{
+		NetworkName: "testnet",
+		Nick:        "testbot",
+		Users:       []users.User{}, // empty — no users, so lookup returns nil
+	}
+
+	s := State{
+		Network: net,
+		Config:  &settings.Config{},
+		Event: girc.Event{
+			Source: &girc.Source{Name: "stranger", Ident: "s", Host: "unknown"},
+			// IsFromUser() returns true when there's no channel target (PM)
+		},
+		ValidateCommand: func(string) bool { return false },
+	}
+
+	// This should NOT panic — it should return ErrMissingParams
+	err := s.Verify()
+	if !errors.Is(err, ErrMissingParams) {
+		t.Errorf("Verify() with nil PM user: error = %v, want ErrMissingParams", err)
+	}
+}
+
+// TestVerify_SoyjakKnownUser_NoModes verifies that a known user on soyjak
+// network without modes returns ErrNoModes (not panic or ErrMissingParams).
+func TestVerify_SoyjakKnownUser_NoModes(t *testing.T) {
+	user := users.User{
+		NickName:       "testuser",
+		Ident:          "u",
+		Host:           "h",
+		CurrentModes:   nil, // no modes
+		PreservedModes: nil,
+	}
+	ch := channels.Channel{
+		Name:  "#test",
+		Users: []*users.User{&user},
+		Ai:    true,
+	}
+	net := &networks.Network{
+		NetworkName: "soyjak",
+		Nick:        "testbot",
+		Users:       []users.User{user},
+		Channels:    []channels.Channel{ch},
+	}
+
+	s := State{
+		Network: net,
+		User:    &user,
+		Channel: &ch,
+		Config:  &settings.Config{},
+		Event: girc.Event{
+			Source: &girc.Source{Name: "testuser", Ident: "u", Host: "h"},
+			Params: []string{"#test"},
+		},
+		ValidateCommand: func(string) bool { return false },
+	}
+
+	err := s.Verify()
+	if !errors.Is(err, ErrNoModes) {
+		t.Errorf("Verify() soyjak no-modes: error = %v, want ErrNoModes", err)
+	}
+}

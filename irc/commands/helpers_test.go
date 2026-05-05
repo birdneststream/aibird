@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+	"unicode/utf8"
 
 	"aibird/birdbase"
 	"aibird/irc/state"
@@ -126,4 +127,69 @@ func TestFetchHistoryAndEnqueue_NetworkNotFound(t *testing.T) {
 	// Network "nonexistent" won't be found, so ResolveNetworkID returns 0
 	networkID := birdbase.ResolveNetworkID("nonexistent")
 	assert.Equal(t, int64(0), networkID, "nonexistent network should resolve to 0")
+}
+
+func TestSanitizePersona_UTF8Truncation(t *testing.T) {
+	tests := []struct {
+		name      string
+		input     string
+		wantRunes int
+	}{
+		{
+			name:      "short ASCII unchanged",
+			input:     "hello world",
+			wantRunes: 11,
+		},
+		{
+			name:      "short multi-byte unchanged",
+			input:     "こんにちは世界",
+			wantRunes: 7,
+		},
+		{
+			name:      "multi-byte at boundary — truncates to 200 runes",
+			input:     string(make([]rune, 250)),
+			wantRunes: 200,
+		},
+		{
+			name:      "emoji at boundary",
+			input:     string(make([]rune, 199)) + "🎉🔑",
+			wantRunes: 200,
+		},
+		{
+			name:      "exactly 200 runes — no truncation",
+			input:     string(make([]rune, 200)),
+			wantRunes: 200,
+		},
+		{
+			name:      "newlines stripped to spaces",
+			input:     "hello\nworld",
+			wantRunes: 11, // "hello world" (space replaces \n)
+		},
+		{
+			name:      "carriage return stripped",
+			input:     "hello\rworld",
+			wantRunes: 11, // "hello world" (space replaces \r)
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := sanitizePersona(tt.input)
+			assert.True(t, utf8.ValidString(result), "result should be valid UTF-8")
+			assert.Equal(t, tt.wantRunes, utf8.RuneCountInString(result), "rune count mismatch")
+		})
+	}
+}
+
+func TestSanitizePersona_ByteSafety(t *testing.T) {
+	// Create a string with multi-byte characters that exceed 200 runes.
+	// Each emoji is 4 bytes but 1 rune. 250 emojis = 250 runes > 200.
+	input := ""
+	for i := 0; i < 250; i++ {
+		input += "🎉" // 4 bytes each, 250 runes
+	}
+
+	result := sanitizePersona(input)
+	assert.True(t, utf8.ValidString(result), "result must be valid UTF-8")
+	assert.Equal(t, 200, utf8.RuneCountInString(result), "should be exactly 200 runes")
 }

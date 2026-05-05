@@ -225,33 +225,6 @@ func TestGetAllCommands_ReturnsKnownCommands(t *testing.T) {
 	}
 }
 
-// TestGetAllCommandsUnfiltered_ReturnsAll verifies unfiltered returns everything.
-func TestGetAllCommandsUnfiltered_ReturnsAll(t *testing.T) {
-	cmds := GetAllCommandsUnfiltered()
-
-	cmdMap := make(map[string]bool)
-	for _, cmd := range cmds {
-		cmdMap[cmd] = true
-	}
-
-	// Standard
-	if !cmdMap["hello"] {
-		t.Error("Should contain standard command 'hello'")
-	}
-	// Admin (unfiltered includes admin)
-	if !cmdMap["user"] {
-		t.Error("Should contain admin command 'user'")
-	}
-	// Owner (unfiltered includes owner)
-	if !cmdMap["debug"] {
-		t.Error("Should contain owner command 'debug'")
-	}
-	// Text (unfiltered includes AI)
-	if !cmdMap["ai"] {
-		t.Error("Should contain text command 'ai'")
-	}
-}
-
 // TestIsQueueableFromHelp verifies queueable flag from registry.
 func TestIsQueueableFromHelp(t *testing.T) {
 	tests := []struct {

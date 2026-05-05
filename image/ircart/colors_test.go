@@ -6,6 +6,7 @@ import (
 	"image/png"
 	"os"
 	"path/filepath"
+	"sync"
 	"testing"
 
 	"aibird/logger"
@@ -60,11 +61,13 @@ func TestGetIRCColorFromRGB_Fallback(t *testing.T) {
 }
 
 func TestInitRGBLookupMap_Idempotent(t *testing.T) {
-	// Reset the map to test idempotency
+	// Reset the map and Once to test population
 	rgbToIRCCodeMap = make(map[uint32]int)
+	initRGBOnce = sync.Once{}
 	initRGBLookupMap()
 	firstLen := len(rgbToIRCCodeMap)
 
+	// Second call should be a no-op via sync.Once
 	initRGBLookupMap()
 	secondLen := len(rgbToIRCCodeMap)
 
@@ -73,6 +76,30 @@ func TestInitRGBLookupMap_Idempotent(t *testing.T) {
 	// so the unique count in the map is less than 99.
 	assert.Less(t, secondLen, len(IRCColorPalette))
 	assert.Greater(t, secondLen, 0)
+}
+
+// TestInitRGBLookupMap_ConcurrentAccess verifies that concurrent calls to
+// FindClosestIRCColor do not race on map initialization (sync.Once).
+func TestInitRGBLookupMap_ConcurrentAccess(t *testing.T) {
+	// Reset to force re-initialization
+	rgbToIRCCodeMap = make(map[uint32]int)
+	initRGBOnce = sync.Once{}
+
+	done := make(chan struct{})
+	const goroutines = 20
+
+	for i := 0; i < goroutines; i++ {
+		go func() {
+			defer func() { done <- struct{}{} }()
+			FindClosestIRCColor(255, 0, 0)
+		}()
+	}
+
+	for i := 0; i < goroutines; i++ {
+		<-done
+	}
+
+	assert.Greater(t, len(rgbToIRCCodeMap), 0, "map should be populated after concurrent access")
 }
 
 func createTestPNGForIRCArt(t *testing.T, dir string, width, height int) string {

@@ -28,6 +28,7 @@ const (
 	argChannelName = "<channel_name>"
 	valTrueFalse   = "true, false"
 	valText        = "text"
+	cmdHelp        = "help"
 )
 
 type (
@@ -64,7 +65,7 @@ func StandardHelp() []Help {
 			Queueable: false,
 		},
 		{
-			Name:      "help",
+			Name:      cmdHelp,
 			Type:      typeStandard,
 			Help:      "Displays help information for available commands.",
 			Arguments: []Arguments{},
@@ -216,7 +217,7 @@ func TextHelp() []Help {
 			Type: typeText,
 			Help: "Interact with the AI services for various tasks.",
 			Arguments: []Arguments{
-				{Argument: "help", Help: "Show help information for AI commands.", Values: ""},
+				{Argument: cmdHelp, Help: "Show help information for AI commands.", Values: ""},
 				{Argument: "info", Help: "Display current AI service and model information.", Values: ""},
 				{Argument: "--voice", Help: "Specify the voice for TTS.", Values: "e.g., woman"},
 				{Argument: "setPersonality", Help: "Set the AI personality.", Values: ""},
@@ -499,6 +500,9 @@ func FindHelp(irc *state.State) string {
 	name := irc.Action()
 
 	helpItems := append(AdminHelp(), SoundHelp(config)...)
+	if irc.User != nil && irc.User.IsOwnerUser() {
+		helpItems = append(helpItems, OwnerHelp()...)
+	}
 	helpItems = append(helpItems, ImageHelp(config)...)
 	helpItems = append(helpItems, VideoHelp(config)...)
 	helpItems = append(helpItems, StandardHelp()...)

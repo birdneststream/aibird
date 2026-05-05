@@ -459,19 +459,8 @@ func CheckAiCanUse(irc *state.State) error {
 
 // ProcessLlamaCppAiRequest handles llama.cpp AI requests from the queue.
 // This is called by the queue processor, not directly by ParseAiText.
-// The ctx parameter allows cancellation on timeout or queue shutdown.
-func ProcessLlamaCppAiRequest(ctx context.Context, irc state.State, gpu meta.GPUType) {
-	if !checkLlamaCppAvailable(&irc) {
-		return
-	}
-
-	irc.ReplyTo(girc.Fmt("🧠 Processing AI request, please wait..."))
-	response, err := llamacpp.ChatRequest(&irc)
-	if err != nil {
-		logger.Error("Error processing AI request", "error", err)
-		irc.SendError(fmt.Sprintf("🧠 Error processing AI request: %s", err))
-	} else {
-		logger.Debug("Calling handleAiResponse from llama.cpp queue path")
-		handleAiResponse(&irc, response)
-	}
+// ctx and gpu are retained for queue-processor API compatibility but are not used
+// by the underlying handler.
+func ProcessLlamaCppAiRequest(_ context.Context, irc state.State, _ meta.GPUType) {
+	handleLlamaCppRequest(&irc)
 }

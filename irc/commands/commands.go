@@ -144,11 +144,6 @@ func GetAllCommands(enableAi, enableSd, enableSound, enableVideo bool, isAdmin, 
 	return result
 }
 
-// GetAllCommandsUnfiltered returns all commands regardless of channel capabilities.
-func GetAllCommandsUnfiltered() []string {
-	return GetAllCommands(true, true, true, true, true, true)
-}
-
 // IsValidCommand checks if a command exists in the registry.
 // Case-sensitive: uses exact name match against help definitions.
 func IsValidCommand(command string) bool {
@@ -217,10 +212,4 @@ func IsVideoCommand(command string) bool {
 func IsTextCommand(action string) bool {
 	entry := getRegistry().lookup(action)
 	return entry != nil && entry.Type == cmdTypeText
-}
-
-// IsImageCommand checks if a command is an image generation command (case-insensitive).
-func IsImageCommand(command string) bool {
-	entry := getRegistry().lookup(command)
-	return entry != nil && entry.Type == cmdTypeImage
 }

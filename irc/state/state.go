@@ -300,12 +300,12 @@ func (s *State) Verify() error { //nolint:gocyclo
 		s.User = channelUser
 	}
 
-	if s.Network.NetworkName == "soyjak" && !s.User.HasAnyMode() {
-		return ErrNoModes
-	}
-
 	if s.Channel == nil || s.User == nil || s.IsSelf() {
 		return ErrMissingParams
+	}
+
+	if s.Network.NetworkName == "soyjak" && !s.User.HasAnyMode() {
+		return ErrNoModes
 	}
 
 	// Network-level ignore list always takes effect (permanent, admin-controlled)
@@ -334,15 +334,13 @@ func (s *State) Verify() error { //nolint:gocyclo
 		return ErrNoTrigger
 	}
 
-	// Extract command name for validation
-	tmpAction := strings.TrimPrefix(action, s.GetActionTrigger())
-	tmpParts := strings.SplitN(tmpAction, " ", 2)
-	cmdName := strings.TrimSpace(tmpParts[0])
+	// Parse command name and message once (previously parsed twice)
+	action = strings.TrimPrefix(action, s.GetActionTrigger())
+	parts := strings.SplitN(action, " ", 2)
+	cmdName := strings.TrimSpace(parts[0])
 
 	// Check if this is a valid command
-	isValidCommand := s.ValidateCommand(cmdName)
-
-	if !isValidCommand {
+	if !s.ValidateCommand(cmdName) {
 		return ErrInvalidCommand
 	}
 
@@ -355,16 +353,12 @@ func (s *State) Verify() error { //nolint:gocyclo
 		s.nagUserToGiveMoney()
 	}
 
-	action = strings.TrimPrefix(action, s.GetActionTrigger())
-	parts := strings.SplitN(action, " ", 2)
-
 	message := ""
 	if len(parts) > 1 {
-		// If there's a prompt, update message
 		message = strings.TrimSpace(parts[1])
 	}
 
-	s.Command = Command{Action: strings.TrimSpace(parts[0]), Message: strings.TrimSpace(message)}
+	s.Command = Command{Action: cmdName, Message: message}
 
 	s.ParseArguments()
 

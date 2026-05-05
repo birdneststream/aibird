@@ -3,6 +3,7 @@ package ircart
 
 import (
 	"image/color"
+	"sync"
 )
 
 // IRCColor represents an IRC color with its code and RGB values
@@ -38,17 +39,19 @@ var IRCColorPalette = []IRCColor{
 // rgbToIRCCodeMap creates a direct lookup map from RGB values to IRC color codes
 var rgbToIRCCodeMap = make(map[uint32]int)
 
-// initRGBLookupMap initializes the direct RGB to IRC code mapping
-func initRGBLookupMap() {
-	if len(rgbToIRCCodeMap) > 0 {
-		return // Already initialized
-	}
+// initRGBOnce ensures the lookup map is populated exactly once, thread-safely.
+var initRGBOnce sync.Once
 
-	for _, ircColor := range IRCColorPalette {
-		// Pack RGB into a uint32 for fast lookup: (R << 16) | (G << 8) | B
-		rgbKey := uint32(ircColor.R)<<16 | uint32(ircColor.G)<<8 | uint32(ircColor.B)
-		rgbToIRCCodeMap[rgbKey] = ircColor.Code
-	}
+// initRGBLookupMap initializes the direct RGB to IRC code mapping.
+// Safe for concurrent use via sync.Once.
+func initRGBLookupMap() {
+	initRGBOnce.Do(func() {
+		for _, ircColor := range IRCColorPalette {
+			// Pack RGB into a uint32 for fast lookup: (R << 16) | (G << 8) | B
+			rgbKey := uint32(ircColor.R)<<16 | uint32(ircColor.G)<<8 | uint32(ircColor.B)
+			rgbToIRCCodeMap[rgbKey] = ircColor.Code
+		}
+	})
 }
 
 // FindClosestIRCColor finds IRC color using direct RGB lookup (ComfyUI pre-quantizes to exact colors)

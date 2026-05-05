@@ -126,8 +126,7 @@ func (p *Participant) shouldRespond(memory *ConversationMemory, channel *channel
 
 	if strings.Contains(message, "?") ||
 		strings.Contains(message, "bot") ||
-		(len(botNameParts) >= 3 && strings.Contains(message, botNameParts[:3])) ||
-		strings.HasSuffix(message, "?") {
+		(len(botNameParts) >= 3 && strings.Contains(message, botNameParts[:3])) {
 		baseRate *= 2.0
 		logger.Debug("Message seems directed at bot, increasing rate", "baseRate", baseRate)
 	}

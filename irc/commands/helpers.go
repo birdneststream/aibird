@@ -38,14 +38,16 @@ func displayDefault(value, fallback string) string {
 }
 
 // sanitizePersona strips newlines, carriage returns, and truncates to prevent prompt injection.
+// Truncation is rune-aware to avoid splitting multi-byte UTF-8 characters.
 func sanitizePersona(input string) string {
 	s := strings.ReplaceAll(input, "\n", " ")
 	s = strings.ReplaceAll(s, "\r", " ")
 	s = strings.TrimSpace(s)
-	if len(s) > 200 {
-		s = s[:200]
+	runes := []rune(s)
+	if len(runes) > 200 {
+		runes = runes[:200]
 	}
-	return s
+	return string(runes)
 }
 
 // formatEventLog builds a conversation log from messages for AI consumption.
