@@ -517,3 +517,22 @@ func TestProcessingQueue_RemoveCurrentItem(t *testing.T) {
 	assert.True(t, pq.RemoveCurrentItem())
 	assert.False(t, pq.Queue.IsCurrentlyProcessing())
 }
+
+// TestRemoveCurrent_ClearsProcessingItem verifies that RemoveCurrent clears
+// the processingItem so GetProcessingAction returns empty.
+func TestRemoveCurrent_ClearsProcessingItem(t *testing.T) {
+	q := &Queue{}
+
+	// Simulate an active processing item
+	item := makeQueueItem("active-task")
+	q.setProcessing(true)
+	q.setProcessingItem(&item)
+
+	// Verify the action is visible before removal
+	assert.Equal(t, "active-task", q.GetProcessingAction())
+
+	// Remove and verify both flag and item are cleared
+	assert.True(t, q.RemoveCurrent())
+	assert.False(t, q.IsCurrentlyProcessing())
+	assert.Equal(t, "", q.GetProcessingAction(), "GetProcessingAction should return empty after RemoveCurrent")
+}

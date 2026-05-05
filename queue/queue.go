@@ -180,15 +180,18 @@ func (q *Queue) Clear() {
 	logger.Info("Queue cleared")
 }
 
-// RemoveCurrent removes the currently processing item
+// RemoveCurrent removes the currently processing item.
+// Clears the processing flag and processingItem so GetProcessingAction()
+// returns empty. Note: this does NOT cancel the running goroutine — full
+// context cancellation requires passing cancel funcs through the queue
+// (a future improvement).
 func (q *Queue) RemoveCurrent() bool {
 	q.processingMutex.Lock()
 	defer q.processingMutex.Unlock()
 
 	if q.processing {
-		// Send cancellation message to user if we have access to the current item
-		// For now, just mark as not processing
 		q.processing = false
+		q.processingItem = nil
 		logger.Info("Current processing item removed")
 		return true
 	}
