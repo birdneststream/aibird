@@ -378,38 +378,38 @@ func stripEmojis(text string) string {
 	return text
 }
 
+// aiSettingsFlags defines all AI settings flag names and their types.
+// This is the single source of truth for isAiSettingsCommand — new settings
+// added here are automatically detected as non-queueable.
+var aiSettingsFlags = []struct {
+	name     string
+	isString bool // true = GetStringArg with non-empty check, false = GetBoolArg
+}{
+	{"info", false},
+	{"setPersonality", true},
+	{"clearPersonality", false},
+	{"setBasePrompt", true},
+	{"clearBasePrompt", false},
+	{"setAiModel", true},
+	{"clearAiModel", false},
+	{"setAiService", true},
+	{"clearAiService", false},
+}
+
 // isAiSettingsCommand checks if the !ai command is a settings/info request
 // that should not be queued for GPU processing.
 func isAiSettingsCommand(irc *state.State) bool {
-	if irc.GetBoolArg("info") {
-		return true
+	for _, flag := range aiSettingsFlags {
+		if flag.isString {
+			if v, _ := irc.GetStringArg(flag.name, ""); v != "" {
+				return true
+			}
+		} else {
+			if irc.GetBoolArg(flag.name) {
+				return true
+			}
+		}
 	}
-
-	if v, _ := irc.GetStringArg("setPersonality", ""); v != "" {
-		return true
-	}
-	if irc.GetBoolArg("clearPersonality") {
-		return true
-	}
-	if v, _ := irc.GetStringArg("setBasePrompt", ""); v != "" {
-		return true
-	}
-	if irc.GetBoolArg("clearBasePrompt") {
-		return true
-	}
-	if v, _ := irc.GetStringArg("setAiModel", ""); v != "" {
-		return true
-	}
-	if irc.GetBoolArg("clearAiModel") {
-		return true
-	}
-	if v, _ := irc.GetStringArg("setAiService", ""); v != "" {
-		return true
-	}
-	if irc.GetBoolArg("clearAiService") {
-		return true
-	}
-
 	return false
 }
 
