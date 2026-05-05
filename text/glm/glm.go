@@ -43,7 +43,7 @@ func handleResetCommand(irc *state.State) (handled bool, response string) {
 	if irc.Message() != "reset" {
 		return false, ""
 	}
-	if err := birdbase.Delete(irc.UserAiChatCacheKey()); err != nil {
+	if err := birdbase.DeleteChatHistory(irc.UserAiChatCacheKey()); err != nil {
 		logger.Error("Failed to delete user AI chat cache", "user", irc.User.NickName, "error", err)
 	}
 	return true, "Cache reset"

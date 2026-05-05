@@ -65,11 +65,38 @@ func TestDeleteChatCache(t *testing.T) {
 	key := "test-delete-cache"
 	AppendChatCache(key, "user", "hello", 5)
 
-	// Note: DeleteChatCache calls birdbase.Delete which targets key_value_store,
-	// not chat_history. This is a known limitation — the function returns true
-	// but doesn't actually clear the chat cache from the correct table.
+	// Verify data exists before deletion
+	cache := GetChatCache(key)
+	require.NotNil(t, cache, "cache should exist before deletion")
+
+	// DeleteChatCache should now correctly target the chat_history table
 	result := DeleteChatCache(key)
 	assert.True(t, result)
+
+	// Verify data is actually gone from chat_history
+	cache = GetChatCache(key)
+	assert.Nil(t, cache, "cache should be nil after deletion")
+}
+
+func TestDeleteChatCache_IsolatesOtherKeys(t *testing.T) {
+	setupTestDB(t)
+
+	key1 := "test-delete-key-1"
+	key2 := "test-delete-key-2"
+	AppendChatCache(key1, "user", "hello", 5)
+	AppendChatCache(key2, "user", "world", 5)
+
+	result := DeleteChatCache(key1)
+	assert.True(t, result)
+
+	// key2 should still exist
+	cache := GetChatCache(key2)
+	require.NotNil(t, cache)
+	assert.Equal(t, "world", cache[0].Content)
+
+	// key1 should be gone
+	cache = GetChatCache(key1)
+	assert.Nil(t, cache)
 }
 
 func TestTruncateLastMessage(t *testing.T) {

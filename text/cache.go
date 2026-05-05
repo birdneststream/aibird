@@ -43,7 +43,7 @@ func GetChatCache(key string) []birdbase.Message {
 }
 
 func DeleteChatCache(key string) bool {
-	err := birdbase.Delete(key)
+	err := birdbase.DeleteChatHistory(key)
 	if err != nil {
 		logger.Error("Failed to delete chat cache", "key", key, "error", err)
 		return false

@@ -87,6 +87,20 @@ func (s *SQLiteDB) IncrementUserUsage(ident, host string) (count int, shouldNag 
 	return totalUses, shouldNag, nil
 }
 
+// DeleteChatHistory removes a chat history entry by its cache key.
+func DeleteChatHistory(key string) error {
+	return Data.DeleteChatHistory(key)
+}
+
+// DeleteChatHistory removes a chat history entry by its cache key.
+func (s *SQLiteDB) DeleteChatHistory(key string) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	_, err := s.db.Exec("DELETE FROM chat_history WHERE cache_key = ?", key)
+	return err
+}
+
 func GetUserUsage(ident, host string) (int, error) {
 	return Data.GetUserUsage(ident, host)
 }
