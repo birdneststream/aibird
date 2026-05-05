@@ -21,7 +21,7 @@ func init() {
 func TestRequest_Getters(t *testing.T) {
 	r := Request{
 		Url:     "http://example.com",
-		Method:  "POST",
+		Method:  methodPost,
 		Payload: map[string]string{"key": "value"},
 		Headers: []Headers{
 			{Key: "Content-Type", Value: "application/json"},
@@ -29,7 +29,7 @@ func TestRequest_Getters(t *testing.T) {
 	}
 
 	assert.Equal(t, "http://example.com", r.GetUrl())
-	assert.Equal(t, "POST", r.GetMethod())
+	assert.Equal(t, methodPost, r.GetMethod())
 	assert.True(t, r.IsPost())
 	assert.False(t, r.IsGet())
 	assert.Len(t, r.GetHeaders(), 1)
@@ -41,7 +41,7 @@ func TestRequest_Getters(t *testing.T) {
 }
 
 func TestRequest_IsGet(t *testing.T) {
-	r := Request{Method: "GET"}
+	r := Request{Method: methodGet}
 	assert.True(t, r.IsGet())
 	assert.False(t, r.IsPost())
 }
@@ -145,7 +145,7 @@ func TestGetFileContentType_Unknown(t *testing.T) {
 
 func TestCall_PostJSON(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		assert.Equal(t, "POST", r.Method)
+		assert.Equal(t, methodPost, r.Method)
 		assert.Equal(t, "application/json", r.Header.Get("Content-Type"))
 
 		var payload map[string]string
@@ -160,7 +160,7 @@ func TestCall_PostJSON(t *testing.T) {
 
 	req := Request{
 		Url:    server.URL + "/test",
-		Method: "POST",
+		Method: methodPost,
 		Headers: []Headers{
 			{Key: "Content-Type", Value: "application/json"},
 		},
@@ -175,7 +175,7 @@ func TestCall_PostJSON(t *testing.T) {
 
 func TestCall_Get(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		assert.Equal(t, "GET", r.Method)
+		assert.Equal(t, methodGet, r.Method)
 		w.Header().Set("Content-Type", "application/json")
 		_, _ = w.Write([]byte(`{"status": "active"}`))
 	}))
@@ -183,7 +183,7 @@ func TestCall_Get(t *testing.T) {
 
 	req := Request{
 		Url:    server.URL + "/status",
-		Method: "GET",
+		Method: methodGet,
 	}
 
 	var response map[string]string
@@ -200,7 +200,7 @@ func TestCall_StringResponse(t *testing.T) {
 
 	req := Request{
 		Url:    server.URL,
-		Method: "POST",
+		Method: methodPost,
 	}
 
 	var response string
@@ -218,7 +218,7 @@ func TestCall_ServerError(t *testing.T) {
 
 	req := Request{
 		Url:    server.URL,
-		Method: "GET",
+		Method: methodGet,
 	}
 
 	var response map[string]string

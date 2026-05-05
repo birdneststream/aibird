@@ -19,6 +19,11 @@ import (
 	"aibird/logger"
 )
 
+const (
+	methodPost = "POST"
+	methodGet  = "GET"
+)
+
 func (r *Request) GetUrl() string {
 	return r.Url
 }
@@ -28,11 +33,11 @@ func (r *Request) GetMethod() string {
 }
 
 func (r *Request) IsPost() bool {
-	return r.Method == "POST"
+	return r.Method == methodPost
 }
 
 func (r *Request) IsGet() bool {
-	return r.Method == "GET"
+	return r.Method == methodGet
 }
 
 func (r *Request) GetHeaders() []Headers {
