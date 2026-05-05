@@ -13,6 +13,10 @@ import (
 	"aibird/status"
 )
 
+// queueItemTimeout is the maximum duration a queue item can run before
+// being canceled. This prevents GPU stalls from blocking the queue forever.
+const queueItemTimeout = 4 * time.Minute
+
 func NewProcessingQueue() *ProcessingQueue {
 	return &ProcessingQueue{
 		Queue: &Queue{},
@@ -90,7 +94,7 @@ func (pq *ProcessingQueue) processQueueItem(parentCtx context.Context, queue *Qu
 	if item != nil {
 		logger.Debug("Processing queue item", "gpu", item.GPU, "action", item.State.Action())
 
-		ctx, cancel := context.WithTimeout(parentCtx, 4*time.Minute)
+		ctx, cancel := context.WithTimeout(parentCtx, queueItemTimeout)
 		defer cancel()
 
 		done := make(chan struct{})
@@ -147,7 +151,7 @@ func (pq *ProcessingQueue) GetDetailedStatus() *QueueStatus {
 	defer pq.Mutex.Unlock()
 
 	return &QueueStatus{
-		QueueLength: pq.Queue.GetQueueLength(),
+		QueueLength: pq.Queue.Len(),
 		Processing:  pq.Queue.IsCurrentlyProcessing(),
 		QueueItems:  pq.Queue.GetActionList(),
 	}

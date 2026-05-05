@@ -22,7 +22,6 @@ type Queue struct {
 
 // maxQueueSize is the maximum number of items allowed in the queue.
 const maxQueueSize = 10
-
 // Enqueue adds an element to the end of the queue
 func (q *Queue) Enqueue(element QueueItem) (string, error) { //nolint:gocritic // element copied by value for goroutine isolation
 	q.mutex.Lock()
@@ -111,20 +110,13 @@ func (q *Queue) HasElements(amount int) bool {
 	return q.hasElementsUnsafe(amount)
 }
 
-// GetQueueLength returns the current number of items in the queue
-func (q *Queue) GetQueueLength() int {
-	q.mutex.Lock()
-	defer q.mutex.Unlock()
-	return len(q.elements)
-}
-
 // IsCurrentlyProcessing returns whether an item is actively being processed
 func (q *Queue) IsCurrentlyProcessing() bool {
 	return q.isProcessing()
 }
 
-// hasElementsUnsafe is an internal function that checks queue size without locking
-// It should only be called when the mutex is already locked
+// hasElementsUnsafe checks queue size without locking.
+// Must only be called when the mutex is already locked.
 func (q *Queue) hasElementsUnsafe(amount int) bool {
 	return len(q.elements) >= amount
 }
