@@ -30,6 +30,19 @@ const (
 	serviceLlamacpp = "llamacpp"
 )
 
+// AI settings flag name constants (used in both ParseAiText and aiSettingsFlags).
+const (
+	flagInfo             = "info"
+	flagSetPersonality   = "setPersonality"
+	flagClearPersonality = "clearPersonality"
+	flagSetBasePrompt    = "setBasePrompt"
+	flagClearBasePrompt  = "clearBasePrompt"
+	flagSetAiModel       = "setAiModel"
+	flagClearAiModel     = "clearAiModel"
+	flagSetAiService     = "setAiService"
+	flagClearAiService   = "clearAiService"
+)
+
 func checkLlamaCppAvailable(irc *state.State) bool {
 	isRunning, err := llamacpp.IsLlamaCppRunning(irc.Config.LlamaCpp.Url, irc.Config.LlamaCpp.Port)
 	if err != nil {
@@ -70,7 +83,7 @@ var (
 
 func ParseAiText(irc *state.State) bool {
 	if irc.IsAction("ai") {
-		if irc.GetBoolArg("info") {
+		if irc.GetBoolArg(flagInfo) {
 			irc.ReplyTo(girc.Fmt(fmt.Sprintf("🧠 AI service: %s 🧠 AI model: %s 🧠 Base prompt: %s 🧠 Personality: %s",
 				displayDefault(irc.User.GetAiService(), "llamacpp"),
 				displayDefault(irc.User.GetAiModel(), "default"),
@@ -79,7 +92,7 @@ func ParseAiText(irc *state.State) bool {
 			return true
 		}
 
-		setPersonality, _ := irc.GetStringArg("setPersonality", "")
+		setPersonality, _ := irc.GetStringArg(flagSetPersonality, "")
 		if setPersonality != "" {
 			irc.User.SetPersonality(setPersonality)
 			irc.Send(girc.Fmt("🧠 Personality set to: " + setPersonality))
@@ -87,14 +100,14 @@ func ParseAiText(irc *state.State) bool {
 			return true
 		}
 
-		if irc.GetBoolArg("clearPersonality") {
+		if irc.GetBoolArg(flagClearPersonality) {
 			irc.User.SetPersonality("")
 			irc.Send(girc.Fmt("🧠 Personality cleared"))
 			irc.Network.Save()
 			return true
 		}
 
-		setBasePrompt, _ := irc.GetStringArg("setBasePrompt", "")
+		setBasePrompt, _ := irc.GetStringArg(flagSetBasePrompt, "")
 		if setBasePrompt != "" {
 			irc.User.SetBasePrompt(setBasePrompt)
 			irc.Send(girc.Fmt("🧠 Base prompt set to: " + setBasePrompt))
@@ -102,14 +115,14 @@ func ParseAiText(irc *state.State) bool {
 			return true
 		}
 
-		if irc.GetBoolArg("clearBasePrompt") {
+		if irc.GetBoolArg(flagClearBasePrompt) {
 			irc.User.SetBasePrompt("")
 			irc.Send(girc.Fmt("🧠 Base prompt cleared"))
 			irc.Network.Save()
 			return true
 		}
 
-		setAiModel, _ := irc.GetStringArg("setAiModel", "")
+		setAiModel, _ := irc.GetStringArg(flagSetAiModel, "")
 		if setAiModel != "" {
 			// TODO: Check with models list
 			irc.User.SetAiModel(setAiModel)
@@ -118,14 +131,14 @@ func ParseAiText(irc *state.State) bool {
 			return true
 		}
 
-		if irc.GetBoolArg("clearAiModel") {
+		if irc.GetBoolArg(flagClearAiModel) {
 			irc.User.SetAiModel("")
 			irc.Send(girc.Fmt("🧠 AI model cleared"))
 			irc.Network.Save()
 			return true
 		}
 
-		setAiService, _ := irc.GetStringArg("setAiService", "")
+		setAiService, _ := irc.GetStringArg(flagSetAiService, "")
 		if setAiService != "" {
 			if setAiService != serviceLlamacpp && setAiService != serviceGLM {
 				irc.SendError("🧠 AI service not found. Please choose between llamacpp or glm")
@@ -143,7 +156,7 @@ func ParseAiText(irc *state.State) bool {
 			return true
 		}
 
-		if irc.GetBoolArg("clearAiService") {
+		if irc.GetBoolArg(flagClearAiService) {
 			irc.User.SetAiService(serviceLlamacpp)
 			irc.Send(girc.Fmt("🧠 AI service defaulting to llamacpp"))
 			irc.Network.Save()
@@ -385,15 +398,15 @@ var aiSettingsFlags = []struct {
 	name     string
 	isString bool // true = GetStringArg with non-empty check, false = GetBoolArg
 }{
-	{"info", false},
-	{"setPersonality", true},
-	{"clearPersonality", false},
-	{"setBasePrompt", true},
-	{"clearBasePrompt", false},
-	{"setAiModel", true},
-	{"clearAiModel", false},
-	{"setAiService", true},
-	{"clearAiService", false},
+	{flagInfo, false},
+	{flagSetPersonality, true},
+	{flagClearPersonality, false},
+	{flagSetBasePrompt, true},
+	{flagClearBasePrompt, false},
+	{flagSetAiModel, true},
+	{flagClearAiModel, false},
+	{flagSetAiService, true},
+	{flagClearAiService, false},
 }
 
 // isAiSettingsCommand checks if the !ai command is a settings/info request

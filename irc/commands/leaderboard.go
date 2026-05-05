@@ -36,6 +36,15 @@ func handleLeaderboard(irc *state.State) {
 	}
 }
 
+// leaderboard header constants
+const (
+	hdrRank     = "#"
+	hdrNickname = "Nickname"
+	hdrNetwork  = "Network"
+	hdrCommand  = "Command"
+	hdrCount    = "Count"
+)
+
 func handleNetworkLeaderboard(irc *state.State) {
 	entries, err := birdbase.GetNetworkLeaderboard(irc.Network.NetworkName, 10)
 	if err != nil {
@@ -63,7 +72,7 @@ func handleNetworkLeaderboard(irc *state.State) {
 
 	for _, line := range formatLeaderboardTable(
 		[]int{4, 17, 17, 7},
-		[]string{"#", "Nickname", "Command", "Count"},
+		[]string{hdrRank, hdrNickname, hdrCommand, hdrCount},
 		rows,
 	) {
 		irc.Send(line)
@@ -98,7 +107,7 @@ func handleGlobalLeaderboard(irc *state.State) {
 
 	for _, line := range formatLeaderboardTable(
 		[]int{4, 17, 17, 17, 7},
-		[]string{"#", "Network", "Nickname", "Command", "Count"},
+		[]string{hdrRank, hdrNetwork, hdrNickname, hdrCommand, hdrCount},
 		rows,
 	) {
 		irc.Send(line)
@@ -132,7 +141,7 @@ func handleCommandLeaderboard(irc *state.State, command string) {
 
 	for _, line := range formatLeaderboardTable(
 		[]int{4, 17, 17, 7},
-		[]string{"#", "Network", "Nickname", "Count"},
+		[]string{hdrRank, hdrNetwork, hdrNickname, hdrCount},
 		rows,
 	) {
 		irc.Send(line)
