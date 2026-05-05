@@ -11,6 +11,15 @@ import (
 var defaultLogger *slog.Logger
 var validate *validator.Validate
 
+// getLogger returns the configured logger or slog.Default() if Init hasn't
+// been called yet. This prevents nil pointer panics during early startup.
+func getLogger() *slog.Logger {
+	if defaultLogger != nil {
+		return defaultLogger
+	}
+	return slog.Default()
+}
+
 // LogLevel represents log levels
 type LogLevel string
 
@@ -70,51 +79,51 @@ func Init(config Config) {
 
 // Debug logs at debug level
 func Debug(msg string, args ...any) {
-	defaultLogger.Debug(msg, args...)
+	getLogger().Debug(msg, args...)
 }
 
 // Info logs at info level
 func Info(msg string, args ...any) {
-	defaultLogger.Info(msg, args...)
+	getLogger().Info(msg, args...)
 }
 
 // Warn logs at warn level
 func Warn(msg string, args ...any) {
-	defaultLogger.Warn(msg, args...)
+	getLogger().Warn(msg, args...)
 }
 
 // Error logs at error level
 func Error(msg string, args ...any) {
-	defaultLogger.Error(msg, args...)
+	getLogger().Error(msg, args...)
 }
 
 // With returns a logger with additional context
 func With(args ...any) *slog.Logger {
-	return defaultLogger.With(args...)
+	return getLogger().With(args...)
 }
 
 // Fatal logs an error and exits the program
 func Fatal(msg string, args ...any) {
-	defaultLogger.Error(msg, args...)
+	getLogger().Error(msg, args...)
 	os.Exit(1)
 }
 
 // Network creates a logger with network context
 func Network(name string) *slog.Logger {
-	return defaultLogger.With("network", name)
+	return getLogger().With("network", name)
 }
 
 // Channel creates a logger with channel context
 func Channel(network, channel string) *slog.Logger {
-	return defaultLogger.With("network", network, "channel", channel)
+	return getLogger().With("network", network, "channel", channel)
 }
 
 // User creates a logger with user context
 func User(network, channel, nick string) *slog.Logger {
-	return defaultLogger.With("network", network, "channel", channel, "nick", nick)
+	return getLogger().With("network", network, "channel", channel, "nick", nick)
 }
 
 // Service creates a logger with service context
 func Service(service string) *slog.Logger {
-	return defaultLogger.With("service", service)
+	return getLogger().With("service", service)
 }

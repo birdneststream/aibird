@@ -214,3 +214,21 @@ func TestService(t *testing.T) {
 	assert.Contains(t, buf.String(), "service")
 	assert.Contains(t, buf.String(), "comfyui")
 }
+
+// TestLogger_NilDefault verifies that calling log functions before Init()
+// does not panic. Each function should fall back to slog.Default().
+func TestLogger_NilDefault(t *testing.T) {
+	captureAndRestoreLogger(t)
+	defaultLogger = nil
+
+	// These should not panic
+	assert.NotPanics(t, func() { Debug("test debug") })
+	assert.NotPanics(t, func() { Info("test info") })
+	assert.NotPanics(t, func() { Warn("test warn") })
+	assert.NotPanics(t, func() { Error("test error") })
+	assert.NotPanics(t, func() { With("key", "value") })
+	assert.NotPanics(t, func() { Network("testnet") })
+	assert.NotPanics(t, func() { Channel("testnet", "#test") })
+	assert.NotPanics(t, func() { User("testnet", "#test", "nick") })
+	assert.NotPanics(t, func() { Service("testservice") })
+}
