@@ -9,23 +9,25 @@ import (
 // flushMessagesForTesting forces a synchronous flush of the message buffer
 // for deterministic testing. Must be called after StoreChannelMessage and
 // before any read operations.
-//
-// NOTE: This uses time.Sleep to wait for the worker goroutine to finish.
-// A proper fix would use a sync.WaitGroup or done-channel in the production
-// worker, but that is out of scope for this test-only task. Tests must not
-// run in parallel (no t.Parallel) since they share the global messageChan.
 func flushMessagesForTesting() {
 	if messageChan == nil {
 		return
 	}
 	// Close the channel to trigger the worker to flush and exit.
 	close(messageChan)
-	// Wait for the worker to drain and exit.
-	// 200ms is generous; the worker only does a single batch INSERT.
-	time.Sleep(200 * time.Millisecond)
+	// Wait for the worker to drain and exit deterministically.
+	<-messageWorkerDone
 	// Re-initialize for subsequent operations in the same test.
 	messageChan = make(chan storedMessage, messageBufferSize)
+	messageWorkerDone = make(chan struct{})
 	go messageWriteWorker()
+}
+
+// waitForMessageWorker waits for the current message worker to finish.
+func waitForMessageWorker() {
+	if messageWorkerDone != nil {
+		<-messageWorkerDone
+	}
 }
 
 // setupMessagesTest creates an isolated test environment for message storage tests.
@@ -43,12 +45,13 @@ func setupMessagesTest(t *testing.T) {
 	origData := Data
 	Data = db
 
-	// Reset message worker
+	// Reset message worker: close existing and wait for completion
 	if messageChan != nil {
 		close(messageChan)
-		time.Sleep(100 * time.Millisecond)
+		waitForMessageWorker()
 	}
 	messageChan = make(chan storedMessage, messageBufferSize)
+	messageWorkerDone = make(chan struct{})
 	go messageWriteWorker()
 
 	// Clear network ID cache
@@ -60,8 +63,9 @@ func setupMessagesTest(t *testing.T) {
 	t.Cleanup(func() {
 		if messageChan != nil {
 			close(messageChan)
-			time.Sleep(100 * time.Millisecond)
+			waitForMessageWorker()
 			messageChan = nil
+			messageWorkerDone = nil
 		}
 		Data = origData
 		db.db.Close()

@@ -39,8 +39,13 @@ type storedMessage struct {
 
 var messageChan chan storedMessage
 
+// messageWorkerDone is closed by messageWriteWorker when it exits,
+// allowing tests to wait for clean shutdown.
+var messageWorkerDone chan struct{}
+
 func initMessageWorker() {
 	messageChan = make(chan storedMessage, messageBufferSize)
+	messageWorkerDone = make(chan struct{})
 	go messageWriteWorker()
 }
 
@@ -48,6 +53,7 @@ func messageWriteWorker() {
 	batch := make([]storedMessage, 0, batchSize)
 	timer := time.NewTimer(batchTimeout)
 	defer timer.Stop()
+	defer close(messageWorkerDone)
 
 	for {
 		select {
