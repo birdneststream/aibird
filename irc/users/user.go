@@ -107,10 +107,10 @@ func (u *User) GetAccessLevelString() string {
 	}
 }
 
+// CanUsePremiumGPU returns whether the user can use the premium GPU.
+// Currently equivalent to CanSkipQueue.
 func (u *User) CanUsePremiumGPU() bool {
-	// Perform a strict check to prevent false positives
-	accessLevel := u.GetAccessLevel()
-	return accessLevel >= 2 || u.IsAdmin || u.IsOwner
+	return u.CanSkipQueue()
 }
 
 func (u *User) IsIgnored() bool {

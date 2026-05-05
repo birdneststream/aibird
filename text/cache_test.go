@@ -1,6 +1,7 @@
 package text
 
 import (
+	"fmt"
 	"testing"
 
 	"aibird/birdbase"
@@ -50,6 +51,24 @@ func TestAppendChatCache_Truncation(t *testing.T) {
 
 	cache := GetChatCache(key)
 	assert.Len(t, cache, limit)
+}
+
+func TestAppendChatCache_TruncationKeepsNewest(t *testing.T) {
+	setupTestDB(t)
+
+	key := "test-truncation-newest"
+	limit := 3
+
+	for i := 0; i < 5; i++ {
+		AppendChatCache(key, "user", fmt.Sprintf("msg%d", i), limit)
+	}
+
+	cache := GetChatCache(key)
+	require.Len(t, cache, limit)
+	// Should keep the 3 newest: msg2, msg3, msg4
+	assert.Equal(t, "msg2", cache[0].Content)
+	assert.Equal(t, "msg3", cache[1].Content)
+	assert.Equal(t, "msg4", cache[2].Content)
 }
 
 func TestGetChatCache_Empty(t *testing.T) {

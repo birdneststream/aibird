@@ -17,6 +17,12 @@ import (
 	"aibird/shared/meta"
 )
 
+// Sentinel errors for common status check failures.
+var (
+	ErrRigOffline   = errors.New("AI rig is offline!!! Sorry pal")
+	ErrGPUsReserved = errors.New("sorry pal jewbird is doing secret ai experiments and requires all gpus")
+)
+
 type GPUInfo struct {
 	Name           string `json:"name"`
 	Temperature    string `json:"temperature"`
@@ -65,14 +71,14 @@ func (c *Client) doRequest(endpoint string, target interface{}) error {
 	url := fmt.Sprintf("%s%s", c.BaseURL, endpoint)
 	req, err := http.NewRequest("GET", url, http.NoBody)
 	if err != nil {
-		return fmt.Errorf("failed to create request: %v", err)
+		return fmt.Errorf("failed to create request: %w", err)
 	}
 
 	req.Header.Set("X-API-Key", c.StatusApiKey)
 
 	resp, err := c.HTTPClient.Do(req)
 	if err != nil {
-		return fmt.Errorf("failed to make request: %v", err)
+		return fmt.Errorf("failed to make request: %w", err)
 	}
 	defer resp.Body.Close()
 
@@ -81,7 +87,7 @@ func (c *Client) doRequest(endpoint string, target interface{}) error {
 	}
 
 	if err := json.NewDecoder(resp.Body).Decode(target); err != nil {
-		return fmt.Errorf("failed to decode response: %v", err)
+		return fmt.Errorf("failed to decode response: %w", err)
 	}
 
 	return nil
@@ -155,7 +161,7 @@ func (c *Client) AddVoice(voiceURL, voiceName, startTime, duration string) (stri
 
 	body, err := json.Marshal(requestBody)
 	if err != nil {
-		return "", fmt.Errorf("failed to marshal request body: %v", err)
+		return "", fmt.Errorf("failed to marshal request body: %w", err)
 	}
 
 	req, err := http.NewRequest("POST", url, bytes.NewBuffer(body))
@@ -221,11 +227,11 @@ func (c *Client) IsComfyUIRunning() (bool, error) {
 func (c *Client) CheckCanUse() (bool, error) {
 	status, err := c.GetStatus()
 	if err != nil {
-		return false, errors.New("AI rig is offline!!! Sorry pal")
+		return false, ErrRigOffline
 	}
 
 	if !status.CanUse {
-		return false, errors.New("sorry pal jewbird is doing secret ai experiments and requires all gpus")
+		return false, ErrGPUsReserved
 	}
 
 	return true, nil
@@ -326,7 +332,7 @@ type UserAccess interface {
 func (c *Client) CheckModelExecution(metaData *meta.AibirdMeta, user UserAccess) error {
 	status, err := c.GetStatus()
 	if err != nil {
-		return errors.New("AI rig is offline!!! Sorry pal")
+		return ErrRigOffline
 	}
 
 	comfyUIRunning := status.DockerStatus.ComfyUI
@@ -341,7 +347,7 @@ func (c *Client) CheckModelExecution(metaData *meta.AibirdMeta, user UserAccess)
 
 	// Check if bot usage is allowed
 	if !canUse {
-		return errors.New("sorry pal jewbird is doing secret ai experiments and requires all gpus")
+		return ErrGPUsReserved
 	}
 
 	if !comfyUIRunning {

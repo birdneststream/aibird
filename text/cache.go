@@ -20,7 +20,7 @@ func AppendChatCache(key, whoIsTalking, message string, contextLimit int) {
 
 	// Truncate if the cache is too long
 	if len(cache) > contextLimit {
-		cache = cache[1:] // Remove the oldest message
+		cache = cache[len(cache)-contextLimit:]
 	}
 
 	// Write the updated cache back to the database
