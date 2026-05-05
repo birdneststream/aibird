@@ -31,20 +31,19 @@ func TestMakeUrlWithPort(t *testing.T) {
 	assert.Equal(t, "http://example.com:8080/", result)
 }
 
-func TestStringToStatusIndicator(t *testing.T) {
+func TestBoolToStatus(t *testing.T) {
 	tests := []struct {
-		input string
+		name  string
+		input bool
 		want  string
 	}{
-		{"", "[N/A]"},
-		{"true", "[YES]"},
-		{"false", "[NO]"},
-		{"other", "[?]"},
+		{"true returns YES", true, "[YES]"},
+		{"false returns NO", false, "[NO]"},
 	}
 
 	for _, tt := range tests {
-		t.Run(tt.input, func(t *testing.T) {
-			assert.Equal(t, tt.want, StringToStatusIndicator(tt.input))
+		t.Run(tt.name, func(t *testing.T) {
+			assert.Equal(t, tt.want, BoolToStatus(tt.input))
 		})
 	}
 }

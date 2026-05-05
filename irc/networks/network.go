@@ -6,7 +6,6 @@ import (
 	"database/sql"
 	"fmt"
 	"math/big"
-	"strconv"
 	"sync"
 	"time"
 
@@ -30,7 +29,7 @@ func init() {
 
 func (n *Network) String() string {
 	return fmt.Sprintf("{b}Enabled{b}%s, {b}NetworkName{b}: %s, {b}Nick{b}: %s, {b}User{b}: %s, {b}Name{b}: %s, {b}ModesAtOnce{b}: %d, {b}PingDelay{b}: %d, {b}Version{b}: %s, {b}Throttle{b}: %d, {b}Burst{b}: %d, {b}ActionTrigger{b}: %s, {b}Users{b}: %d, {b}Channels{b}: %d, {b}Servers{b}: %d, {b}AdminHosts{b}: %d",
-		helpers.StringToStatusIndicator(strconv.FormatBool(n.Enabled)),
+		helpers.BoolToStatus(n.Enabled),
 		n.NetworkName,
 		n.Nick,
 		n.User,

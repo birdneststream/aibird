@@ -3,7 +3,6 @@ package users
 
 import (
 	"fmt"
-	"strconv"
 	"time"
 
 	"aibird/birdbase"
@@ -23,10 +22,10 @@ func (u *User) String() string {
 		u.Host,
 		helpers.UnixTimeToHumanReadable(u.LatestActivity),
 		helpers.UnixTimeToHumanReadable(u.FirstSeen)+" ago",
-		helpers.StringToStatusIndicator(strconv.FormatBool(u.IsAdmin)),
-		helpers.StringToStatusIndicator(strconv.FormatBool(u.IsOwner)),
+		helpers.BoolToStatus(u.IsAdmin),
+		helpers.BoolToStatus(u.IsOwner),
 		u.AccessLevel,
-		helpers.StringToStatusIndicator(strconv.FormatBool(u.Ignored))))
+		helpers.BoolToStatus(u.Ignored)))
 }
 
 func (u *User) Touch(latestChat string) {

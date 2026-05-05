@@ -89,21 +89,12 @@ func UnixTimeToHumanReadable(timestamp int64) string {
 	return durafmt.Parse(time.Second * time.Duration(time.Now().Unix()-timestamp)).String()
 }
 
-// StringToStatusIndicator converts a string to a status indicator string.
-func StringToStatusIndicator(s string) string {
-	if s == "" {
-		return "[N/A]" // ASCII for empty or not available
-	}
-	// Assuming you want to keep the boolean to emoji functionality as well
-	switch s {
-	case "true":
+// BoolToStatus converts a boolean to a human-readable status indicator string.
+func BoolToStatus(b bool) string {
+	if b {
 		return "[YES]"
-	case "false":
-		return "[NO]"
-	default:
-		// Return a default emoji if the string is not empty, true, or false
-		return "[?]"
 	}
+	return "[NO]"
 }
 
 func GetModes(modes string) []string {

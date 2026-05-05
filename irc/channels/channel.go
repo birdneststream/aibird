@@ -3,7 +3,6 @@ package channels
 
 import (
 	"fmt"
-	"strconv"
 
 	"aibird/helpers"
 	"aibird/irc/users"
@@ -17,13 +16,13 @@ func (c *Channel) String() string {
 	return girc.Fmt(fmt.Sprintf("{b}Name{b}: %s {b}Users{b}: %d {b}PreserveModes{b}: %s {b}Ai{b}: %s {b}Sd{b}: %s {b}ImageDescribe{b}: %s {b}Sound{b}: %s {b}ActionTrigger{b}: %s {b}TrimOutput{b}: %s",
 		c.Name,
 		len(c.Users),
-		helpers.StringToStatusIndicator(strconv.FormatBool(c.PreserveModes)),
-		helpers.StringToStatusIndicator(strconv.FormatBool(c.Ai)),
-		helpers.StringToStatusIndicator(strconv.FormatBool(c.Sd)),
-		helpers.StringToStatusIndicator(strconv.FormatBool(c.ImageDescribe)),
-		helpers.StringToStatusIndicator(strconv.FormatBool(c.Sound)),
+		helpers.BoolToStatus(c.PreserveModes),
+		helpers.BoolToStatus(c.Ai),
+		helpers.BoolToStatus(c.Sd),
+		helpers.BoolToStatus(c.ImageDescribe),
+		helpers.BoolToStatus(c.Sound),
 		c.ActionTrigger,
-		helpers.StringToStatusIndicator(strconv.FormatBool(c.TrimOutput))))
+		helpers.BoolToStatus(c.TrimOutput)))
 }
 
 func (c *Channel) GetUserWithNick(nick string) (*users.User, error) {
