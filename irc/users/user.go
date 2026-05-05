@@ -185,7 +185,7 @@ func (u *User) HasAnyMode() bool {
 // ===========================================
 
 // ToUserData converts a User struct to birdbase.UserData for database storage
-func (u *User) ToUserData(networkID int) (*birdbase.UserData, error) {
+func (u *User) ToUserData(networkID int) *birdbase.UserData {
 	userData := &birdbase.UserData{
 		NetworkID:      networkID,
 		NickName:       u.NickName,
@@ -220,11 +220,11 @@ func (u *User) ToUserData(networkID int) (*birdbase.UserData, error) {
 		})
 	}
 
-	return userData, nil
+	return userData
 }
 
 // FromUserData converts birdbase.UserData back to a User struct
-func (u *User) FromUserData(userData *birdbase.UserData) error {
+func (u *User) FromUserData(userData *birdbase.UserData) {
 	u.NickName = userData.NickName
 	u.Ident = userData.Ident
 	u.Host = userData.Host
@@ -261,8 +261,6 @@ func (u *User) FromUserData(userData *birdbase.UserData) error {
 			Modes:   modeData.Modes,
 		})
 	}
-
-	return nil
 }
 
 // NewUserFromData creates a new User from birdbase.UserData

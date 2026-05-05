@@ -95,7 +95,7 @@ func (s *ASCIIStore) GenerateFilename(art *ASCIIArt) string {
 func (s *ASCIIStore) FormatArtForRecording(art *ASCIIArt) string {
 	var sb strings.Builder
 
-	// The lines are already properly formatted from FormatIRCArtForIRC, just join them
+	// The lines are already properly formatted from the converter, just join them
 	for _, line := range art.Lines {
 		sb.WriteString(line + "\n")
 	}

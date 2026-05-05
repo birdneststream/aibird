@@ -159,8 +159,7 @@ func TestUser_ToUserData(t *testing.T) {
 		CurrentModes: []modes.UserModes{{Channel: "#test", Modes: []string{"o"}}},
 	}
 
-	data, err := u.ToUserData(1)
-	assert.NoError(t, err)
+	data := u.ToUserData(1)
 	assert.Equal(t, "testuser", data.NickName)
 	assert.Equal(t, 1, data.NetworkID)
 	assert.Len(t, data.CurrentModes, 1)
@@ -174,8 +173,7 @@ func TestUser_FromUserData(t *testing.T) {
 	}
 
 	u := &User{}
-	err := u.FromUserData(data)
-	assert.NoError(t, err)
+	u.FromUserData(data)
 	assert.Equal(t, "testuser", u.NickName)
 	assert.Equal(t, 3, u.AccessLevel)
 	assert.Len(t, u.CurrentModes, 1)

@@ -95,7 +95,7 @@ func processAisciiCommand(irc *state.State, response, message string) bool {
 	}
 
 	// Format the IRC art for sending
-	formattedLines := ircart.FormatIRCArtForIRC(ircArtLines)
+	formattedLines := ircArtLines
 
 	// Store the formatted ASCII art (same as what displays in IRC) in memory for record command
 	asciistore.GetManager().Store(

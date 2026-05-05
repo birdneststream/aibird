@@ -166,9 +166,3 @@ func ConvertPNGToIRCArt(pngFilePath string, useHalfblocks bool) ([]string, error
 	logger.Debug("IRC art conversion completed", "lines", len(ircLines))
 	return ircLines, nil
 }
-
-// FormatIRCArtForIRC formats IRC art lines for transmission over IRC
-func FormatIRCArtForIRC(ircArtLines []string) []string {
-	// The lines are already properly formatted, just return them
-	return ircArtLines
-}

@@ -64,12 +64,6 @@ func TestFormatIRCColor(t *testing.T) {
 	assert.Equal(t, "\x0314", FormatIRCColor(14))
 }
 
-func TestFormatIRCArtForIRC(t *testing.T) {
-	input := []string{"line1", "line2"}
-	result := FormatIRCArtForIRC(input)
-	assert.Equal(t, input, result)
-}
-
 func TestInitRGBLookupMap_Idempotent(t *testing.T) {
 	// Reset the map to test idempotency
 	rgbToIRCCodeMap = make(map[uint32]int)

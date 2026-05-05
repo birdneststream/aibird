@@ -12,7 +12,6 @@ import (
 	"net/textproto"
 	"os"
 	"path/filepath"
-	"strconv"
 	"strings"
 	"time"
 
@@ -225,29 +224,4 @@ func (r *Request) Download() error {
 	}
 
 	return nil
-}
-
-func IsImage(url string) bool {
-	// Validate URL to prevent SSRF attacks
-	if !strings.HasPrefix(url, "http://") && !strings.HasPrefix(url, "https://") {
-		logger.Error("Invalid URL scheme", "url", url)
-		return false
-	}
-
-	resp, err := http.Head(url) // #nosec G107 - URL scheme validated above
-	if err != nil {
-		logger.Error("Error checking image URL", "url", url, "error", err)
-		return false
-	}
-	defer resp.Body.Close()
-
-	contentType := resp.Header.Get("Content-Type")
-	contentLength, _ := strconv.Atoi(resp.Header.Get("Content-Length"))
-
-	// Check if Content-Type header starts with "image/" and Content-Length is less than 5MB
-	if strings.HasPrefix(contentType, "image/") && contentLength <= 5*1024*1024 {
-		return true
-	}
-
-	return false
 }

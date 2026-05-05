@@ -203,10 +203,7 @@ func (n *Network) SaveNormalized() error {
 	// Convert and save users (runtime/persistent data) with channel info
 	var usersData []birdbase.UserData
 	for i := range n.Users {
-		userData, err := n.Users[i].ToUserData(0) // NetworkID will be resolved by SaveNetworkUsers
-		if err != nil {
-			return err
-		}
+		userData := n.Users[i].ToUserData(0) // NetworkID will be resolved by SaveNetworkUsers
 		usersData = append(usersData, *userData)
 	}
 

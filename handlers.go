@@ -47,9 +47,7 @@ func handleNick(c *girc.Client, e girc.Event, network *networks.Network) { //nol
 		logger.Debug("User nick updated", "network", network.NetworkName, "new_nick", findUser.NickName, "ident", findUser.Ident, "host", findUser.Host)
 
 		// Save just this user instead of the entire network (performance optimization)
-		if userData, err := findUser.ToUserData(0); err != nil {
-			logger.Error("Failed to convert user to UserData for nick change", "error", err, "network", network.NetworkName, "nick", findUser.NickName)
-		} else if err := birdbase.SaveSingleUser(network.NetworkName, findUser.Ident, findUser.Host, userData); err != nil {
+		if err := birdbase.SaveSingleUser(network.NetworkName, findUser.Ident, findUser.Host, findUser.ToUserData(0)); err != nil {
 			logger.Error("Failed to save user after nick change", "error", err, "network", network.NetworkName, "nick", findUser.NickName)
 		} else {
 			logger.Debug("Successfully saved user after nick change", "network", network.NetworkName, "new_nick", findUser.NickName)
@@ -110,9 +108,7 @@ func handleJoin(c *girc.Client, e girc.Event, network *networks.Network, config 
 
 	// Save user update if we found an existing user, or create a new user
 	if existingUser != nil {
-		if userData, err := existingUser.ToUserData(0); err != nil {
-			logger.Warn("Failed to convert user to UserData after update", "error", err, "network", network.NetworkName, "nick", existingUser.NickName)
-		} else if err := birdbase.SaveSingleUser(network.NetworkName, existingUser.Ident, existingUser.Host, userData); err != nil {
+		if err := birdbase.SaveSingleUser(network.NetworkName, existingUser.Ident, existingUser.Host, existingUser.ToUserData(0)); err != nil {
 			logger.Warn("Failed to save user after update", "error", err, "network", network.NetworkName, "nick", existingUser.NickName)
 		}
 	} else {
@@ -135,9 +131,7 @@ func handleJoin(c *girc.Client, e girc.Event, network *networks.Network, config 
 		network.Users = append(network.Users, newUser)
 
 		// Save new user to database
-		if userData, err := newUser.ToUserData(0); err != nil {
-			logger.Warn("Failed to convert new user to UserData", "error", err, "network", network.NetworkName, "nick", newUser.NickName)
-		} else if err := birdbase.SaveSingleUser(network.NetworkName, newUser.Ident, newUser.Host, userData); err != nil {
+		if err := birdbase.SaveSingleUser(network.NetworkName, newUser.Ident, newUser.Host, newUser.ToUserData(0)); err != nil {
 			logger.Warn("Failed to save new user", "error", err, "network", network.NetworkName, "nick", newUser.NickName)
 		}
 	}
