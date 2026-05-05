@@ -378,6 +378,41 @@ func stripEmojis(text string) string {
 	return text
 }
 
+// isAiSettingsCommand checks if the !ai command is a settings/info request
+// that should not be queued for GPU processing.
+func isAiSettingsCommand(irc *state.State) bool {
+	if irc.GetBoolArg("info") {
+		return true
+	}
+
+	if v, _ := irc.GetStringArg("setPersonality", ""); v != "" {
+		return true
+	}
+	if irc.GetBoolArg("clearPersonality") {
+		return true
+	}
+	if v, _ := irc.GetStringArg("setBasePrompt", ""); v != "" {
+		return true
+	}
+	if irc.GetBoolArg("clearBasePrompt") {
+		return true
+	}
+	if v, _ := irc.GetStringArg("setAiModel", ""); v != "" {
+		return true
+	}
+	if irc.GetBoolArg("clearAiModel") {
+		return true
+	}
+	if v, _ := irc.GetStringArg("setAiService", ""); v != "" {
+		return true
+	}
+	if irc.GetBoolArg("clearAiService") {
+		return true
+	}
+
+	return false
+}
+
 // ShouldQueueLlamaCppAi checks if an !ai command needs to be queued.
 // Returns true if it's a llama.cpp request that should be queued.
 func ShouldQueueLlamaCppAi(irc *state.State) bool {
@@ -385,38 +420,10 @@ func ShouldQueueLlamaCppAi(irc *state.State) bool {
 		return false
 	}
 
-	// Don't queue info command
-	if irc.GetBoolArg("info") {
+	if isAiSettingsCommand(irc) {
 		return false
 	}
 
-	// Don't queue settings commands
-	if setPersonality, _ := irc.GetStringArg("setPersonality", ""); setPersonality != "" {
-		return false
-	}
-	if irc.GetBoolArg("clearPersonality") {
-		return false
-	}
-	if setBasePrompt, _ := irc.GetStringArg("setBasePrompt", ""); setBasePrompt != "" {
-		return false
-	}
-	if irc.GetBoolArg("clearBasePrompt") {
-		return false
-	}
-	if setAiModel, _ := irc.GetStringArg("setAiModel", ""); setAiModel != "" {
-		return false
-	}
-	if irc.GetBoolArg("clearAiModel") {
-		return false
-	}
-	if setAiService, _ := irc.GetStringArg("setAiService", ""); setAiService != "" {
-		return false
-	}
-	if irc.GetBoolArg("clearAiService") {
-		return false
-	}
-
-	// Don't queue empty messages
 	if irc.IsEmptyMessage() {
 		return false
 	}

@@ -5,6 +5,8 @@ import (
 	"testing"
 
 	"aibird/birdbase"
+	"aibird/irc/state"
+	"aibird/irc/users"
 )
 
 func TestStripThinkingContent(t *testing.T) {
@@ -279,6 +281,183 @@ func TestParseIntSafe(t *testing.T) {
 			}
 			if got != tt.want {
 				t.Errorf("parseIntSafe(%q) = %d, want %d", tt.input, got, tt.want)
+			}
+		})
+	}
+}
+
+func TestIsAiSettingsCommand(t *testing.T) {
+	tests := []struct {
+		name      string
+		arguments []state.Argument
+		want      bool
+	}{
+		{
+			name:      "no flags returns false",
+			arguments: nil,
+			want:      false,
+		},
+		{
+			name:      "info flag returns true",
+			arguments: []state.Argument{{Key: "info", Value: true}},
+			want:      true,
+		},
+		{
+			name:      "setPersonality returns true",
+			arguments: []state.Argument{{Key: "setPersonality", Value: "friendly"}},
+			want:      true,
+		},
+		{
+			name:      "empty setPersonality returns false",
+			arguments: []state.Argument{{Key: "setPersonality", Value: ""}},
+			want:      false,
+		},
+		{
+			name:      "clearPersonality returns true",
+			arguments: []state.Argument{{Key: "clearPersonality", Value: true}},
+			want:      true,
+		},
+		{
+			name:      "setBasePrompt returns true",
+			arguments: []state.Argument{{Key: "setBasePrompt", Value: "You are helpful"}},
+			want:      true,
+		},
+		{
+			name:      "clearBasePrompt returns true",
+			arguments: []state.Argument{{Key: "clearBasePrompt", Value: true}},
+			want:      true,
+		},
+		{
+			name:      "setAiModel returns true",
+			arguments: []state.Argument{{Key: "setAiModel", Value: "gpt-4"}},
+			want:      true,
+		},
+		{
+			name:      "clearAiModel returns true",
+			arguments: []state.Argument{{Key: "clearAiModel", Value: true}},
+			want:      true,
+		},
+		{
+			name:      "setAiService returns true",
+			arguments: []state.Argument{{Key: "setAiService", Value: "glm"}},
+			want:      true,
+		},
+		{
+			name:      "clearAiService returns true",
+			arguments: []state.Argument{{Key: "clearAiService", Value: true}},
+			want:      true,
+		},
+		{
+			name: "unrelated flag returns false",
+			arguments: []state.Argument{
+				{Key: "verbose", Value: true},
+				{Key: "model", Value: "test"},
+			},
+			want: false,
+		},
+		{
+			name: "mixed settings and unrelated flags returns true",
+			arguments: []state.Argument{
+				{Key: "verbose", Value: true},
+				{Key: "info", Value: true},
+			},
+			want: true,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			irc := &state.State{
+				Arguments: tt.arguments,
+			}
+			got := isAiSettingsCommand(irc)
+			if got != tt.want {
+				t.Errorf("isAiSettingsCommand() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestShouldQueueLlamaCppAi(t *testing.T) {
+	tests := []struct {
+		name      string
+		action    string
+		message   string
+		arguments []state.Argument
+		aiService string
+		want      bool
+	}{
+		{
+			name:      "non-ai action returns false",
+			action:    "sd",
+			message:   "a cat",
+			aiService: "llamacpp",
+			want:      false,
+		},
+		{
+			name:      "info flag returns false",
+			action:    "ai",
+			message:   "hello",
+			arguments: []state.Argument{{Key: "info", Value: true}},
+			aiService: "llamacpp",
+			want:      false,
+		},
+		{
+			name:      "empty message returns false",
+			action:    "ai",
+			message:   "",
+			aiService: "llamacpp",
+			want:      false,
+		},
+		{
+			name:      "glm service returns false",
+			action:    "ai",
+			message:   "hello",
+			aiService: "glm",
+			want:      false,
+		},
+		{
+			name:      "llamacpp with message returns true",
+			action:    "ai",
+			message:   "tell me a joke",
+			aiService: "llamacpp",
+			want:      true,
+		},
+		{
+			name:      "default service with message returns true",
+			action:    "ai",
+			message:   "hello",
+			aiService: "",
+			want:      true,
+		},
+		{
+			name:      "settings command returns false",
+			action:    "ai",
+			message:   "hello",
+			arguments: []state.Argument{{Key: "setPersonality", Value: "funny"}},
+			aiService: "llamacpp",
+			want:      false,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			irc := &state.State{
+				Command: state.Command{
+					Action:  tt.action,
+					Message: tt.message,
+				},
+				Arguments: tt.arguments,
+			}
+			if irc.User == nil {
+				irc.User = &users.User{}
+			}
+			// Set AiService through the available setter if needed
+			if tt.aiService != "" {
+				irc.User.SetAiService(tt.aiService)
+			}
+
+			got := ShouldQueueLlamaCppAi(irc)
+			if got != tt.want {
+				t.Errorf("ShouldQueueLlamaCppAi() = %v, want %v", got, tt.want)
 			}
 		})
 	}
