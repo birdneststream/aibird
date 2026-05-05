@@ -98,19 +98,8 @@ func (n *Network) GetUserWithIdentAndHost(ident, host string) *users.User {
 		return nil
 	}
 
-	if len(foundUsers) == 1 {
-		logger.Debug("Found single user", "network", n.NetworkName, "ident", ident, "host", host, "nickname", foundUsers[0].NickName)
-		return foundUsers[0]
-	}
-
-	latestUser := foundUsers[0]
-	for _, user := range foundUsers {
-		if user.LatestActivity > latestUser.LatestActivity {
-			latestUser = user
-		}
-	}
-
-	logger.Debug("Found multiple users, returning latest", "network", n.NetworkName, "ident", ident, "host", host, "nickname", latestUser.NickName, "count", len(foundUsers))
+	latestUser := users.LatestByActivity(foundUsers)
+	logger.Debug("Found user(s) for ident/host", "network", n.NetworkName, "ident", ident, "host", host, "nickname", latestUser.NickName, "count", len(foundUsers))
 	return latestUser
 }
 
@@ -122,22 +111,7 @@ func (n *Network) GetUserWithNick(nick string) *users.User {
 		}
 	}
 
-	if len(foundUsers) == 0 {
-		return nil
-	}
-
-	if len(foundUsers) == 1 {
-		return foundUsers[0]
-	}
-
-	latestUser := foundUsers[0]
-	for _, user := range foundUsers {
-		if user.LatestActivity > latestUser.LatestActivity {
-			latestUser = user
-		}
-	}
-
-	return latestUser
+	return users.LatestByActivity(foundUsers)
 }
 
 func (n *Network) GetModesAtOnce() int {

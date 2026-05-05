@@ -84,7 +84,7 @@ func dispatchCommand(irc *state.State, q *queue.ProcessingQueue) { //nolint:gocy
 		case commands.IsStandardCommand(irc.Action()):
 			go commands.ParseStandardWithQueue(irc, q)
 		case commands.IsAdminCommand(irc.Action()):
-			go commands.ParseAdminWithQueue(irc, q)
+			go commands.ParseAdminCommands(irc, q)
 		case commands.IsOwnerCommand(irc.Action()):
 			go commands.ParseOwner(irc)
 		case commands.IsSoundCommand(irc.Action()):

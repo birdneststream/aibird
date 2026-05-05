@@ -87,27 +87,6 @@ func TestFormatLeaderboardTable_EmptyRows(t *testing.T) {
 	}
 }
 
-func TestTruncateString(t *testing.T) {
-	tests := []struct {
-		input  string
-		maxLen int
-		want   string
-	}{
-		{"short", 10, "short"},
-		{"exactlen12345", 14, "exactlen12345"},
-		{"this is a long string", 10, "this is..."},
-		{"ab", 3, "ab"},
-		{"abc", 2, "ab"},
-	}
-
-	for _, tt := range tests {
-		result := truncateString(tt.input, tt.maxLen)
-		if result != tt.want {
-			t.Errorf("truncateString(%q, %d) = %q, want %q", tt.input, tt.maxLen, result, tt.want)
-		}
-	}
-}
-
 func TestFormatLeaderboardTable_MismatchedHeaders(t *testing.T) {
 	result := formatLeaderboardTable([]int{4, 7}, []string{"only_one"}, nil)
 	if result != nil {

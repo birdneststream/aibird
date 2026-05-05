@@ -234,14 +234,3 @@ func centerText(text string, width int) string {
 	}
 	return padded
 }
-
-// truncateString truncates a string to the specified length and adds ellipsis if needed.
-func truncateString(s string, maxLen int) string {
-	if len(s) <= maxLen {
-		return s
-	}
-	if maxLen <= 3 {
-		return s[:maxLen]
-	}
-	return s[:maxLen-3] + "..."
-}

@@ -59,11 +59,6 @@ func TestGetIRCColorFromRGB_Fallback(t *testing.T) {
 	assert.Equal(t, 14, c.Code)
 }
 
-func TestFormatIRCColor(t *testing.T) {
-	assert.Equal(t, "\x034", FormatIRCColor(4))
-	assert.Equal(t, "\x0314", FormatIRCColor(14))
-}
-
 func TestInitRGBLookupMap_Idempotent(t *testing.T) {
 	// Reset the map to test idempotency
 	rgbToIRCCodeMap = make(map[uint32]int)

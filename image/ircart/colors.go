@@ -2,7 +2,6 @@
 package ircart
 
 import (
-	"fmt"
 	"image/color"
 )
 
@@ -103,10 +102,4 @@ func GetIRCColorFromRGB(c color.Color) IRCColor {
 
 	// Fallback to closest color if exact match not found (shouldn't happen with ComfyUI)
 	return FindClosestIRCColor(r8, g8, b8)
-}
-
-// FormatIRCColor formats an IRC color code for use in IRC messages
-// Returns the control character (0x03) followed by the color code
-func FormatIRCColor(colorCode int) string {
-	return fmt.Sprintf("\x03%d", colorCode)
 }

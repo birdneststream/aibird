@@ -51,16 +51,9 @@ func ParseRecall(irc *state.State) {
 		when := time.Unix(msg.Timestamp, 0).Format("Jan 02 15:04")
 		switch msg.EventType {
 		case eventPrivmsg:
-			irc.Send(fmt.Sprintf("[%s] <%s> %s", when, msg.Nickname, truncateMessage(msg.Message, 200)))
+			irc.Send(fmt.Sprintf("[%s] <%s> %s", when, msg.Nickname, truncateString(msg.Message, 200)))
 		case eventAction:
-			irc.Send(fmt.Sprintf("[%s] * %s %s", when, msg.Nickname, truncateMessage(msg.Message, 200)))
+			irc.Send(fmt.Sprintf("[%s] * %s %s", when, msg.Nickname, truncateString(msg.Message, 200)))
 		}
 	}
-}
-
-func truncateMessage(msg string, maxLen int) string {
-	if len(msg) <= maxLen {
-		return msg
-	}
-	return msg[:maxLen] + "..."
 }

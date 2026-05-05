@@ -303,3 +303,25 @@ func TestGetRegistry_LazyInitReplacedByReal(t *testing.T) {
 		t.Error("re-init registry should still have standard commands")
 	}
 }
+
+func TestTruncateString(t *testing.T) {
+	tests := []struct {
+		name   string
+		input  string
+		maxLen int
+		want   string
+	}{
+		{"short string passes through", "hello", 10, "hello"},
+		{"exact length passes through", "hello", 5, "hello"},
+		{"long string gets truncated with ellipsis", "hello world", 8, "hello..."},
+		{"maxLen <= 3 truncates without ellipsis", "hello", 2, "he"},
+		{"maxLen 0 returns empty", "hello", 0, ""},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := truncateString(tt.input, tt.maxLen); got != tt.want {
+				t.Errorf("truncateString(%q, %d) = %q, want %q", tt.input, tt.maxLen, got, tt.want)
+			}
+		})
+	}
+}

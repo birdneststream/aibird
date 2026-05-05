@@ -268,3 +268,18 @@ func NewUserFromData(userData *birdbase.UserData) *User {
 	user.FromUserData(userData)
 	return user
 }
+
+// LatestByActivity returns the user with the highest LatestActivity timestamp.
+// Returns nil if the slice is empty. On ties, returns the first match.
+func LatestByActivity(users []*User) *User {
+	if len(users) == 0 {
+		return nil
+	}
+	latest := users[0]
+	for _, u := range users[1:] {
+		if u.LatestActivity > latest.LatestActivity {
+			latest = u
+		}
+	}
+	return latest
+}

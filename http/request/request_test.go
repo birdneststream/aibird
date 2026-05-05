@@ -18,7 +18,7 @@ func init() {
 	logger.Init(logger.Config{Level: "error", Format: "text"})
 }
 
-func TestRequest_Getters(t *testing.T) {
+func TestRequest_Fields(t *testing.T) {
 	r := Request{
 		Url:     "http://example.com",
 		Method:  methodPost,
@@ -28,22 +28,14 @@ func TestRequest_Getters(t *testing.T) {
 		},
 	}
 
-	assert.Equal(t, "http://example.com", r.GetUrl())
-	assert.Equal(t, methodPost, r.GetMethod())
-	assert.True(t, r.IsPost())
-	assert.False(t, r.IsGet())
-	assert.Len(t, r.GetHeaders(), 1)
-	assert.Equal(t, "application/json", r.GetHeaders()[0].Value)
+	assert.Equal(t, "http://example.com", r.Url)
+	assert.Equal(t, methodPost, r.Method)
+	assert.Len(t, r.Headers, 1)
+	assert.Equal(t, "application/json", r.Headers[0].Value)
 
-	payload, ok := r.GetPayload().(map[string]string)
+	payload, ok := r.Payload.(map[string]string)
 	require.True(t, ok)
 	assert.Equal(t, "value", payload["key"])
-}
-
-func TestRequest_IsGet(t *testing.T) {
-	r := Request{Method: methodGet}
-	assert.True(t, r.IsGet())
-	assert.False(t, r.IsPost())
 }
 
 func TestRequest_AddHeader(t *testing.T) {

@@ -246,8 +246,6 @@ func (s *State) Send(message string) {
 
 	// for each new line break in response choices write to channel
 	for _, line := range strings.Split(message, "\n") {
-		sendString := ""
-
 		// Send empty line as a single space for visual separation between sections
 		if strings.TrimSpace(line) == "" {
 			s.Client.Cmd.Reply(s.Event, " ")
@@ -259,24 +257,23 @@ func (s *State) Send(message string) {
 			continue
 		}
 
-		// split line into chunks slice with space
+		// Split line into words and accumulate in a builder, flushing at 450 chars.
 		chunks := strings.Split(line, " ")
+		var builder strings.Builder
 
-		// for each chunk
 		for _, chunk := range chunks {
+			builder.WriteString(chunk)
+			builder.WriteByte(' ')
 
-			// append chunk to sendString
-			sendString += chunk + " "
-
-			// Trim by words for a cleaner output
-			if len(sendString) > 450 {
-				s.Client.Cmd.Reply(s.Event, strings.TrimSpace(sendString))
-				sendString = ""
+			if builder.Len() > 450 {
+				s.Client.Cmd.Reply(s.Event, strings.TrimSpace(builder.String()))
+				builder.Reset()
 			}
 		}
 
-		if strings.TrimSpace(sendString) != "" {
-			s.Client.Cmd.Reply(s.Event, strings.TrimSpace(sendString))
+		remaining := strings.TrimSpace(builder.String())
+		if remaining != "" {
+			s.Client.Cmd.Reply(s.Event, remaining)
 		}
 	}
 }

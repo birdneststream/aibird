@@ -15,6 +15,9 @@ import (
 var (
 	instance *ASCIIStore
 	once     sync.Once
+
+	// Pre-compiled regex for filename sanitization: remove non-alphanumeric/dash chars.
+	reFilenameUnsafe = regexp.MustCompile(`[^a-z0-9\-]`)
 )
 
 func GetManager() *ASCIIStore {
@@ -111,8 +114,7 @@ func (s *ASCIIStore) sanitizeForFilename(input string) string {
 	filename = strings.ReplaceAll(filename, " ", "-")
 
 	// Remove special characters except alphanumeric and dashes
-	reg := regexp.MustCompile(`[^a-z0-9\-]`)
-	filename = reg.ReplaceAllString(filename, "")
+	filename = reFilenameUnsafe.ReplaceAllString(filename, "")
 
 	// Remove leading/trailing dashes
 	filename = strings.Trim(filename, "-")

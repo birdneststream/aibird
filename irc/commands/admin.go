@@ -22,11 +22,8 @@ const (
 	cmdPart  = "part"
 )
 
-func ParseAdminWithQueue(irc *state.State, q *queue.ProcessingQueue) {
-	parseAdminCommands(irc, q)
-}
-
-func parseAdminCommands(irc *state.State, q *queue.ProcessingQueue) {
+// ParseAdminCommands handles admin-level IRC commands.
+func ParseAdminCommands(irc *state.State, q *queue.ProcessingQueue) {
 	if irc.User.IsAdmin {
 		switch irc.Command.Action {
 

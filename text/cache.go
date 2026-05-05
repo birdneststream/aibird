@@ -51,20 +51,3 @@ func DeleteChatCache(key string) bool {
 
 	return true
 }
-
-func TruncateLastMessage(key string) {
-	// Get the existing cache
-	cache := GetChatCache(key)
-	if len(cache) == 0 {
-		return
-	}
-
-	// Remove the last message
-	cache = cache[:len(cache)-1]
-
-	// Write the updated cache back to the database
-	err := birdbase.PutChatHistory(key, cache)
-	if err != nil {
-		logger.Error("Failed to put truncated chat cache", "key", key, "error", err)
-	}
-}

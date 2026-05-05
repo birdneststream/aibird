@@ -117,24 +117,3 @@ func TestDeleteChatCache_IsolatesOtherKeys(t *testing.T) {
 	cache = GetChatCache(key1)
 	assert.Nil(t, cache)
 }
-
-func TestTruncateLastMessage(t *testing.T) {
-	setupTestDB(t)
-
-	key := "test-truncate"
-	AppendChatCache(key, "user", "first", 5)
-	AppendChatCache(key, "user", "second", 5)
-	AppendChatCache(key, "user", "third", 5)
-
-	TruncateLastMessage(key)
-	cache := GetChatCache(key)
-	require.Len(t, cache, 2)
-	assert.Equal(t, "second", cache[1].Content)
-}
-
-func TestTruncateLastMessage_Empty(t *testing.T) {
-	setupTestDB(t)
-
-	// Should not panic on empty cache
-	TruncateLastMessage("nonexistent-key")
-}

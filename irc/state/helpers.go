@@ -264,12 +264,11 @@ func (s *State) TextToBirdhole(message string) {
 	}
 
 	if trim {
-		// Avoid potential slice panic by checking length
-		if len(message) > 250 {
-			message = strings.ReplaceAll(message, "\n", " ")
-			message = message[:250]
-		} else {
-			message = strings.ReplaceAll(message, "\n", " ")
+		message = strings.ReplaceAll(message, "\n", " ")
+		// Truncate by runes (not bytes) to avoid splitting multi-byte UTF-8 characters.
+		runes := []rune(message)
+		if len(runes) > 250 {
+			message = string(runes[:250])
 		}
 		s.ReplyTo(response + " - " + message)
 	} else {

@@ -79,7 +79,9 @@ func processWithMeta(irc *state.State, aiEnhancedPrompt, model string, comfyUiCo
 		return "", fmt.Errorf("⛔️ Sorry, you need access level %d to use this command. Check !support for more info", metaData.AccessLevel)
 	}
 
-	// Always use 4090 on cuda:0
+	// NOTE: The gpu parameter from callers is currently unused. The project
+	// uses a single RTX 4090 hardcoded to cuda:0. The parameter is reserved
+	// for future multi-GPU routing.
 	cudaDevice := "cuda:0"
 	logger.Debug("ComfyUI CUDA device selection", "gpu", meta.GPU4090, "cudaDevice", cudaDevice)
 

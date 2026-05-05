@@ -78,12 +78,11 @@ format = "text"
 	assert.Equal(t, "!", cfg.AiBird.ActionTrigger)
 }
 
-func TestLoadConfig_DefaultVideoTrue(t *testing.T) {
+func TestLoadConfig_DefaultVideoFalse(t *testing.T) {
 	tmpDir := t.TempDir()
 	require.NoError(t, os.Chdir(tmpDir))
 
-	// When video is not specified in TOML, it defaults to true.
-	// Note: explicit video=false is also overwritten to true (pre-existing behavior).
+	// When video is not specified in TOML, it defaults to false (zero value).
 	configContent := `
 [networks.testnet]
 networkName = "testnet"
@@ -94,6 +93,53 @@ ssl = false
 
 [[networks.testnet.channels]]
 name = "#test"
+
+[aibird]
+actionTrigger = "!"
+
+[llamacpp]
+url = "http://localhost:8080"
+port = "8080"
+
+[comfyui]
+url = "http://localhost:8188"
+port = 8188
+
+[birdhole]
+host = "http://localhost"
+port = "3000"
+endPoint = "/upload"
+key = "secret"
+
+[logging]
+level = "info"
+format = "text"
+`
+	writeTempConfig(t, tmpDir, configContent)
+
+	cfg, err := LoadConfig()
+	require.NoError(t, err)
+	require.Len(t, cfg.Networks["testnet"].Channels, 1)
+	// Video defaults to false when not specified in config
+	assert.False(t, cfg.Networks["testnet"].Channels[0].Video)
+}
+
+func TestLoadConfig_ExplicitVideoTrue(t *testing.T) {
+	tmpDir := t.TempDir()
+	require.NoError(t, os.Chdir(tmpDir))
+
+	// When video = true is explicitly set, it should be respected.
+	configContent := `
+[networks.testnet]
+networkName = "testnet"
+nick = "testbot"
+server = "irc.test.com"
+port = 6667
+ssl = false
+
+[[networks.testnet.channels]]
+name = "#test"
+video = true
 
 [aibird]
 actionTrigger = "!"

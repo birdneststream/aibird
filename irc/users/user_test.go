@@ -248,3 +248,31 @@ func TestUser_Touch(t *testing.T) {
 	assert.True(t, u.LatestActivity >= before)
 	assert.Equal(t, "hello", u.LatestChat)
 }
+
+func TestLatestByActivity(t *testing.T) {
+	t.Run("empty slice returns nil", func(t *testing.T) {
+		result := LatestByActivity(nil)
+		assert.Nil(t, result)
+	})
+
+	t.Run("single user returns that user", func(t *testing.T) {
+		user := &User{NickName: "single", LatestActivity: 100}
+		result := LatestByActivity([]*User{user})
+		assert.Equal(t, user, result)
+	})
+
+	t.Run("multiple users returns latest", func(t *testing.T) {
+		u1 := &User{NickName: "old", LatestActivity: 100}
+		u2 := &User{NickName: "new", LatestActivity: 500}
+		u3 := &User{NickName: "mid", LatestActivity: 300}
+		result := LatestByActivity([]*User{u1, u2, u3})
+		assert.Equal(t, u2, result)
+	})
+
+	t.Run("tie returns first match", func(t *testing.T) {
+		u1 := &User{NickName: "first", LatestActivity: 100}
+		u2 := &User{NickName: "second", LatestActivity: 100}
+		result := LatestByActivity([]*User{u1, u2})
+		assert.Equal(t, "first", result.NickName)
+	})
+}

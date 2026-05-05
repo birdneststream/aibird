@@ -23,35 +23,11 @@ const (
 	methodGet  = "GET"
 )
 
-func (r *Request) GetUrl() string {
-	return r.Url
-}
-
-func (r *Request) GetMethod() string {
-	return r.Method
-}
-
-func (r *Request) IsPost() bool {
-	return r.Method == methodPost
-}
-
-func (r *Request) IsGet() bool {
-	return r.Method == methodGet
-}
-
-func (r *Request) GetHeaders() []Headers {
-	return r.Headers
-}
-
-func (r *Request) GetPayload() interface{} {
-	return r.Payload
-}
-
 func (r *Request) AddHeader(key, value string) {
 	r.Headers = append(r.Headers, Headers{Key: key, Value: value})
 }
 
-// Add this helper function
+// getFileContentType detects the MIME content type of a file by reading its first 512 bytes.
 func getFileContentType(file *os.File) (string, error) {
 	// Only the first 512 bytes are used to detect content type
 	buffer := make([]byte, 512)
@@ -147,9 +123,9 @@ func (r *Request) Call(response interface{}) error { //nolint:gocyclo
 		// Set the multipart form content type header
 		r.AddHeader("Content-Type", writer.FormDataContentType())
 
-	} else if r.IsPost() {
+	} else if r.Method == methodPost {
 		// JSON post request
-		jsonData, err = json.Marshal(r.GetPayload())
+		jsonData, err = json.Marshal(r.Payload)
 		if err != nil {
 			return fmt.Errorf("failed to marshal JSON: %w", err)
 		}
@@ -161,12 +137,12 @@ func (r *Request) Call(response interface{}) error { //nolint:gocyclo
 		reqBody = &bytes.Buffer{}
 	}
 
-	req, err := http.NewRequest(r.GetMethod(), r.GetUrl(), reqBody)
+	req, err := http.NewRequest(r.Method, r.Url, reqBody)
 	if err != nil {
 		return fmt.Errorf("failed to create new request: %w", err)
 	}
 
-	for _, header := range r.GetHeaders() {
+	for _, header := range r.Headers {
 		req.Header.Set(header.Key, header.Value)
 	}
 

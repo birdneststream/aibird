@@ -3,6 +3,7 @@ package llamacpp
 
 import (
 	"errors"
+	"fmt"
 	"net/http"
 	"strings"
 	"time"
@@ -39,9 +40,10 @@ func ChatRequest(irc *state.State) (string, error) {
 	llamacppConfig := irc.Config.LlamaCpp
 
 	if irc.Message() == "reset" {
-		if text.DeleteChatCache(irc.UserAiChatCacheKey()) {
-			return "Cache reset", nil
+		if !text.DeleteChatCache(irc.UserAiChatCacheKey()) {
+			return "", fmt.Errorf("failed to reset chat cache")
 		}
+		return "Cache reset", nil
 	}
 
 	message := text.AppendFullStop(irc.Message())

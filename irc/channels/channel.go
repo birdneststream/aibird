@@ -38,22 +38,7 @@ func (c *Channel) GetUserWithNick(nick string) (*users.User, error) {
 		}
 	}
 
-	if len(foundUsers) == 0 {
-		return nil, nil
-	}
-
-	if len(foundUsers) == 1 {
-		return foundUsers[0], nil
-	}
-
-	latestUser := foundUsers[0]
-	for _, user := range foundUsers {
-		if user.LatestActivity > latestUser.LatestActivity {
-			latestUser = user
-		}
-	}
-
-	return latestUser, nil
+	return users.LatestByActivity(foundUsers), nil
 }
 
 func (c *Channel) SyncUser(user *users.User) bool {
