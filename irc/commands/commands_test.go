@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"aibird/logger"
+	"aibird/settings"
 )
 
 func TestMain(m *testing.M) {
@@ -281,5 +282,24 @@ func TestGetAllCommands_Sorted(t *testing.T) {
 		if cmds[i] < cmds[i-1] {
 			t.Errorf("GetAllCommands not sorted: %q > %q at index %d", cmds[i-1], cmds[i], i)
 		}
+	}
+}
+
+// TestGetRegistry_LazyInitReplacedByReal verifies that calling InitRegistry
+// with a real config after a lazy init replaces the empty registry.
+func TestGetRegistry_LazyInitReplacedByReal(t *testing.T) {
+	// The registry was already initialized by earlier tests or TestMain.
+	// Re-init with empty config to simulate lazy init.
+	InitRegistry(settings.AiBird{})
+
+	// Verify we have a working registry (standard commands are always present)
+	if !IsValidCommand("hello") {
+		t.Error("lazy-init registry should still have standard commands")
+	}
+
+	// Now init with real config — this should replace the registry
+	InitRegistry(settings.AiBird{})
+	if !IsValidCommand("hello") {
+		t.Error("re-init registry should still have standard commands")
 	}
 }

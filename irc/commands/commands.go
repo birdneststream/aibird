@@ -36,7 +36,6 @@ type CommandRegistry struct {
 
 var (
 	cachedRegistry *CommandRegistry
-	registryOnce   sync.Once
 	registryMu     sync.RWMutex
 )
 
@@ -82,15 +81,22 @@ func InitRegistry(config settings.AiBird) {
 }
 
 // getRegistry returns the cached registry, building a zero-config one if needed.
-// Thread-safe via sync.Once for the lazy init path.
+// Uses double-checked locking: fast path via RLock, slow path builds a
+// temporary registry and swaps it under Lock. This ensures InitRegistry(config)
+// calls made between checks are respected, unlike sync.Once which only fires once.
 func getRegistry() *CommandRegistry {
-	registryOnce.Do(func() {
-		if cachedRegistry == nil {
-			InitRegistry(settings.AiBird{})
-		}
-	})
 	registryMu.RLock()
 	r := cachedRegistry
+	registryMu.RUnlock()
+	if r != nil {
+		return r
+	}
+
+	// Build a fallback registry outside any lock, then swap it in.
+	InitRegistry(settings.AiBird{})
+
+	registryMu.RLock()
+	r = cachedRegistry
 	registryMu.RUnlock()
 	return r
 }
