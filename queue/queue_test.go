@@ -1,14 +1,20 @@
 package queue
 
 import (
+	"context"
 	"log/slog"
 	"os"
 	"sync"
 	"testing"
+	"time"
 
 	"aibird/irc/state"
 	"aibird/logger"
 	"aibird/shared/meta"
+
+	"github.com/lrstanley/girc"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func init() {
@@ -307,4 +313,207 @@ func TestProcessingQueue_ClearQueue(t *testing.T) {
 	if !pq.IsEmpty() {
 		t.Error("Queue should be empty after ClearQueue")
 	}
+}
+
+// makeStateWithClient creates a state.State with a real (but disconnected) girc.Client
+// and a valid Event to avoid nil pointer panics in methods like SendError.
+func makeStateWithClient(action string) state.State {
+	return state.State{
+		Client: girc.New(girc.Config{}),
+		Event: girc.Event{
+			Source:  &girc.Source{Name: "testuser", Host: "example.com"},
+			Command: "PRIVMSG",
+			Params:  []string{"#test", "test message"},
+		},
+		Command: state.Command{Action: action, Message: "test"},
+	}
+}
+
+// TestProcessingQueue_Enqueue_NonWorkflow verifies enqueuing a non-workflow item
+// defaults GPU to 4090 and uses regular enqueue.
+func TestProcessingQueue_Enqueue_NonWorkflow(t *testing.T) {
+	pq := NewProcessingQueue()
+	item := QueueItem{
+		Item: Item{
+			State: makeStateWithClient("nonexistent-model-xyz"),
+		},
+		Model: "nonexistent-model-xyz",
+		User:  &mockUser{},
+	}
+
+	msg, err := pq.Enqueue(item)
+	require.NoError(t, err)
+	assert.Empty(t, msg)
+	assert.Equal(t, 1, pq.Queue.Len())
+	// GPU should default to 4090
+	dequeued := pq.Queue.Dequeue()
+	require.NotNil(t, dequeued)
+	assert.Equal(t, meta.GPU4090, dequeued.GPU)
+}
+
+// TestProcessingQueue_Enqueue_SkipQueue verifies that a user with CanSkipQueue
+// gets enqueued at the front.
+func TestProcessingQueue_Enqueue_SkipQueue(t *testing.T) {
+	pq := NewProcessingQueue()
+	// First enqueue a regular item
+	_, err := pq.Queue.Enqueue(makeQueueItem("regular"))
+	require.NoError(t, err)
+
+	// Now enqueue a VIP item
+	item := QueueItem{
+		Item: Item{
+			State: makeStateWithClient("vip-model"),
+		},
+		Model: "vip-model",
+		User:  &mockUser{canSkip: true},
+	}
+
+	msg, err := pq.Enqueue(item)
+	require.NoError(t, err)
+	assert.NotEmpty(t, msg)
+
+	// VIP item should be at the front
+	peeked := pq.Queue.Peek()
+	require.NotNil(t, peeked)
+	assert.Equal(t, "vip-model", peeked.Model)
+}
+
+// TestProcessQueueItem_Success verifies that a fast function is processed and
+// queue state is cleared afterward.
+func TestProcessQueueItem_Success(t *testing.T) {
+	pq := NewProcessingQueue()
+
+	var receivedGPU meta.GPUType
+	item := QueueItem{
+		Item: Item{
+			State:    makeStateWithClient("test-action"),
+			Function: func(ctx context.Context, s state.State, gpu meta.GPUType) { receivedGPU = gpu },
+		},
+		Model: "test-action",
+		GPU:   meta.GPU4090,
+	}
+
+	_, _ = pq.Queue.Enqueue(item)
+	pq.processQueueItem(context.Background(), pq.Queue)
+
+	assert.Equal(t, meta.GPU4090, receivedGPU)
+	assert.False(t, pq.Queue.IsCurrentlyProcessing())
+	assert.Empty(t, pq.Queue.GetProcessingAction())
+}
+
+// TestProcessQueueItem_Timeout verifies that a blocking function with a short
+// parent context times out and clears processing state.
+func TestProcessQueueItem_Timeout(t *testing.T) {
+	pq := NewProcessingQueue()
+
+	item := QueueItem{
+		Item: Item{
+			State: makeStateWithClient("timeout-action"),
+			Function: func(ctx context.Context, s state.State, gpu meta.GPUType) {
+				// Block until context is canceled
+				<-ctx.Done()
+			},
+		},
+		Model: "timeout-action",
+		GPU:   meta.GPU4090,
+	}
+
+	_, _ = pq.Queue.Enqueue(item)
+
+	// Parent context with very short timeout
+	ctx, cancel := context.WithTimeout(context.Background(), 50*time.Millisecond)
+	defer cancel()
+
+	pq.processQueueItem(ctx, pq.Queue)
+
+	// Processing state should be cleared even on timeout
+	assert.False(t, pq.Queue.IsCurrentlyProcessing())
+	assert.Empty(t, pq.Queue.GetProcessingAction())
+}
+
+// TestProcessQueues_ContextCancellation verifies that ProcessQueues returns
+// ctx.Err() when the context is canceled.
+func TestProcessQueues_ContextCancellation(t *testing.T) {
+	pq := NewProcessingQueue()
+	ctx, cancel := context.WithCancel(context.Background())
+
+	var wg sync.WaitGroup
+	wg.Add(1)
+	var resultErr error
+	go func() {
+		defer wg.Done()
+		resultErr = pq.ProcessQueues(ctx)
+	}()
+
+	// Give the goroutine time to start the ticker loop
+	time.Sleep(50 * time.Millisecond)
+	cancel()
+	wg.Wait()
+
+	require.Error(t, resultErr)
+	assert.Equal(t, context.Canceled, resultErr)
+}
+
+// TestProcessQueues_IntegratedHappyPath verifies that ProcessQueues picks up
+// and processes an enqueued item.
+func TestProcessQueues_IntegratedHappyPath(t *testing.T) {
+	pq := NewProcessingQueue()
+
+	processed := make(chan struct{}, 1)
+	item := QueueItem{
+		Item: Item{
+			State: makeStateWithClient("happy-action"),
+			Function: func(ctx context.Context, s state.State, gpu meta.GPUType) {
+				processed <- struct{}{}
+			},
+		},
+		Model: "happy-action",
+		GPU:   meta.GPU4090,
+	}
+
+	_, _ = pq.Queue.Enqueue(item)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	var wg sync.WaitGroup
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		_ = pq.ProcessQueues(ctx)
+	}()
+
+	// Wait for the item to be processed
+	select {
+	case <-processed:
+		// Success
+	case <-time.After(2 * time.Second):
+		t.Fatal("timed out waiting for queue item to be processed")
+	}
+
+	cancel()
+	wg.Wait()
+
+	assert.True(t, pq.Queue.IsEmpty())
+	assert.False(t, pq.Queue.IsCurrentlyProcessing())
+}
+
+// TestProcessingQueue_IsCurrentlyProcessing verifies delegation to inner queue.
+func TestProcessingQueue_IsCurrentlyProcessing(t *testing.T) {
+	pq := NewProcessingQueue()
+	assert.False(t, pq.IsCurrentlyProcessing())
+
+	pq.Queue.setProcessing(true)
+	assert.True(t, pq.IsCurrentlyProcessing())
+
+	pq.Queue.setProcessing(false)
+	assert.False(t, pq.IsCurrentlyProcessing())
+}
+
+// TestProcessingQueue_RemoveCurrentItem verifies delegation to inner queue.
+func TestProcessingQueue_RemoveCurrentItem(t *testing.T) {
+	pq := NewProcessingQueue()
+	assert.False(t, pq.RemoveCurrentItem())
+
+	pq.Queue.setProcessing(true)
+	assert.True(t, pq.RemoveCurrentItem())
+	assert.False(t, pq.Queue.IsCurrentlyProcessing())
 }
