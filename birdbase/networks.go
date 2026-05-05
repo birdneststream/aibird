@@ -582,6 +582,9 @@ func (s *SQLiteDB) SaveSingleUser(networkName, ident, host string, user *UserDat
 	return tx.Commit()
 }
 
+// saveUsersToDatabase performs deduplication and upsert of users within the
+// caller's transaction. The caller owns the transaction lifecycle and must
+// call tx.Commit() after this function returns nil.
 func (s *SQLiteDB) saveUsersToDatabase(tx *sql.Tx, networkID int64, users []UserData) error { //nolint:gocyclo // dedup + upsert + mode saving is inherently complex
 	logger.Debug("saveUsersToDatabase called", "network_id", networkID, "users_count", len(users))
 

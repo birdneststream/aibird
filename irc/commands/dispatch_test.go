@@ -158,3 +158,30 @@ func TestIsQueueableCommand_NonQueueableAction(t *testing.T) {
 	s := state.State{Command: state.Command{Action: "hello"}}
 	assert.False(t, IsQueueableCommand(s))
 }
+
+// TestIsCommandOfType verifies the shared helper returns false for unknown actions.
+func TestIsCommandOfType(t *testing.T) {
+	tests := []struct {
+		name     string
+		action   string
+		regType  string
+		metaType string
+		want     bool
+	}{
+		{"unknown action no match", "nonexistent_cmd", cmdTypeImage, "image", false},
+		{"empty action no match", "", cmdTypeVideo, "video", false},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := isCommandOfType(tt.action, tt.regType, tt.metaType)
+			assert.Equal(t, tt.want, got)
+		})
+	}
+}
+
+// TestDeduplicatedIsFunctions verifies the thin wrappers return false for unknown commands.
+func TestDeduplicatedIsFunctions(t *testing.T) {
+	assert.False(t, isImageCommand("nonexistent"))
+	assert.False(t, isVideoCommand("nonexistent"))
+	assert.False(t, isSoundCommand("nonexistent"))
+}
