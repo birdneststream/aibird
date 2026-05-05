@@ -98,6 +98,7 @@ func parseAdminCommands(irc *state.State, q *queue.ProcessingQueue) {
 
 				irc.UpdateChannelBasedOnArgs()
 			}
+			return
 		case "network":
 			if irc.IsEmptyArguments() {
 				irc.Send(girc.Fmt(irc.Network.String()))
