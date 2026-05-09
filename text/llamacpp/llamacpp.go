@@ -51,9 +51,10 @@ func ChatRequest(irc *state.State) (string, error) {
 	requestBody := &LlamaCppRequest{
 		Model:            llamacppConfig.DefaultModel,
 		Stream:           false,
-		RepeatPenalty:    1.2,
-		PresencePenalty:  1.5,
-		FrequencyPenalty: 2.0,
+		RepeatPenalty:    1.1,
+		PresencePenalty:  0.4,
+		FrequencyPenalty: 0.4,
+		MaxTokens:        2048,
 		Messages:         []text.Message{},
 	}
 

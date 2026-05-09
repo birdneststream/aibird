@@ -436,7 +436,7 @@ func ChatWithTools(irc *state.State) (string, error) { //nolint:gocyclo // tool 
 		}
 
 		// Use raw messages to support mixed message types
-		reqJSON := fmt.Sprintf(`{"model":%q,"stream":false,"repeat_penalty":1.2,"presence_penalty":1.5,"frequency_penalty":2.0,"tools":%s,"tool_choice":"auto","messages":%s}`,
+		reqJSON := fmt.Sprintf(`{"model":%q,"stream":false,"repeat_penalty":1.1,"presence_penalty":0.4,"frequency_penalty":0.4,"max_tokens":2048,"tools":%s,"tool_choice":"auto","messages":%s}`,
 			llamacppConfig.DefaultModel,
 			mustMarshal(tools),
 			messagesJSON,
