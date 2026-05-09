@@ -84,6 +84,13 @@ const (
 	toolTypeFunction = "function"
 	roleTool         = "tool"
 	roleUser         = "user"
+	roleAssistant    = "assistant"
+	roleSystem       = "system"
+
+	// Map key constants for conversation messages.
+	keyRole    = "role"
+	keyContent = "content"
+	keyName    = "name"
 )
 
 // DefaultMcpTools returns the standard set of tools available to the LLM.

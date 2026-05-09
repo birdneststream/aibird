@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"regexp"
 	"strings"
 	"time"
 
@@ -19,6 +20,187 @@ const (
 	defaultMaxIterations = 5
 	defaultTimeoutSecs   = 120
 )
+
+// Pre-compiled regexes for text-based tool call parsing.
+// Qwen models output tool calls as text (e.g., <toolcall>{"name":"web_search","arguments":{...}}</toolcall>)
+// when llama.cpp doesn't parse them into structured tool_calls.
+var (
+	// Matches <toolcall>...</toolcall> or <tool_call...>...</tool_call⟩ blocks
+	reToolCallBlock = regexp.MustCompile(`(?is)<tool_?call\s*>(.*?)</tool_?call>`)
+	// Strip any remaining tool call tags from final response
+	reStripToolTags = regexp.MustCompile(`(?is)<tool_?call\s*>.*?</tool_?call\s*>`)
+	// Also strip unclosed tool call tags
+	reStripToolOpen = regexp.MustCompile(`(?is)<tool_?call[^>]*>`)
+)
+
+// textToolCall represents a parsed text-based tool call from model output.
+type textToolCall struct {
+	Name      string                 `json:"name"`
+	Arguments map[string]interface{} `json:"arguments"`
+}
+
+// parseTextToolCalls extracts tool calls from model text output.
+// Handles multiple formats:
+//   - Block: <toolcall>{"name":"web_search","arguments":{"query":"..."}}</toolcall>
+//   - Inline: <tool_call{"name":"web_search","arguments":{"query":"..."}}
+//   - Multi-line block: <toolcall>\n{"name":"web_search",...}\n</toolcall>
+func parseTextToolCalls(content string) []textToolCall {
+	var calls []textToolCall
+
+	// Strategy 1: Find <toolcall>...</toolcall> blocks and extract JSON from inside
+	blockMatches := reToolCallBlock.FindAllStringSubmatch(content, -1)
+	for _, match := range blockMatches {
+		if len(match) < 2 {
+			continue
+		}
+		inner := strings.TrimSpace(match[1])
+		if tc := parseToolCallJSON(inner); tc != nil {
+			calls = append(calls, *tc)
+		}
+	}
+
+	// Strategy 2: Find inline patterns where <tool_call or <toolcall is
+	// directly followed by JSON (no closing > before the JSON).
+	// This handles: <tool_call{"name":"..."} or <toolcall{"name":"..."}
+	if len(calls) == 0 {
+		calls = parseInlineToolCalls(content)
+	}
+
+	return calls
+}
+
+// parseInlineToolCalls finds tool calls where the tag is directly followed by JSON.
+// Handles: <tool_call{"name":"web_search","arguments":{...}}
+func parseInlineToolCalls(content string) []textToolCall {
+	var calls []textToolCall
+
+	// Find all positions where <tool_call or <toolcall appears
+	marker := "<tool"
+	pos := 0
+	for {
+		idx := strings.Index(content[pos:], marker)
+		if idx < 0 {
+			break
+		}
+		idx += pos // absolute position
+
+		// Check if this is actually <tool_call or <toolcall
+		rest := content[idx:]
+		if !strings.HasPrefix(rest, "<tool_call") && !strings.HasPrefix(rest, "<toolcall") {
+			pos = idx + 1
+			continue
+		}
+
+		// Find the first { after the marker
+		braceStart := strings.Index(rest, "{")
+		if braceStart < 0 {
+			pos = idx + 1
+			continue
+		}
+
+		jsonStart := idx + braceStart
+		// Find the matching closing brace
+		jsonEnd := findJSONEnd(content[jsonStart:])
+		if jsonEnd < 0 {
+			pos = idx + 1
+			continue
+		}
+
+		jsonStr := content[jsonStart : jsonStart+jsonEnd]
+		if tc := parseToolCallJSON(jsonStr); tc != nil {
+			calls = append(calls, *tc)
+			pos = jsonStart + jsonEnd
+		} else {
+			pos = idx + 1
+		}
+	}
+
+	return calls
+}
+
+// parseToolCallJSON tries to parse a JSON object as a tool call.
+func parseToolCallJSON(data string) *textToolCall {
+	// Sometimes the JSON has trailing noise — try to extract just the JSON object
+	data = strings.TrimSpace(data)
+
+	// Find the first { and try to parse from there
+	start := strings.Index(data, "{")
+	if start < 0 {
+		return nil
+	}
+	data = data[start:]
+
+	var tc textToolCall
+	if err := json.Unmarshal([]byte(data), &tc); err != nil {
+		// Try to find the end of the JSON object by counting braces
+		end := findJSONEnd(data)
+		if end > 0 {
+			if err2 := json.Unmarshal([]byte(data[:end]), &tc); err2 != nil {
+				logger.Debug("Failed to parse text tool call JSON", "error", err, "data", data[:min(200, len(data))])
+				return nil
+			}
+		} else {
+			logger.Debug("Failed to parse text tool call JSON", "error", err, "data", data[:min(200, len(data))])
+			return nil
+		}
+	}
+
+	if tc.Name == "" {
+		return nil
+	}
+
+	return &tc
+}
+
+// findJSONEnd finds the end of a JSON object by matching braces.
+func findJSONEnd(s string) int {
+	depth := 0
+	inStr := false
+	escape := false
+
+	for i, ch := range s {
+		if escape {
+			escape = false
+			continue
+		}
+		if ch == '\\' && inStr {
+			escape = true
+			continue
+		}
+		if ch == '"' {
+			inStr = !inStr
+			continue
+		}
+		if inStr {
+			continue
+		}
+		if ch == '{' {
+			depth++
+		}
+		if ch == '}' {
+			depth--
+			if depth == 0 {
+				return i + 1
+			}
+		}
+	}
+
+	return -1
+}
+
+// hasTextToolCalls checks if content contains text-based tool call markers.
+func hasTextToolCalls(content string) bool {
+	return strings.Contains(content, "<toolcall") ||
+		strings.Contains(content, "<tool_call") ||
+		strings.Contains(content, "<tool call")
+}
+
+// stripToolCallTags removes any tool call markers from a final response.
+func stripToolCallTags(content string) string {
+	cleaned := reStripToolTags.ReplaceAllString(content, "")
+	cleaned = reStripToolOpen.ReplaceAllString(cleaned, "")
+	return strings.TrimSpace(cleaned)
+}
 
 // ChatWithTools sends a chat request to llama.cpp with tool calling support.
 // It runs a multi-turn loop: if the LLM returns tool_calls, the tools are
@@ -113,9 +295,9 @@ func ChatWithTools(irc *state.State) (string, error) { //nolint:gocyclo // tool 
 
 		choice := resp.Choices[0]
 
-		// Check if the LLM wants to call tools
+		// Check if the LLM wants to call tools (structured OpenAI format)
 		if choice.FinishReason == "tool_calls" && len(choice.Message.ToolCalls) > 0 {
-			logger.Debug("LLM requested tool calls", "count", len(choice.Message.ToolCalls))
+			logger.Debug("LLM requested tool calls (structured)", "count", len(choice.Message.ToolCalls))
 
 			// Add assistant message with tool calls to conversation
 			conversation = append(conversation, choice.Message)
@@ -138,9 +320,61 @@ func ChatWithTools(irc *state.State) (string, error) { //nolint:gocyclo // tool 
 			continue
 		}
 
+		// Check for text-based tool calls in content (Qwen models via llama.cpp
+		// output <toolcall>{"name":"web_search","arguments":{...}}</toolcall> as text
+		// instead of structured tool_calls in the API response).
+		if choice.Message.Content != nil && hasTextToolCalls(*choice.Message.Content) {
+			textCalls := parseTextToolCalls(*choice.Message.Content)
+			if len(textCalls) > 0 {
+				logger.Debug("LLM requested tool calls (text-based)", "count", len(textCalls))
+
+				// Add assistant's tool call text to conversation so the model
+				// sees its own output in the next iteration
+				conversation = append(conversation, map[string]string{
+					keyRole:    roleAssistant,
+					keyContent: *choice.Message.Content,
+				})
+
+				// Execute each parsed tool call
+				for _, tc := range textCalls {
+					argsJSON, err := json.Marshal(tc.Arguments)
+					if err != nil {
+						logger.Warn("Failed to marshal text tool call args", "error", err)
+						continue
+					}
+
+					logger.Debug("Executing text-based tool", "tool", tc.Name, "args", string(argsJSON))
+
+					result := ExecuteTool(ctx, tc.Name, string(argsJSON), mcpConfig)
+					logger.Debug("Text-based tool result", "tool", tc.Name, "result_len", len(result))
+
+					// Add tool result as user message (Qwen expects "tool" or "user" role
+					// for results after text-based tool calls)
+					conversation = append(conversation, map[string]string{
+						keyRole:    roleTool,
+						keyContent: result,
+						keyName:    tc.Name,
+					})
+				}
+
+				// Continue loop to send results back to LLM
+				continue
+			}
+
+			// Had tool call markers but couldn't parse them — strip and treat as final
+			logger.Warn("Found tool call markers but failed to parse, stripping tags from response")
+		}
+
 		// Final response — LLM is done
 		if choice.Message.Content != nil && *choice.Message.Content != "" {
 			response := strings.TrimSpace(*choice.Message.Content)
+
+			// Safety: strip any remaining tool call tags from the final response
+			response = stripToolCallTags(response)
+
+			if response == "" {
+				return "", errors.New("LLM returned only tool call tags with no text content")
+			}
 
 			// Cache the final assistant response
 			text.AppendChatCache(irc.UserAiChatCacheKey(), "assistant", response, irc.Config.AiBird.AiChatContextLimit)
@@ -164,22 +398,22 @@ func buildConversation(systemPrompt string, chatHistory []text.Message, currentU
 
 	// System prompt
 	conversation = append(conversation, McpMessage{
-		Role:    "system",
+		Role:    roleSystem,
 		Content: StringPtr(systemPrompt),
 	})
 
 	// Chat history (regular user/assistant messages)
 	for _, msg := range chatHistory {
 		conversation = append(conversation, map[string]string{
-			"role":    msg.Role,
-			"content": msg.Content,
+			keyRole:    msg.Role,
+			keyContent: msg.Content,
 		})
 	}
 
 	// Current user message
 	conversation = append(conversation, map[string]string{
-		"role":    roleUser,
-		"content": currentUserMessage,
+		keyRole:    roleUser,
+		keyContent: currentUserMessage,
 	})
 
 	return conversation

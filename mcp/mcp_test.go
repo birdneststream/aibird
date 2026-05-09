@@ -184,3 +184,138 @@ func testMcpConfig(searxngURL string) *settings.McpConfig {
 func testFirecrawlConfigFull(serverURL string) settings.FirecrawlConfig {
 	return settings.FirecrawlConfig{Url: serverURL, Port: ""}
 }
+
+// --- Text-based tool call parser tests ---
+
+func TestParseTextToolCalls_QwenBlock(t *testing.T) {
+	input := `<toolcall>{"name": "web_search", "arguments": {"query": "hantavirus latest news"}}</toolcall>`
+
+	calls := parseTextToolCalls(input)
+	if len(calls) != 1 {
+		t.Fatalf("expected 1 tool call, got %d", len(calls))
+	}
+	if calls[0].Name != "web_search" {
+		t.Errorf("expected name 'web_search', got %q", calls[0].Name)
+	}
+	query, ok := calls[0].Arguments["query"].(string)
+	if !ok || query != "hantavirus latest news" {
+		t.Errorf("expected query 'hantavirus latest news', got %q", query)
+	}
+}
+
+func TestParseTextToolCalls_UnderscoreBlock(t *testing.T) {
+	input := `<tool_call{"name": "scrape_url", "arguments": {"url": "https://example.com"}}`
+
+	calls := parseTextToolCalls(input)
+	if len(calls) != 1 {
+		t.Fatalf("expected 1 tool call, got %d", len(calls))
+	}
+	if calls[0].Name != "scrape_url" {
+		t.Errorf("expected name 'scrape_url', got %q", calls[0].Name)
+	}
+}
+
+func TestParseTextToolCalls_MultipleBlocks(t *testing.T) {
+	input := `<toolcall>{"name": "web_search", "arguments": {"query": "Go 1.25"}}</toolcall> some text <toolcall>{"name": "scrape_url", "arguments": {"url": "https://go.dev"}}</toolcall>`
+
+	calls := parseTextToolCalls(input)
+	if len(calls) != 2 {
+		t.Fatalf("expected 2 tool calls, got %d", len(calls))
+	}
+	if calls[0].Name != "web_search" {
+		t.Errorf("first call: expected 'web_search', got %q", calls[0].Name)
+	}
+	if calls[1].Name != "scrape_url" {
+		t.Errorf("second call: expected 'scrape_url', got %q", calls[1].Name)
+	}
+}
+
+func TestParseTextToolCalls_NoCalls(t *testing.T) {
+	input := "Just a regular response with no tool calls."
+	calls := parseTextToolCalls(input)
+	if len(calls) != 0 {
+		t.Errorf("expected 0 tool calls, got %d", len(calls))
+	}
+}
+
+func TestParseTextToolCalls_MalformedJSON(t *testing.T) {
+	input := `<toolcall>not json at all</toolcall>`
+	calls := parseTextToolCalls(input)
+	if len(calls) != 0 {
+		t.Errorf("expected 0 tool calls for malformed JSON, got %d", len(calls))
+	}
+}
+
+func TestParseTextToolCalls_EmptyName(t *testing.T) {
+	input := `<toolcall>{"arguments": {"query": "test"}}</toolcall>`
+	calls := parseTextToolCalls(input)
+	if len(calls) != 0 {
+		t.Errorf("expected 0 tool calls for empty name, got %d", len(calls))
+	}
+}
+
+func TestHasTextToolCalls(t *testing.T) {
+	tests := []struct {
+		input string
+		want  bool
+	}{
+		{"<toolcall>stuff</toolcall>", true},
+		{"<tool_call stuff", true},
+		{"<tool call stuff", true},
+		{"Just regular text", false},
+		{"The tool is called search", false},
+	}
+
+	for _, tt := range tests {
+		got := hasTextToolCalls(tt.input)
+		if got != tt.want {
+			t.Errorf("hasTextToolCalls(%q) = %v, want %v", tt.input, got, tt.want)
+		}
+	}
+}
+
+func TestStripToolCallTags(t *testing.T) {
+	tests := []struct {
+		input string
+		want  string
+	}{
+		{
+			`Here is my answer. <toolcall>{"name":"web_search","arguments":{}}</toolcall>`,
+			"Here is my answer.",
+		},
+		{
+			`<toolcall>stuff</toolcall>The real answer is here.`,
+			"The real answer is here.",
+		},
+		{
+			"No tags here at all.",
+			"No tags here at all.",
+		},
+	}
+
+	for _, tt := range tests {
+		got := stripToolCallTags(tt.input)
+		if got != tt.want {
+			t.Errorf("stripToolCallTags(%q) = %q, want %q", tt.input, got, tt.want)
+		}
+	}
+}
+
+func TestFindJSONEnd(t *testing.T) {
+	tests := []struct {
+		input string
+		want  int
+	}{
+		{`{"key": "value"}`, 16},
+		{`{"nested": {"inner": 1}}`, 24},
+		{`{"escaped": "has \"quotes\""}`, 29},
+		{`not json`, -1},
+	}
+
+	for _, tt := range tests {
+		got := findJSONEnd(tt.input)
+		if got != tt.want {
+			t.Errorf("findJSONEnd(%q) = %d, want %d", tt.input, got, tt.want)
+		}
+	}
+}
