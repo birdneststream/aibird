@@ -55,6 +55,34 @@ func dispatchCommand(irc *state.State, q *queue.ProcessingQueue) { //nolint:gocy
 		return
 	}
 
+	// Special handling for !aildown with MCP tool calling - needs queue
+	if commands.ShouldQueueAilDown(irc) {
+		if err := commands.CheckAiCanUse(irc); err != nil {
+			irc.SendError(err.Error())
+			return
+		}
+
+		queueItem := queue.QueueItem{
+			Item: queue.Item{
+				State: *irc,
+				Function: func(ctx context.Context, s state.State, gpu meta.GPUType) {
+					commands.ProcessAilDownRequest(ctx, s, gpu)
+				},
+			},
+			Model: "aildown",
+			User:  irc.User,
+			GPU:   meta.GPU4090,
+		}
+
+		msg, err := q.Enqueue(queueItem)
+		if err != nil {
+			irc.SendError(err.Error())
+		} else if msg != "" {
+			irc.Send(msg)
+		}
+		return
+	}
+
 	if commands.IsQueueableCommand(*irc) {
 		// Create QueueItem with model information
 		queueItem := queue.QueueItem{

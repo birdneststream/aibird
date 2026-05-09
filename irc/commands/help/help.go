@@ -26,6 +26,7 @@ const (
 	argNickname    = "<nickname>"
 	argHours       = "<hours>"
 	argChannelName = "<channel_name>"
+	argMessage     = "<message>"
 	valTrueFalse   = "true, false"
 	valText        = "text"
 	cmdHelp        = "help"
@@ -236,7 +237,7 @@ func TextHelp() []Help {
 			Type: typeText,
 			Help: "Process a GLM (ChatGLM) request.",
 			Arguments: []Arguments{
-				{Argument: "<message>", Help: "Specify the message to process.", Values: ""},
+				{Argument: argMessage, Help: "Specify the message to process.", Values: ""},
 				{Argument: "reset", Help: "Reset the conversation cache.", Values: ""},
 			},
 			Queueable: false,
@@ -251,6 +252,19 @@ func TextHelp() []Help {
 			},
 			Queueable: false,
 			Example:   "!glm-img a cute cat sitting on a windowsill --size=1024x1024",
+		},
+		{
+			Name: "aildown",
+			Type: typeText,
+			Help: "AI with web search and URL scraping capabilities. Uses SearXNG for search and Firecrawl for page scraping. The LLM autonomously decides when to use tools.",
+			Arguments: []Arguments{
+				{Argument: argMessage, Help: "Your question or request.", Values: ""},
+				{Argument: "reset", Help: "Reset the conversation cache.", Values: ""},
+				{Argument: "--tts", Help: "Convert the response to speech.", Values: ""},
+				{Argument: "--voice", Help: "Specify TTS voice.", Values: "e.g., woman"},
+			},
+			Queueable: false, // Uses dedicated dispatch path, not generic queue routing
+			Example:   "!aildown What are the latest developments in Go 1.25?",
 		},
 	}
 }
@@ -591,7 +605,7 @@ func getHelpForWorkflowType(workflowType string, config settings.AiBird) []Help 
 		arguments := []Arguments{}
 		if meta.PromptTarget.Node != "" {
 			arguments = append(arguments, Arguments{
-				Argument: "<message>",
+				Argument: argMessage,
 				Help:     "The main prompt for the generation.",
 				Values:   "",
 			})

@@ -14,6 +14,7 @@ type (
 		ComfyUi  ComfyUiConfig               `toml:"comfyui" validate:"required"`
 		Birdhole BirdholeConfig              `toml:"birdhole" validate:"required"`
 		Logging  logger.Config               `toml:"logging" validate:"required"`
+		Mcp      McpConfig                   `toml:"mcp"`
 	}
 
 	AiBird struct {
@@ -78,5 +79,30 @@ type (
 		UrlLen      int    `toml:"urlLen"`
 		Expiry      int    `toml:"expiry"`
 		Description string `toml:"description"`
+	}
+
+	// McpConfig holds configuration for MCP tool-calling integration.
+	// The name "mcp" stands for "managed capability providers" — this is NOT
+	// the Model Context Protocol, but a tool-calling integration layer that
+	// gives the LLM access to external tools like web search and URL scraping.
+	McpConfig struct {
+		SearXNG       SearXNGConfig   `toml:"searxng"`
+		Firecrawl     FirecrawlConfig `toml:"firecrawl"`
+		Enabled       bool            `toml:"enabled"`
+		MaxIterations int             `toml:"maxIterations"` // max tool calling iterations (default 5)
+		TimeoutSecs   int             `toml:"timeoutSecs"`   // total loop timeout in seconds (default 120)
+	}
+
+	// SearXNGConfig holds connection details for a self-hosted SearXNG search instance.
+	SearXNGConfig struct {
+		Url  string `toml:"url" validate:"omitempty,url"`
+		Port string `toml:"port"`
+	}
+
+	// FirecrawlConfig holds connection details for a self-hosted Firecrawl scrape instance.
+	FirecrawlConfig struct {
+		Url    string `toml:"url" validate:"omitempty,url"`
+		Port   string `toml:"port"`
+		ApiKey string `toml:"apiKey" json:"-"`
 	}
 )

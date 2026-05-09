@@ -59,6 +59,7 @@ func loadServiceConfigs(config *Config) error {
 		"settings/comfyui.toml":  &config.ComfyUi,
 		"settings/birdhole.toml": &config.Birdhole,
 		"settings/logging.toml":  &config.Logging,
+		"settings/mcp.toml":      &config.Mcp,
 	}
 
 	for configPath, configStruct := range serviceConfigs {

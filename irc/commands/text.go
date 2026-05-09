@@ -228,6 +228,7 @@ func ParseAiText(irc *state.State) bool {
 		}
 
 		size, _ := irc.GetStringArg("size", "1024x1024")
+
 		irc.ReplyTo(girc.Fmt("🎨 Generating image with CogView-4, please wait..."))
 
 		helpers.GoSafe(func() {
@@ -268,6 +269,11 @@ func ParseAiText(irc *state.State) bool {
 			irc.ReplyTo(fmt.Sprintf("🎨 %s", upload))
 		})
 		return true
+	}
+
+	// Handle !aildown command (MCP tool calling with web search/scrape)
+	if irc.IsAction("aildown") {
+		return ParseAilDown(irc)
 	}
 
 	return false
