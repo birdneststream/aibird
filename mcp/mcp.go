@@ -435,8 +435,8 @@ func ChatWithTools(irc *state.State) (string, error) { //nolint:gocyclo // tool 
 			return "", fmt.Errorf("failed to marshal conversation: %w", err)
 		}
 
-		// Use raw messages to support mixed message types
-		reqJSON := fmt.Sprintf(`{"model":%q,"stream":false,"repeat_penalty":1.1,"presence_penalty":0.4,"frequency_penalty":0.4,"max_tokens":2048,"tools":%s,"tool_choice":"auto","messages":%s}`,
+		// Qwen3.6 official non-thinking params: temp=0.7, top_p=0.8, top_k=20, presence_penalty=1.5, repeat_penalty=1.0
+		reqJSON := fmt.Sprintf(`{"model":%q,"stream":false,"temperature":0.7,"top_p":0.8,"top_k":20,"repeat_penalty":1.0,"presence_penalty":1.5,"max_tokens":4096,"tools":%s,"tool_choice":"auto","messages":%s}`,
 			llamacppConfig.DefaultModel,
 			mustMarshal(tools),
 			messagesJSON,

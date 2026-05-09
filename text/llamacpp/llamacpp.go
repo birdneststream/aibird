@@ -48,14 +48,19 @@ func ChatRequest(irc *state.State) (string, error) {
 
 	message := text.AppendFullStop(irc.Message())
 
+	// Sampling parameters follow official Qwen3.6 recommendations for
+	// non-thinking (instruct) mode general chat:
+	//   temperature=0.7, top_p=0.8, top_k=20, presence_penalty=1.5, repetition_penalty=1.0
 	requestBody := &LlamaCppRequest{
-		Model:            llamacppConfig.DefaultModel,
-		Stream:           false,
-		RepeatPenalty:    1.1,
-		PresencePenalty:  0.4,
-		FrequencyPenalty: 0.4,
-		MaxTokens:        2048,
-		Messages:         []text.Message{},
+		Model:           llamacppConfig.DefaultModel,
+		Stream:          false,
+		Temperature:     0.7,
+		TopP:            0.8,
+		TopK:            20,
+		RepeatPenalty:   1.0,
+		PresencePenalty: 1.5,
+		MaxTokens:       4096,
+		Messages:        []text.Message{},
 	}
 
 	// Get the chat history from the cache if it exists
