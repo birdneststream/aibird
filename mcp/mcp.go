@@ -31,11 +31,25 @@ var (
 	reFunctionCall = regexp.MustCompile(`(?is)<function\s*=\s*(\w+)\s*>\s*\((.*?)\)`)
 	// <function=NAME> without parens (standalone tag)
 	reFunctionTag = regexp.MustCompile(`(?is)<function\s*=\s*(\w+)\s*>`)
-	// Strip all tool call artifacts from final response
+	// Also try: NAME>(key="value") — garbled function format where <function= is missing/broken
+	reGarbledFuncCall = regexp.MustCompile(`(?is)(?:web_search|scrape_url)\s*>\s*\((\w+)\s*=\s*"(.*?)"\)`)
+
+	// Strippers for cleaning final responses:
+	// Specific patterns
 	reStripToolTags = regexp.MustCompile(`(?is)<tool_?call\s*>.*?</tool_?call\s*>`)
 	reStripToolOpen = regexp.MustCompile(`(?is)<tool_?call[^>]*>`)
 	reStripFuncCall = regexp.MustCompile(`(?is)<function\s*=\s*\w+\s*>\s*\(.*?\)`)
 	reStripFuncTag  = regexp.MustCompile(`(?is)<function\s*=\s*\w+\s*>`)
+	// Catch-all: any XML-like tag that looks like a tool artifact (parameter, result, toolcodename, api_result, etc.)
+	reStripToolArtifact = regexp.MustCompile(`(?is)</?(?:parameter|result|tool\w*|api_\w*|function\w*|toolcall|tool_call)[^>]*>`)
+	// Garbled tool calls: toolname>(args)
+	reStripGarbledCall = regexp.MustCompile(`(?is)(?:web_search|scrape_url)\s*>[^<]*`)
+	// Base64 data URIs in markdown images: ![...](data:image/...;base64,...)
+	reStripBase64Image = regexp.MustCompile(`!\[[^\]]*\]\(data:image/[^;]+;base64,[^)]*\)`)
+	// JSON error blocks: {"error":"..."}
+	reStripJSONError = regexp.MustCompile(`\{"error"\s*:\s*"[^"]*"\}`)
+	// Multiple newlines cleanup
+	reMultiNewline = regexp.MustCompile(`\n{2,}`)
 )
 
 // textToolCall represents a parsed text-based tool call from model output.
@@ -82,6 +96,11 @@ func parseTextToolCalls(content string) []textToolCall {
 		}
 	}
 
+	// Strategy 1c: Garbled format — NAME>(key="value") where the tag is broken
+	if len(calls) == 0 {
+		calls = parseGarbledToolCalls(content)
+	}
+
 	// Strategy 2: <toolcall>{json}</toolcall> blocks
 	if len(calls) == 0 {
 		blockMatches := reToolCallBlock.FindAllStringSubmatch(content, -1)
@@ -99,6 +118,32 @@ func parseTextToolCalls(content string) []textToolCall {
 	// Strategy 3: Inline <tool_call{...} or <toolcall{...} (no closing > before JSON)
 	if len(calls) == 0 {
 		calls = parseInlineToolCalls(content)
+	}
+
+	return calls
+}
+
+// parseGarbledToolCalls handles garbled tool call output where the XML tag is
+// broken but the tool name and arguments are still present.
+// e.g., "scrape_url>(url=\"https://...\")"
+func parseGarbledToolCalls(content string) []textToolCall {
+	var calls []textToolCall
+
+	garbledMatches := reGarbledFuncCall.FindAllStringSubmatch(content, -1)
+	for _, match := range garbledMatches {
+		if len(match) < 3 {
+			continue
+		}
+		key := strings.TrimSpace(match[1])
+		value := strings.TrimSpace(match[2])
+		args := map[string]interface{}{key: value}
+
+		// Determine which tool based on content
+		if strings.Contains(content, "scrape_url") {
+			calls = append(calls, textToolCall{Name: ToolNameScrapeURL, Arguments: args})
+		} else {
+			calls = append(calls, textToolCall{Name: ToolNameWebSearch, Arguments: args})
+		}
 	}
 
 	return calls
@@ -298,11 +343,27 @@ func hasTextToolCalls(content string) bool {
 }
 
 // stripToolCallTags removes any tool call markers from a final response.
+// Applies increasingly aggressive patterns to catch well-formed tags,
+// garbled XML artifacts, base64 data URIs, and JSON error blocks.
 func stripToolCallTags(content string) string {
-	cleaned := reStripToolTags.ReplaceAllString(content, "")
+	cleaned := content
+
+	// Well-formed tags
+	cleaned = reStripToolTags.ReplaceAllString(cleaned, "")
 	cleaned = reStripToolOpen.ReplaceAllString(cleaned, "")
 	cleaned = reStripFuncCall.ReplaceAllString(cleaned, "")
 	cleaned = reStripFuncTag.ReplaceAllString(cleaned, "")
+
+	// Garbled tool call artifacts
+	cleaned = reStripToolArtifact.ReplaceAllString(cleaned, "")
+	cleaned = reStripGarbledCall.ReplaceAllString(cleaned, "")
+
+	// Data artifacts (base64 images, JSON errors)
+	cleaned = reStripBase64Image.ReplaceAllString(cleaned, "")
+	cleaned = reStripJSONError.ReplaceAllString(cleaned, "")
+
+	// Clean up multiple consecutive whitespace/newlines
+	cleaned = reMultiNewline.ReplaceAllString(cleaned, "\n")
 	return strings.TrimSpace(cleaned)
 }
 
