@@ -4,17 +4,12 @@ import "aibird/text"
 
 type (
 	// LlamaCppRequest represents an OpenAI-compatible chat completion request for llama.cpp.
-	// Sampling parameters follow Qwen3.6 official recommendations for non-thinking (instruct) mode.
+	// Sampling parameters (temperature, top_p, top_k, penalties, etc.) are intentionally
+	// omitted — they should be configured on the llama.cpp server via CLI flags.
 	LlamaCppRequest struct {
-		Model           string         `json:"model"`
-		Messages        []text.Message `json:"messages"`
-		Stream          bool           `json:"stream"`
-		Temperature     float64        `json:"temperature,omitempty"`
-		TopP            float64        `json:"top_p,omitempty"`
-		TopK            int            `json:"top_k,omitempty"`
-		RepeatPenalty   float64        `json:"repeat_penalty,omitempty"`
-		PresencePenalty float64        `json:"presence_penalty,omitempty"`
-		MaxTokens       int            `json:"max_tokens,omitempty"`
+		Model    string         `json:"model"`
+		Messages []text.Message `json:"messages"`
+		Stream   bool           `json:"stream"`
 	}
 
 	// LlamaCppMessage extends text.Message with reasoning_content from llama.cpp
