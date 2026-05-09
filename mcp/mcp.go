@@ -390,6 +390,9 @@ func ChatWithTools(irc *state.State) (string, error) { //nolint:gocyclo // tool 
 		systemPrompt = "You are a helpful AI assistant with access to web search and URL scraping tools. Use them when needed to answer questions accurately. Cite your sources."
 	}
 
+	// Inject current date/time so the model knows the current year
+	systemPrompt = strings.Replace(systemPrompt, "{CURRENT_DATETIME}", time.Now().Format("Monday, January 2, 2006 3:04 PM MST"), 1)
+
 	message := text.AppendFullStop(irc.Message())
 
 	// Build conversation history from cache

@@ -62,9 +62,14 @@ func ChatRequest(irc *state.State) (string, error) {
 	text.AppendChatCache(irc.UserAiChatCacheKey(), "user", message, irc.Config.AiBird.AiChatContextLimit)
 
 	// Build messages: system prompt + history + current message
+	// Append current date/time so the model knows the current year
+	basePrompt := irc.User.GetBasePrompt()
+	if basePrompt != "" {
+		basePrompt += "\n\nCurrent date and time: " + time.Now().Format("Monday, January 2, 2006 3:04 PM MST")
+	}
 	systemMessage := text.Message{
 		Role:    "system",
-		Content: irc.User.GetBasePrompt(),
+		Content: basePrompt,
 	}
 
 	currentUserMessage := text.Message{

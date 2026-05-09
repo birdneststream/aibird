@@ -4,6 +4,7 @@ package glm
 import (
 	"fmt"
 	"strings"
+	"time"
 
 	"aibird/birdbase"
 	"aibird/http/request"
@@ -58,6 +59,11 @@ const (
 
 // buildRequestBody creates the request body for the GLM API call.
 func buildRequestBody(irc *state.State, message string) *GlmRequestBody {
+	// Append current date/time so the model knows the current year
+	basePrompt := irc.User.GetBasePrompt()
+	if basePrompt != "" {
+		basePrompt += "\n\nCurrent date and time: " + time.Now().Format("Monday, January 2, 2006 3:04 PM MST")
+	}
 	body := &GlmRequestBody{
 		Model:  irc.Config.Glm.DefaultModel,
 		Stream: false,
@@ -65,7 +71,7 @@ func buildRequestBody(irc *state.State, message string) *GlmRequestBody {
 			Type: thinkingDisabled,
 		},
 		Messages: []text.Message{
-			{Role: roleSystem, Content: irc.User.GetBasePrompt()},
+			{Role: roleSystem, Content: basePrompt},
 		},
 	}
 
