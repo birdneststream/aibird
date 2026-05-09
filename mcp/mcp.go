@@ -22,15 +22,20 @@ const (
 )
 
 // Pre-compiled regexes for text-based tool call parsing.
-// Qwen models output tool calls as text (e.g., <toolcall>{"name":"web_search","arguments":{...}}</toolcall>)
-// when llama.cpp doesn't parse them into structured tool_calls.
+// Models output tool calls in various text formats when llama.cpp doesn't
+// parse them into structured tool_calls.
 var (
-	// Matches <toolcall>...</toolcall> or <tool_call...>...</tool_call⟩ blocks
+	// <toolcall>...</toolcall> or <tool_call...>...</tool_call⟩ blocks (JSON inside)
 	reToolCallBlock = regexp.MustCompile(`(?is)<tool_?call\s*>(.*?)</tool_?call>`)
-	// Strip any remaining tool call tags from final response
+	// <function=NAME>(ARGS) format — Qwen models use this
+	reFunctionCall = regexp.MustCompile(`(?is)<function\s*=\s*(\w+)\s*>\s*\((.*?)\)`)
+	// <function=NAME> without parens (standalone tag)
+	reFunctionTag = regexp.MustCompile(`(?is)<function\s*=\s*(\w+)\s*>`)
+	// Strip all tool call artifacts from final response
 	reStripToolTags = regexp.MustCompile(`(?is)<tool_?call\s*>.*?</tool_?call\s*>`)
-	// Also strip unclosed tool call tags
 	reStripToolOpen = regexp.MustCompile(`(?is)<tool_?call[^>]*>`)
+	reStripFuncCall = regexp.MustCompile(`(?is)<function\s*=\s*\w+\s*>\s*\(.*?\)`)
+	reStripFuncTag  = regexp.MustCompile(`(?is)<function\s*=\s*\w+\s*>`)
 )
 
 // textToolCall represents a parsed text-based tool call from model output.
@@ -43,30 +48,126 @@ type textToolCall struct {
 // Handles multiple formats:
 //   - Block: <toolcall>{"name":"web_search","arguments":{"query":"..."}}</toolcall>
 //   - Inline: <tool_call{"name":"web_search","arguments":{"query":"..."}}
-//   - Multi-line block: <toolcall>\n{"name":"web_search",...}\n</toolcall>
+//   - Function: <function=web_search>(query="latest news...")
 func parseTextToolCalls(content string) []textToolCall {
 	var calls []textToolCall
 
-	// Strategy 1: Find <toolcall>...</toolcall> blocks and extract JSON from inside
-	blockMatches := reToolCallBlock.FindAllStringSubmatch(content, -1)
-	for _, match := range blockMatches {
-		if len(match) < 2 {
+	// Strategy 1: <function=NAME>(ARGS) format (Qwen models)
+	funcMatches := reFunctionCall.FindAllStringSubmatch(content, -1)
+	for _, match := range funcMatches {
+		if len(match) < 3 {
 			continue
 		}
-		inner := strings.TrimSpace(match[1])
-		if tc := parseToolCallJSON(inner); tc != nil {
+		name := strings.TrimSpace(match[1])
+		argsStr := strings.TrimSpace(match[2])
+		if tc := parseFunctionCallArgs(name, argsStr); tc != nil {
 			calls = append(calls, *tc)
 		}
 	}
 
-	// Strategy 2: Find inline patterns where <tool_call or <toolcall is
-	// directly followed by JSON (no closing > before the JSON).
-	// This handles: <tool_call{"name":"..."} or <toolcall{"name":"..."}
+	// Strategy 1b: <function=NAME> without parens — extract name, empty args
+	if len(calls) == 0 {
+		tagMatches := reFunctionTag.FindAllStringSubmatch(content, -1)
+		for _, match := range tagMatches {
+			if len(match) < 2 {
+				continue
+			}
+			name := strings.TrimSpace(match[1])
+			if isValidToolName(name) {
+				calls = append(calls, textToolCall{
+					Name:      name,
+					Arguments: map[string]interface{}{},
+				})
+			}
+		}
+	}
+
+	// Strategy 2: <toolcall>{json}</toolcall> blocks
+	if len(calls) == 0 {
+		blockMatches := reToolCallBlock.FindAllStringSubmatch(content, -1)
+		for _, match := range blockMatches {
+			if len(match) < 2 {
+				continue
+			}
+			inner := strings.TrimSpace(match[1])
+			if tc := parseToolCallJSON(inner); tc != nil {
+				calls = append(calls, *tc)
+			}
+		}
+	}
+
+	// Strategy 3: Inline <tool_call{...} or <toolcall{...} (no closing > before JSON)
 	if len(calls) == 0 {
 		calls = parseInlineToolCalls(content)
 	}
 
 	return calls
+}
+
+// isValidToolName checks if a name matches a known tool.
+func isValidToolName(name string) bool {
+	return name == ToolNameWebSearch || name == ToolNameScrapeURL
+}
+
+// parseFunctionCallArgs parses <function=NAME>(query="value") style arguments
+// into a textToolCall. Handles both quoted and unquoted values, multiple params.
+func parseFunctionCallArgs(name, argsStr string) *textToolCall {
+	args := make(map[string]interface{})
+
+	if argsStr == "" {
+		return &textToolCall{Name: name, Arguments: args}
+	}
+
+	// Parse key=value or key="value" pairs, comma separated
+	// Examples: query="latest news on Hanta virus", query=test, url="https://example.com"
+	remaining := argsStr
+	for remaining != "" {
+		remaining = strings.TrimSpace(remaining)
+
+		// Find key=
+		eqIdx := strings.Index(remaining, "=")
+		if eqIdx < 0 {
+			break
+		}
+		key := strings.TrimSpace(remaining[:eqIdx])
+		remaining = remaining[eqIdx+1:]
+
+		if remaining == "" {
+			args[key] = ""
+			break
+		}
+
+		var value string
+		if remaining[0] == '"' {
+			// Quoted value — find closing quote
+			endQuote := strings.Index(remaining[1:], "\"")
+			if endQuote < 0 {
+				// No closing quote — take the rest
+				value = remaining[1:]
+				remaining = ""
+			} else {
+				value = remaining[1 : endQuote+1]
+				remaining = remaining[endQuote+2:]
+			}
+		} else {
+			// Unquoted value — take until comma or end
+			commaIdx := strings.Index(remaining, ",")
+			if commaIdx < 0 {
+				value = remaining
+				remaining = ""
+			} else {
+				value = strings.TrimSpace(remaining[:commaIdx])
+				remaining = remaining[commaIdx+1:]
+			}
+		}
+
+		args[key] = value
+
+		// Skip comma separator
+		remaining = strings.TrimPrefix(remaining, ",")
+	}
+
+	return &textToolCall{Name: name, Arguments: args}
 }
 
 // parseInlineToolCalls finds tool calls where the tag is directly followed by JSON.
@@ -192,13 +293,16 @@ func findJSONEnd(s string) int {
 func hasTextToolCalls(content string) bool {
 	return strings.Contains(content, "<toolcall") ||
 		strings.Contains(content, "<tool_call") ||
-		strings.Contains(content, "<tool call")
+		strings.Contains(content, "<tool call") ||
+		strings.Contains(content, "<function=")
 }
 
 // stripToolCallTags removes any tool call markers from a final response.
 func stripToolCallTags(content string) string {
 	cleaned := reStripToolTags.ReplaceAllString(content, "")
 	cleaned = reStripToolOpen.ReplaceAllString(cleaned, "")
+	cleaned = reStripFuncCall.ReplaceAllString(cleaned, "")
+	cleaned = reStripFuncTag.ReplaceAllString(cleaned, "")
 	return strings.TrimSpace(cleaned)
 }
 

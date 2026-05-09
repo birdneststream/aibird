@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"sync/atomic"
 	"testing"
 
@@ -251,6 +252,70 @@ func TestParseTextToolCalls_EmptyName(t *testing.T) {
 	calls := parseTextToolCalls(input)
 	if len(calls) != 0 {
 		t.Errorf("expected 0 tool calls for empty name, got %d", len(calls))
+	}
+}
+
+func TestParseTextToolCalls_FunctionFormat(t *testing.T) {
+	input := `<function=web_search>(query="latest news on Hanta virus outbreak 2024")`
+
+	calls := parseTextToolCalls(input)
+	if len(calls) != 1 {
+		t.Fatalf("expected 1 tool call, got %d", len(calls))
+	}
+	if calls[0].Name != "web_search" {
+		t.Errorf("expected name 'web_search', got %q", calls[0].Name)
+	}
+	query, ok := calls[0].Arguments["query"].(string)
+	if !ok || query != "latest news on Hanta virus outbreak 2024" {
+		t.Errorf("expected query 'latest news on Hanta virus outbreak 2024', got %q", query)
+	}
+}
+
+func TestParseTextToolCalls_FunctionFormatScrape(t *testing.T) {
+	input := `<function=scrape_url>(url="https://example.com/article")`
+
+	calls := parseTextToolCalls(input)
+	if len(calls) != 1 {
+		t.Fatalf("expected 1 tool call, got %d", len(calls))
+	}
+	if calls[0].Name != "scrape_url" {
+		t.Errorf("expected name 'scrape_url', got %q", calls[0].Name)
+	}
+	url, ok := calls[0].Arguments["url"].(string)
+	if !ok || url != "https://example.com/article" {
+		t.Errorf("expected url 'https://example.com/article', got %q", url)
+	}
+}
+
+func TestParseTextToolCalls_FunctionTagOnly(t *testing.T) {
+	input := `<function=web_search>`
+
+	calls := parseTextToolCalls(input)
+	if len(calls) != 1 {
+		t.Fatalf("expected 1 tool call, got %d", len(calls))
+	}
+	if calls[0].Name != "web_search" {
+		t.Errorf("expected name 'web_search', got %q", calls[0].Name)
+	}
+}
+
+func TestHasTextToolCalls_FunctionFormat(t *testing.T) {
+	if !hasTextToolCalls(`<function=web_search>(query="test")`) {
+		t.Error("expected to detect <function= format")
+	}
+	if !hasTextToolCalls(`<function=scrape_url>`) {
+		t.Error("expected to detect <function= format (tag only)")
+	}
+}
+
+func TestStripToolCallTags_FunctionFormat(t *testing.T) {
+	input := `Here is the answer. <function=web_search>(query="test") More text.`
+	got := stripToolCallTags(input)
+	if strings.Contains(got, "<function=") {
+		t.Errorf("expected <function= to be stripped, got: %q", got)
+	}
+	if !strings.Contains(got, "Here is the answer.") {
+		t.Errorf("expected text to be preserved, got: %q", got)
 	}
 }
 
