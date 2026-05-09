@@ -216,10 +216,12 @@ func TextHelp() []Help {
 		{
 			Name: "ai",
 			Type: typeText,
-			Help: "Interact with the AI services for various tasks.",
+			Help: "Interact with the AI services for various tasks. When MCP is enabled, the AI can search the web and scrape URLs for up-to-date information.",
 			Arguments: []Arguments{
+				{Argument: argMessage, Help: "Your question or request for the AI.", Values: ""},
 				{Argument: cmdHelp, Help: "Show help information for AI commands.", Values: ""},
 				{Argument: "info", Help: "Display current AI service and model information.", Values: ""},
+				{Argument: "--tts", Help: "Convert the AI response to speech.", Values: ""},
 				{Argument: "--voice", Help: "Specify the voice for TTS.", Values: "e.g., woman"},
 				{Argument: "setPersonality", Help: "Set the AI personality.", Values: ""},
 				{Argument: "clearPersonality", Help: "Clear the AI personality.", Values: ""},
@@ -231,6 +233,7 @@ func TextHelp() []Help {
 				{Argument: "clearAiService", Help: "Reset the AI service to default (llamacpp).", Values: ""},
 			},
 			Queueable: true,
+			Example:   "!ai What are the latest developments in Go 1.25?",
 		},
 		{
 			Name: "glm",
@@ -252,19 +255,6 @@ func TextHelp() []Help {
 			},
 			Queueable: false,
 			Example:   "!glm-img a cute cat sitting on a windowsill --size=1024x1024",
-		},
-		{
-			Name: "aildown",
-			Type: typeText,
-			Help: "AI with web search and URL scraping capabilities. Uses SearXNG for search and Firecrawl for page scraping. The LLM autonomously decides when to use tools.",
-			Arguments: []Arguments{
-				{Argument: argMessage, Help: "Your question or request.", Values: ""},
-				{Argument: "reset", Help: "Reset the conversation cache.", Values: ""},
-				{Argument: "--tts", Help: "Convert the response to speech.", Values: ""},
-				{Argument: "--voice", Help: "Specify TTS voice.", Values: "e.g., woman"},
-			},
-			Queueable: false, // Uses dedicated dispatch path, not generic queue routing
-			Example:   "!aildown What are the latest developments in Go 1.25?",
 		},
 	}
 }

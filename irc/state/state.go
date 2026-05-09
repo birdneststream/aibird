@@ -339,8 +339,9 @@ func (s *State) Verify() error { //nolint:gocyclo
 	parts := strings.SplitN(action, " ", 2)
 	cmdName := strings.TrimSpace(parts[0])
 
-	// Check if this is a valid command
-	if !s.ValidateCommand(cmdName) {
+	// Check if this is a valid command. Nil guard prevents crash if
+	// ValidateCommand is not wired (e.g., in tests or future code paths).
+	if s.ValidateCommand == nil || !s.ValidateCommand(cmdName) {
 		return ErrInvalidCommand
 	}
 

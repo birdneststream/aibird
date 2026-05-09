@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"aibird/birdbase"
+	"aibird/irc/commands"
 	"aibird/irc/networks"
 	"aibird/irc/participant"
 	"aibird/irc/state"
@@ -34,6 +35,9 @@ func handlePrivMsg(c *girc.Client, e girc.Event, network *networks.Network, conf
 
 	// It is a command, so we initialize state and then perform checks.
 	irc := state.Init(c, e, network, config)
+
+	// Wire the command validator so Verify() can check against the command registry.
+	irc.ValidateCommand = commands.IsValidCommand
 
 	// Verify will parse the command, check for a trigger, and run the validator.
 	if err := irc.Verify(); err == nil {

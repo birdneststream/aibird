@@ -429,3 +429,85 @@ func TestVerify_SoyjakKnownUser_NoModes(t *testing.T) {
 		t.Errorf("Verify() soyjak no-modes: error = %v, want ErrNoModes", err)
 	}
 }
+
+// TestVerify_NilValidateCommand_NoPanic verifies that Verify() returns
+// ErrInvalidCommand (not a panic) when ValidateCommand is nil.
+// This is a regression test for a nil function pointer dereference bug where
+// ValidateCommand was never wired in production code, causing SIGSEGV on every command.
+func TestVerify_NilValidateCommand_NoPanic(t *testing.T) {
+	user := users.User{
+		NickName: "testuser",
+		Ident:    "u",
+		Host:     "h",
+	}
+	ch := channels.Channel{
+		Name:  "#test",
+		Users: []*users.User{&user},
+		Ai:    true,
+	}
+	net := &networks.Network{
+		NetworkName: "testnet",
+		Nick:        "testbot",
+		Users:       []users.User{user},
+		Channels:    []channels.Channel{ch},
+	}
+
+	s := State{
+		Network: net,
+		User:    &user,
+		Channel: &ch,
+		Config:  &settings.Config{},
+		Event: girc.Event{
+			Source: &girc.Source{Name: "testuser", Ident: "u", Host: "h"},
+			Params: []string{"#test"},
+		},
+		// ValidateCommand deliberately nil — tests the nil guard
+	}
+
+	err := s.Verify()
+	// No trigger prefix in Params, so Verify returns ErrNoTrigger before reaching
+	// the nil ValidateCommand guard. Confirms no panic even without the guard exercised.
+	if err == nil {
+		t.Error("Verify() with nil ValidateCommand should return an error")
+	}
+}
+
+// TestVerify_NilValidateCommand_WithTrigger verifies that Verify() returns
+// ErrInvalidCommand when ValidateCommand is nil and the message has a trigger prefix.
+func TestVerify_NilValidateCommand_WithTrigger(t *testing.T) {
+	user := users.User{
+		NickName: "testuser",
+		Ident:    "u",
+		Host:     "h",
+	}
+	ch := channels.Channel{
+		Name:  "#test",
+		Users: []*users.User{&user},
+		Ai:    true,
+		Sd:    true,
+	}
+	net := &networks.Network{
+		NetworkName:   "testnet",
+		Nick:          "testbot",
+		Users:         []users.User{user},
+		Channels:      []channels.Channel{ch},
+		ActionTrigger: "!",
+	}
+
+	s := State{
+		Network: net,
+		User:    &user,
+		Channel: &ch,
+		Config:  &settings.Config{AiBird: settings.AiBird{ActionTrigger: "!"}},
+		Event: girc.Event{
+			Source: &girc.Source{Name: "testuser", Ident: "u", Host: "h"},
+			Params: []string{"#test", "!ai hello"},
+		},
+		// ValidateCommand deliberately nil — tests the nil guard
+	}
+
+	err := s.Verify()
+	if !errors.Is(err, ErrInvalidCommand) {
+		t.Errorf("Verify() with nil ValidateCommand and trigger: error = %v, want ErrInvalidCommand", err)
+	}
+}

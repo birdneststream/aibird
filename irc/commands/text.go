@@ -13,6 +13,7 @@ import (
 	"aibird/http/uploaders/birdhole"
 	"aibird/irc/state"
 	"aibird/logger"
+	"aibird/mcp"
 	"aibird/shared/meta"
 	"aibird/status"
 	"aibird/text/glm"
@@ -271,15 +272,13 @@ func ParseAiText(irc *state.State) bool {
 		return true
 	}
 
-	// Handle !aildown command (MCP tool calling with web search/scrape)
-	if irc.IsAction("aildown") {
-		return ParseAilDown(irc)
-	}
-
 	return false
 }
 
 // handleLlamaCppRequest processes an AI request using llama.cpp.
+// When MCP tool calling is enabled (Mcp.Enabled=true + SearXNG URL configured),
+// the request uses mcp.ChatWithTools which gives the LLM access to web search
+// and URL scraping tools. Otherwise, falls through to plain llama.cpp chat.
 func handleLlamaCppRequest(irc *state.State) {
 	if irc.IsEmptyMessage() {
 		return
@@ -287,6 +286,26 @@ func handleLlamaCppRequest(irc *state.State) {
 
 	if !checkLlamaCppAvailable(irc) {
 		return
+	}
+
+	// MCP tool calling path: LLM gets web search and URL scraping tools.
+	// Requires both MCP enabled and SearXNG URL configured for meaningful results.
+	if irc.Config.Mcp.Enabled {
+		if irc.Config.Mcp.SearXNG.Url == "" {
+			logger.Warn("MCP enabled but SearXNG not configured, falling back to plain llama.cpp")
+		} else {
+			irc.ReplyTo(girc.Fmt("🔍 Processing AI with tools request, please wait..."))
+
+			response, err := mcp.ChatWithTools(irc)
+			if err != nil {
+				logger.Error("Error processing MCP tool calling request", "error", err)
+				irc.SendError(fmt.Sprintf("🔍 Error: %s", err))
+			} else {
+				logger.Debug("Calling handleAiResponse from MCP path")
+				handleAiResponse(irc, response)
+			}
+			return
+		}
 	}
 
 	irc.ReplyTo(girc.Fmt("🧠 Processing AI request, please wait..."))

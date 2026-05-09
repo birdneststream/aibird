@@ -37,9 +37,9 @@ func ChatWithTools(irc *state.State) (string, error) { //nolint:gocyclo // tool 
 	}
 
 	// Load system prompt
-	systemPrompt, err := text.GetPrompt("aildown.md")
+	systemPrompt, err := text.GetPrompt("ai_tools.md")
 	if err != nil {
-		logger.Warn("Failed to load aildown system prompt, using default", "error", err)
+		logger.Warn("Failed to load AI tools system prompt, using default", "error", err)
 		systemPrompt = "You are a helpful AI assistant with access to web search and URL scraping tools. Use them when needed to answer questions accurately. Cite your sources."
 	}
 
