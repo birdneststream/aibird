@@ -27,6 +27,13 @@ func ParseSummary(irc *state.State, q *queue.ProcessingQueue) {
 		return
 	}
 
+	// Anti-abuse: #soy is limited to one summary per hour. Repeated or
+	// in-window attempts are rejected with the channel in-joke.
+	if irc.Network != nil && !enforceSummaryCooldown(irc.Network.NetworkName, irc.Channel.Name) {
+		irc.Send("blame Filfipinx")
+		return
+	}
+
 	defaultHours := irc.Config.AiBird.SummaryDefaultHours
 	if defaultHours <= 0 {
 		defaultHours = 24
