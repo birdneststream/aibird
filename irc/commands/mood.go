@@ -30,7 +30,7 @@ func ParseMood(irc *state.State, q *queue.ProcessingQueue) {
 		hours = parseHoursFromMessage(irc.Message(), 24, 168)
 	}
 
-	fetchHistoryAndEnqueue(irc, q, "mood", hours, 200, func(s *state.State, messages []birdbase.ChannelMessage, h int) {
+	fetchHistoryAndEnqueue(irc, q, "mood", hours, 200, nil, func(s *state.State, messages []birdbase.ChannelMessage, h int) {
 		generateChannelAIResponse(s, messages, h, channelAIOpts{
 			statusMsg:    fmt.Sprintf("reading the room for the last %dh...", h),
 			promptFile:   "mood.md",

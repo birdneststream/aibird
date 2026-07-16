@@ -60,6 +60,9 @@ func ParseVibe(irc *state.State, q *queue.ProcessingQueue) {
 		return
 	}
 
+	// Vibe intentionally reads ALL event types (including joins/parts/quits) so it
+	// can weigh full channel presence/activity. Only !summary is scoped to chats;
+	// see chatEventTypes in helpers.go.
 	messages, err := birdbase.GetChannelMessages(networkID, irc.Channel.Name, hours, maxMessages)
 	if err != nil {
 		logger.Error("Failed to get channel messages for vibe", "error", err)

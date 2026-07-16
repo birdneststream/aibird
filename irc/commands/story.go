@@ -29,7 +29,7 @@ func ParseStory(irc *state.State, q *queue.ProcessingQueue) {
 	persona, _ := irc.GetStringArg("persona", "")
 	persona = sanitizePersona(persona)
 
-	fetchHistoryAndEnqueue(irc, q, "story", hours, 200, func(s *state.State, messages []birdbase.ChannelMessage, h int) {
+	fetchHistoryAndEnqueue(irc, q, "story", hours, 200, nil, func(s *state.State, messages []birdbase.ChannelMessage, h int) {
 		generateChannelAIResponse(s, messages, h, channelAIOpts{
 			statusMsg:    fmt.Sprintf("writing a story from the last %dh (%d events)...", h, len(messages)),
 			promptFile:   "story.md",

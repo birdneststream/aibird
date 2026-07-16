@@ -24,6 +24,11 @@ const (
 	eventQuit    = "quit"
 )
 
+// chatEventTypes are the event types that represent actual conversation
+// (normal messages and /me actions). Presence events (join/part/quit) and
+// moderation events (kick) are excluded when a chat-only view is requested.
+var chatEventTypes = []string{eventPrivmsg, eventAction}
+
 // Argument constants.
 const argHelp = "--help"
 
@@ -140,14 +145,17 @@ func enqueueAITask(irc *state.State, q *queue.ProcessingQueue, model string, gpu
 // (summary, mood, story): resolve networkID → fetch channel messages → check for empty
 // result → enqueue AI task. Each command keeps its own parsing logic and passes a
 // generateFn closure that captures parsed parameters (hours, persona, messages).
-func fetchHistoryAndEnqueue(irc *state.State, q *queue.ProcessingQueue, model string, hours, maxMessages int, generateFn func(*state.State, []birdbase.ChannelMessage, int)) {
+//
+// eventTypes optionally restricts the fetched events (e.g. chat-only). When nil or
+// empty, all stored event types are returned.
+func fetchHistoryAndEnqueue(irc *state.State, q *queue.ProcessingQueue, model string, hours, maxMessages int, eventTypes []string, generateFn func(*state.State, []birdbase.ChannelMessage, int)) {
 	networkID := birdbase.ResolveNetworkID(irc.Network.NetworkName)
 	if networkID == 0 {
 		irc.Send("Error: network not found in database.")
 		return
 	}
 
-	messages, err := birdbase.GetChannelMessages(networkID, irc.Channel.Name, hours, maxMessages)
+	messages, err := birdbase.GetChannelMessages(networkID, irc.Channel.Name, hours, maxMessages, eventTypes...)
 	if err != nil {
 		logger.Error("Failed to get channel messages for "+model, "error", err)
 		irc.Send("Error retrieving channel history.")

@@ -23,7 +23,7 @@ func ParseSummary(irc *state.State, q *queue.ProcessingQueue) {
 	if irc.Message() == argHelp {
 		irc.Send("Usage: !summary [hours] [--persona <angle>] — Summarizes the last N hours of channel activity.")
 		irc.Send("Examples: !summary, !summary 6h, !summary 12 --persona \"a western cowboy\"")
-		irc.Send("Defaults: 24h, max: 168h (7 days). --persona: optional creative angle for the summary.")
+		irc.Send("Defaults: 24h, max: 168h (7 days). Up to 1000 chat messages (text + /me actions only; no joins/parts/quits/kicks). --persona: optional creative angle.")
 		return
 	}
 
@@ -73,10 +73,13 @@ func ParseSummary(irc *state.State, q *queue.ProcessingQueue) {
 
 	maxMessages := irc.Config.AiBird.SummaryMaxMessages
 	if maxMessages <= 0 {
-		maxMessages = 200
+		maxMessages = 1000
 	}
 
-	fetchHistoryAndEnqueue(irc, q, "summary", hours, maxMessages, func(s *state.State, messages []birdbase.ChannelMessage, h int) {
+	// Summary only considers actual conversation — joins/parts/quits and kicks
+	// are filtered out at the database level so the 1000-event cap applies to
+	// chat messages rather than noisy presence events.
+	fetchHistoryAndEnqueue(irc, q, "summary", hours, maxMessages, chatEventTypes, func(s *state.State, messages []birdbase.ChannelMessage, h int) {
 		generateChannelAIResponse(s, messages, h, channelAIOpts{
 			statusMsg:    fmt.Sprintf("generating summary of the last %dh (%d events)...", h, len(messages)),
 			promptFile:   "summary.md",

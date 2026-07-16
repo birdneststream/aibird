@@ -224,6 +224,106 @@ func TestGetChannelMessages_HoursFilter(t *testing.T) {
 	}
 }
 
+func TestGetChannelMessages_EventTypeFilter(t *testing.T) {
+	setupMessagesTest(t)
+	networkID := seedNetworkForMessages(t, "testnet")
+
+	// Insert a mix of chat and presence/moderation events.
+	baseTime := time.Now().Add(-10 * time.Second)
+	events := []struct {
+		nick, eventType, message string
+		offset                   time.Duration
+	}{
+		{"alice", "privmsg", "hello", 0},
+		{"bob", "join", "", 1},
+		{"carol", "action", "waves", 2},
+		{"dave", "part", "", 3},
+		{"eve", "quit", "", 4},
+		{"frank", "kick", "alice", 5},
+		{"alice", "privmsg", "bye", 6},
+	}
+	for _, e := range events {
+		mustInsertMessage(t, networkID, "#test", e.nick, e.eventType, e.message,
+			baseTime.Add(e.offset*time.Second).Unix())
+	}
+
+	// Without a filter: all 7 events are returned.
+	all, err := GetChannelMessages(networkID, "#test", 1, 100)
+	if err != nil {
+		t.Fatalf("GetChannelMessages without filter failed: %v", err)
+	}
+	if len(all) != 7 {
+		t.Fatalf("Expected 7 events without filter, got %d", len(all))
+	}
+
+	// An explicit empty slice must behave identically to omitting the variadic
+	// (no filter applied), locking the nil-vs-empty equivalence contract.
+	emptySlice, err := GetChannelMessages(networkID, "#test", 1, 100, []string{}...)
+	if err != nil {
+		t.Fatalf("GetChannelMessages with empty slice failed: %v", err)
+	}
+	if len(emptySlice) != len(all) {
+		t.Errorf("Empty filter should match no filter: got %d, want %d", len(emptySlice), len(all))
+	}
+
+	// Chat-only filter (privmsg + action): expect 3 events, no presence/moderation.
+	chats, err := GetChannelMessages(networkID, "#test", 1, 100, "privmsg", "action")
+	if err != nil {
+		t.Fatalf("GetChannelMessages with chat filter failed: %v", err)
+	}
+	if len(chats) != 3 {
+		t.Fatalf("Expected 3 chat events, got %d", len(chats))
+	}
+	for _, m := range chats {
+		if m.EventType != "privmsg" && m.EventType != "action" {
+			t.Errorf("Filter leaked non-chat event %q from %s", m.EventType, m.Nickname)
+		}
+	}
+	// Verify ordering preserved (oldest first): hello, waves, bye.
+	if chats[0].Message != "hello" || chats[1].Message != "waves" || chats[2].Message != "bye" {
+		t.Errorf("Chat ordering wrong: %+v", chats)
+	}
+
+	// Single-type filter.
+	privOnly, err := GetChannelMessages(networkID, "#test", 1, 100, "privmsg")
+	if err != nil {
+		t.Fatalf("GetChannelMessages with privmsg filter failed: %v", err)
+	}
+	if len(privOnly) != 2 {
+		t.Fatalf("Expected 2 privmsg events, got %d", len(privOnly))
+	}
+}
+
+func TestGetChannelMessages_EventTypeFilterWithCap(t *testing.T) {
+	setupMessagesTest(t)
+	networkID := seedNetworkForMessages(t, "testnet")
+
+	// Interleave chats and presence events. The maxMessages cap must apply to the
+	// filtered (chat-only) set, not the raw set.
+	baseTime := time.Now().Add(-1 * time.Hour)
+	for i := 0; i < 6; i++ {
+		ts := baseTime.Add(time.Duration(i) * time.Second).Unix()
+		mustInsertMessage(t, networkID, "#test", "alice", "privmsg",
+			fmt.Sprintf("chat%d", i), ts)
+		mustInsertMessage(t, networkID, "#test", "bob", "join", "", ts+1)
+	}
+
+	// 6 chats exist; cap at 3 should return the 3 most recent chats only.
+	chats, err := GetChannelMessages(networkID, "#test", 2, 3, "privmsg", "action")
+	if err != nil {
+		t.Fatalf("GetChannelMessages filtered+cap failed: %v", err)
+	}
+	if len(chats) != 3 {
+		t.Fatalf("Expected 3 chats after cap, got %d", len(chats))
+	}
+	want := []string{"chat3", "chat4", "chat5"}
+	for i, m := range chats {
+		if m.Message != want[i] {
+			t.Errorf("capped chat[%d]: got %q, want %q", i, m.Message, want[i])
+		}
+	}
+}
+
 func TestSearchChannelMessages(t *testing.T) {
 	setupMessagesTest(t)
 	networkID := seedNetworkForMessages(t, "testnet")

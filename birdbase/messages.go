@@ -204,11 +204,16 @@ func StoreChannelMessage(networkID int64, channelName, nickname, eventType, mess
 
 // GetChannelMessages retrieves messages for a channel within the given hours, capped at maxMessages.
 // Returns messages in chronological order (oldest first).
-func GetChannelMessages(networkID int64, channelName string, hours, maxMessages int) ([]ChannelMessage, error) {
-	return Data.GetChannelMessages(networkID, channelName, hours, maxMessages)
+//
+// When eventTypes is non-empty, only rows whose event_type matches one of the given
+// values are returned (e.g. "privmsg", "action"). When empty, all event types are
+// returned. The filter is applied to both the count and the select, so maxMessages
+// caps the filtered result set rather than the raw set.
+func GetChannelMessages(networkID int64, channelName string, hours, maxMessages int, eventTypes ...string) ([]ChannelMessage, error) {
+	return Data.GetChannelMessages(networkID, channelName, hours, maxMessages, eventTypes...)
 }
 
-func (s *SQLiteDB) GetChannelMessages(networkID int64, channelName string, hours, maxMessages int) ([]ChannelMessage, error) {
+func (s *SQLiteDB) GetChannelMessages(networkID int64, channelName string, hours, maxMessages int, eventTypes ...string) ([]ChannelMessage, error) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
@@ -218,12 +223,19 @@ func (s *SQLiteDB) GetChannelMessages(networkID int64, channelName string, hours
 
 	cutoff := time.Now().Add(-time.Duration(hours) * time.Hour).Unix()
 
+	// Build the optional event-type filter once; it is reused by the count and
+	// select queries so maxMessages caps the filtered result set consistently.
+	// filterClause is a static, parameterized "AND event_type IN (...)" fragment:
+	// only placeholders are appended and every value is bound as an arg below.
+	filterClause, filterArgs := buildEventTypeFilter(eventTypes)
+	whereArgs := append([]any{networkID, strings.ToLower(channelName), cutoff}, filterArgs...)
+
 	// Get total count first to know if we need to subsample
 	var count int
-	err := s.db.QueryRow(`
-		SELECT COUNT(*) FROM channel_messages
-		WHERE network_id = ? AND channel_name = ? AND timestamp >= ?
-	`, networkID, strings.ToLower(channelName), cutoff).Scan(&count)
+	err := s.db.QueryRow(
+		"SELECT COUNT(*) FROM channel_messages WHERE network_id = ? AND channel_name = ? AND timestamp >= ?"+filterClause,
+		whereArgs...,
+	).Scan(&count)
 	if err != nil {
 		return nil, fmt.Errorf("failed to count channel messages: %w", err)
 	}
@@ -232,27 +244,27 @@ func (s *SQLiteDB) GetChannelMessages(networkID int64, channelName string, hours
 		return nil, nil
 	}
 
-	// If we have more than maxMessages, take the most recent ones
-	query := `
-		SELECT nickname, event_type, message, timestamp FROM channel_messages
-		WHERE network_id = ? AND channel_name = ? AND timestamp >= ?
-		ORDER BY timestamp ASC
-	`
-
 	var rows *sql.Rows
 	if count > maxMessages {
-		// Use a subquery to get only the most recent maxMessages
-		query = `
+		// Use a subquery to get only the most recent maxMessages.
+		// #nosec G202 - filterClause is a static, parameterized "AND event_type IN (...)" fragment from buildEventTypeFilter; only placeholders are appended and every value is bound as an arg.
+		query := `
 			SELECT nickname, event_type, message, timestamp FROM (
 				SELECT nickname, event_type, message, timestamp FROM channel_messages
-				WHERE network_id = ? AND channel_name = ? AND timestamp >= ?
+				WHERE network_id = ? AND channel_name = ? AND timestamp >= ?` + filterClause + `
 				ORDER BY timestamp DESC
 				LIMIT ?
 			) ORDER BY timestamp ASC
 		`
-		rows, err = s.db.Query(query, networkID, strings.ToLower(channelName), cutoff, maxMessages)
+		rows, err = s.db.Query(query, append(whereArgs, maxMessages)...)
 	} else {
-		rows, err = s.db.Query(query, networkID, strings.ToLower(channelName), cutoff)
+		// #nosec G202 - filterClause is a static, parameterized "AND event_type IN (...)" fragment from buildEventTypeFilter; only placeholders are appended and every value is bound as an arg.
+		query := `
+			SELECT nickname, event_type, message, timestamp FROM channel_messages
+			WHERE network_id = ? AND channel_name = ? AND timestamp >= ?` + filterClause + `
+			ORDER BY timestamp ASC
+		`
+		rows, err = s.db.Query(query, whereArgs...)
 	}
 
 	if err != nil {
@@ -270,6 +282,24 @@ func (s *SQLiteDB) GetChannelMessages(networkID int64, channelName string, hours
 	}
 
 	return messages, rows.Err()
+}
+
+// buildEventTypeFilter returns an " AND event_type IN (?, ...)" clause for the
+// given event types along with its bound arguments, or ("", nil) when no filter
+// is requested. Only the static clause text is interpolated; the values are
+// always passed as parameterized placeholders, so callers must not inject the
+// event types into the SQL string directly.
+func buildEventTypeFilter(eventTypes []string) (clause string, args []any) {
+	if len(eventTypes) == 0 {
+		return "", nil
+	}
+	placeholders := make([]string, len(eventTypes))
+	args = make([]any, len(eventTypes))
+	for i, et := range eventTypes {
+		placeholders[i] = "?"
+		args[i] = et
+	}
+	return " AND event_type IN (" + strings.Join(placeholders, ", ") + ")", args
 }
 
 // SearchChannelMessages searches for messages containing a keyword in a channel.
