@@ -94,7 +94,13 @@ func (pq *ProcessingQueue) processQueueItem(parentCtx context.Context, queue *Qu
 	if item != nil {
 		logger.Debug("Processing queue item", "gpu", item.GPU, "action", item.State.Action())
 
-		ctx, cancel := context.WithTimeout(parentCtx, queueItemTimeout)
+		// Use the item's override timeout when set (e.g. long-running H3 video
+		// generation), otherwise fall back to the queue default.
+		timeout := queueItemTimeout
+		if item.Timeout > 0 {
+			timeout = item.Timeout
+		}
+		ctx, cancel := context.WithTimeout(parentCtx, timeout)
 		defer cancel()
 
 		done := make(chan struct{})

@@ -119,22 +119,32 @@ func EnhancePrompt(message string, config settings.LlamaCppConfig) (string, erro
 	return SingleRequest(userPrompt, systemPrompt, config)
 }
 
-// EnhancePromptWithTemplate expands a message using a named prompt template from
-// text/prompts/. The template typically carries a /no_think directive so the model
-// skips reasoning and returns only the expanded prompt. No other sanitization is
-// applied — structured output (newlines, timecodes, section headers) is preserved
-// verbatim for the downstream video workflow. Used by the !h3 / !sienfield /
-// !garfield / !spongebob style video commands.
-func EnhancePromptWithTemplate(message, templateFile string, config settings.LlamaCppConfig) (string, error) {
-	systemPrompt, err := text.GetPrompt(templateFile)
-	if err != nil {
-		return "", fmt.Errorf("load prompt template %s: %w", templateFile, err)
-	}
+// EnhancePromptWithSystemPrompt expands a message using a pre-built system
+// prompt directly. This is used when combining a base template with a style
+// overlay (e.g. the H3 base craft prepended to a Simpsons style overlay).
+// Thinking is disabled at the model level, so the system prompt carries only
+// role and style instructions and the model returns just the expanded prompt.
+// stripCodeFences is applied as a safety net since LLMs occasionally wrap
+// output in a code block; the rest of the output is preserved verbatim for the
+// downstream video workflow.
+func EnhancePromptWithSystemPrompt(message, systemPrompt string, config settings.LlamaCppConfig) (string, error) {
 	result, err := SingleRequest(message, systemPrompt, config)
 	if err != nil {
 		return "", err
 	}
 	return stripCodeFences(result), nil
+}
+
+// EnhancePromptWithTemplate expands a message using a named prompt template from
+// text/prompts/. It is a thin wrapper around EnhancePromptWithSystemPrompt that
+// loads the template file. Used by the !h3 / !sienfield / !garfield /
+// !spongebob (and other style) video commands.
+func EnhancePromptWithTemplate(message, templateFile string, config settings.LlamaCppConfig) (string, error) {
+	systemPrompt, err := text.GetPrompt(templateFile)
+	if err != nil {
+		return "", fmt.Errorf("load prompt template %s: %w", templateFile, err)
+	}
+	return EnhancePromptWithSystemPrompt(message, systemPrompt, config)
 }
 
 // stripCodeFences removes a single surrounding triple-backtick fence if present.

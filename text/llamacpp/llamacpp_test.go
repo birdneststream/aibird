@@ -7,7 +7,6 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
-	"strings"
 	"testing"
 
 	"aibird/logger"
@@ -227,11 +226,13 @@ func TestStripCodeFences(t *testing.T) {
 }
 
 func TestEnhancePromptWithTemplate_LoadsH3(t *testing.T) {
-	// Verify the H3 template is readable and begins with the /no_think directive.
-	// EnhancePromptWithTemplate itself needs a live llama.cpp server; we test the
-	// template load path (the only pure part) at the GetPrompt level.
+	// Verify the H3 template is readable and carries its MiniMax H3 role
+	// definition. Thinking is disabled at the model level, so the template no
+	// longer carries a /no_think directive. EnhancePromptWithTemplate itself
+	// needs a live llama.cpp server; we test the template load path (the only
+	// pure part) at the GetPrompt level.
 	prompt, err := text.GetPrompt("h3.md")
 	require.NoError(t, err)
 	require.NotEmpty(t, prompt)
-	assert.True(t, strings.HasPrefix(prompt, "/no_think"), "h3.md must start with /no_think directive")
+	assert.Contains(t, prompt, "MiniMax H3", "h3.md must define its MiniMax H3 role")
 }
