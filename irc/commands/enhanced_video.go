@@ -137,12 +137,17 @@ func fetchChatroomLog(irc *state.State) ([]birdbase.ChannelMessage, error) {
 		return nil, fmt.Errorf("network %q not found in database", irc.Network.NetworkName)
 	}
 
-	msgs, err := birdbase.GetChannelMessages(networkID, irc.Channel.Name, chatroomFetchHours, chatroomFetchBuffer, "PRIVMSG")
+	// Event types must be lowercase to match how StoreChannelMessage stores them
+	// ("privmsg" / "action"). SQLite's default text comparison is case-sensitive.
+	msgs, err := birdbase.GetChannelMessages(networkID, irc.Channel.Name, chatroomFetchHours, chatroomFetchBuffer, "privmsg", "action")
 	if err != nil {
 		return nil, fmt.Errorf("fetch channel messages: %w", err)
 	}
 
-	return filterChatroomMessages(msgs, irc.Network.Nick, irc.Network.IsNickIgnored), nil
+	filtered := filterChatroomMessages(msgs, irc.Network.Nick, irc.Network.IsNickIgnored)
+	logger.Debug("Chatroom log fetched", "channel", irc.Channel.Name,
+		"raw_count", len(msgs), "filtered_count", len(filtered))
+	return filtered, nil
 }
 
 // filterChatroomMessages drops the bot's own lines, ignored nicks, and blank
