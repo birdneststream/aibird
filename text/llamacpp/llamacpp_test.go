@@ -28,36 +28,6 @@ func TestMain(m *testing.M) {
 	m.Run()
 }
 
-func TestIsLlamaCppRunning_Success(t *testing.T) {
-	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		assert.Equal(t, "/health", r.URL.Path)
-		w.WriteHeader(http.StatusOK)
-	}))
-	defer ts.Close()
-
-	running, err := IsLlamaCppRunning(ts.URL, "")
-	require.NoError(t, err)
-	assert.True(t, running)
-}
-
-func TestIsLlamaCppRunning_NotOK(t *testing.T) {
-	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.WriteHeader(http.StatusInternalServerError)
-	}))
-	defer ts.Close()
-
-	running, err := IsLlamaCppRunning(ts.URL, "")
-	require.NoError(t, err)
-	assert.False(t, running)
-}
-
-func TestIsLlamaCppRunning_ConnectionError(t *testing.T) {
-	// Use a URL that will refuse connections
-	running, err := IsLlamaCppRunning("http://127.0.0.1:1", "")
-	require.NoError(t, err)
-	assert.False(t, running)
-}
-
 func TestSingleRequest_Success(t *testing.T) {
 	expectedContent := "Hello from llama.cpp"
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

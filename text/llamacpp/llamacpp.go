@@ -4,7 +4,6 @@ package llamacpp
 import (
 	"errors"
 	"fmt"
-	"net/http"
 	"strings"
 	"time"
 
@@ -14,24 +13,6 @@ import (
 	"aibird/settings"
 	"aibird/text"
 )
-
-// IsLlamaCppRunning checks if the llama.cpp server is healthy by hitting its /health endpoint.
-// Returns true if the server responds with HTTP 200.
-func IsLlamaCppRunning(url, port string) (bool, error) {
-	healthURL := helpers.MakeUrlWithPort(url, port) + "health"
-
-	client := &http.Client{
-		Timeout: 2 * time.Second,
-	}
-
-	resp, err := client.Get(healthURL) //nolint:gosec // URL constructed from config
-	if err != nil {
-		return false, nil // Connection failure means not running, no error
-	}
-	defer resp.Body.Close()
-
-	return resp.StatusCode == http.StatusOK, nil
-}
 
 // ChatRequest sends a chat completion request to the llama.cpp server.
 // The llama.cpp server (with --reasoning-format deepseek, the default) separates
