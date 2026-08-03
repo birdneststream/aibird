@@ -208,6 +208,30 @@ func TestCleanPrompt(t *testing.T) {
 	}
 }
 
+func TestCleanPromptPreservingQuotes(t *testing.T) {
+	tests := []struct {
+		name     string
+		input    string
+		expected string
+	}{
+		{"double quotes around dialog", `Homer says "D'oh!"`, `Homer says "D'oh!"`},
+		{"single quote in word", "it's a test", "it's a test"},
+		{"mixed quotes", `"hello" she said, 'hi'`, `"hello" she said, 'hi'`},
+		{"normal text unchanged", "a cat on a roof", "a cat on a roof"},
+		{"empty", "", ""},
+		{"banned phrase obfuscated with quotes returns empty", `"jail"bait`, ""},
+		{"banned phrase plain returns empty", "jailbait", ""},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := CleanPromptPreservingQuotes(tt.input)
+			if got != tt.expected {
+				t.Errorf("CleanPromptPreservingQuotes(%q) = %q, want %q", tt.input, got, tt.expected)
+			}
+		})
+	}
+}
+
 func TestBadWordsCheck(t *testing.T) {
 	badWordsConfig := settings.ComfyUiConfig{
 		BadWords:       []string{"greta", "thunberg"},

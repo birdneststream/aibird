@@ -264,7 +264,10 @@ func parseEnhancedVideoCommand(irc state.State, templateFile string, gpu meta.GP
 		return false
 	}
 
-	rawMessage := comfyui.CleanPrompt(irc.Message())
+	// Preserve quotes so user-specified dialog ("D'oh!", "hello there") survives
+	// into the LLM enhancement. The bracketBypass pass in CleanPrompt would strip
+	// them; this lighter variant keeps quotes while still checking banned phrases.
+	rawMessage := comfyui.CleanPromptPreservingQuotes(irc.Message())
 	if rawMessage == "" {
 		irc.Send("Usage: !<command> <your video idea>")
 		return false

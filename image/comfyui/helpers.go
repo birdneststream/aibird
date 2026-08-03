@@ -24,6 +24,24 @@ var (
 	workflowCacheOk bool // true once cache has been populated
 )
 
+// bannedPhrases is the shared list of prohibited terms checked by CleanPrompt
+// and CleanPromptPreservingQuotes. A match returns an empty string.
+var bannedPhrases = []string{
+	"jailbait",
+	"barely legal",
+	"not legal",
+	"child model",
+	"teen model",
+	"young model",
+	"underage model",
+	"juvenile model",
+	"minor model",
+	"age restricted",
+	"age verification",
+	"age check",
+	"too young",
+}
+
 // Pre-compiled regexes for CleanPrompt — compiled once at init instead of per-call.
 var (
 	// allowedChars filters to only allow alphanumeric, spaces, and common punctuation.
@@ -320,23 +338,6 @@ func CleanPrompt(message string) string {
 		return ""
 	}
 
-	// Expanded list of banned phrases
-	bannedPhrases := []string{
-		"jailbait",
-		"barely legal",
-		"not legal",
-		"child model",
-		"teen model",
-		"young model",
-		"underage model",
-		"juvenile model",
-		"minor model",
-		"age restricted",
-		"age verification",
-		"age check",
-		"too young",
-	}
-
 	// Check for banned phrases
 	messageLower := strings.ToLower(message)
 	for _, phrase := range bannedPhrases {
@@ -378,6 +379,34 @@ func CleanPrompt(message string) string {
 	// Normalize spaces
 	message = strings.Join(strings.Fields(message), " ")
 
+	return message
+}
+
+// CleanPromptPreservingQuotes is like CleanPrompt but keeps single and double
+// quotation marks, even when directly adjacent to letters. It skips the
+// bracketBypass stripping pass that would remove quotes around dialog. Used by
+// the enhanced-video path where users specify dialog (e.g. Homer says "D'oh!")
+// that must survive verbatim into the LLM prompt enhancement. Banned-phrase
+// detection still runs on a copy with quotes and brackets removed so
+// obfuscation like "jail"bait is still caught.
+func CleanPromptPreservingQuotes(message string) string {
+	if message = strings.TrimSpace(message); message == "" {
+		return ""
+	}
+	// Filter to allowed characters (quotes are in the allowedChars allowlist).
+	message = allowedChars.ReplaceAllString(message, "")
+	if message = strings.TrimSpace(message); message == "" {
+		return ""
+	}
+	// Banned-phrase check on a copy with quotes/brackets removed so obfuscated
+	// banned terms are still caught without stripping them from the output.
+	stripped := strings.NewReplacer(`'`, "", `"`, "", "(", "", ")", "", "[", "", "]", "").Replace(message)
+	strippedLower := strings.ToLower(stripped)
+	for _, phrase := range bannedPhrases {
+		if strings.Contains(strippedLower, phrase) {
+			return ""
+		}
+	}
 	return message
 }
 
