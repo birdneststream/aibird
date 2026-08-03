@@ -119,16 +119,16 @@ func EnhancePrompt(message string, config settings.LlamaCppConfig) (string, erro
 	return SingleRequest(userPrompt, systemPrompt, config)
 }
 
-// EnhancePromptH3 expands a short video idea into a production-ready MiniMax H3
-// prompt using the dedicated H3 prompt-engineer template (text/prompts/h3.md).
-// The template carries a /no_think directive so the model skips reasoning and
-// returns only the expanded prompt. No other sanitization is applied — the
-// structured output (newlines, timecodes, section headers) must be preserved
-// verbatim for the downstream video workflow.
-func EnhancePromptH3(message string, config settings.LlamaCppConfig) (string, error) {
-	systemPrompt, err := text.GetPrompt("h3.md")
+// EnhancePromptWithTemplate expands a message using a named prompt template from
+// text/prompts/. The template typically carries a /no_think directive so the model
+// skips reasoning and returns only the expanded prompt. No other sanitization is
+// applied — structured output (newlines, timecodes, section headers) is preserved
+// verbatim for the downstream video workflow. Used by the !h3 / !sienfield /
+// !garfield / !spongebob style video commands.
+func EnhancePromptWithTemplate(message, templateFile string, config settings.LlamaCppConfig) (string, error) {
+	systemPrompt, err := text.GetPrompt(templateFile)
 	if err != nil {
-		return "", fmt.Errorf("load h3 prompt template: %w", err)
+		return "", fmt.Errorf("load prompt template %s: %w", templateFile, err)
 	}
 	result, err := SingleRequest(message, systemPrompt, config)
 	if err != nil {

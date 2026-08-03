@@ -18,6 +18,7 @@ const (
 	typeAdmin    = "admin"
 	typeOwner    = "owner"
 	typeText     = "text"
+	typeVideo    = "video"
 	typeHelp     = "help"
 )
 
@@ -208,22 +209,51 @@ func ImageHelp(config settings.AiBird) []Help {
 }
 
 func VideoHelp(config settings.AiBird) []Help {
-	videoHelp := getHelpForWorkflowType("video", config)
+	// Enhanced-video style commands (h3/sienfield/garfield/spongebob) load a
+	// prompt template, expand the idea via llama.cpp, and run the m3 workflow.
+	// Patreon-gated (free in #h4x).
+	videoHelp := getHelpForWorkflowType(typeVideo, config)
+	return append(videoHelp, enhancedVideoCommands()...)
+}
 
-	// Manually add !h3 — it maps to the m3.json workflow but adds llama.cpp
-	// prompt enhancement before invoking ComfyUI, so it is not a plain workflow.
-	videoHelp = append(videoHelp, Help{
-		Name: "h3",
-		Type: "video",
-		Help: "Generate a MiniMax H3 video. Expands your idea into a full cinematic prompt via llama.cpp, then renders with the m3 workflow.",
-		Arguments: []Arguments{
-			{Argument: argMessage, Help: "Your short video idea or rough description.", Values: ""},
+// enhancedVideoCommands returns the help entries for the patreon-gated
+// enhanced-video style commands. Each maps to the m3 workflow and a prompt
+// template in text/prompts/. Kept in sync with commands.enhancedVideoTemplates.
+func enhancedVideoCommands() []Help {
+	return []Help{
+		{
+			Name:      "h3",
+			Type:      typeVideo,
+			Help:      "Generate a MiniMax H3 video. Expands your idea into a full cinematic prompt via llama.cpp, then renders with the m3 workflow. Patreon-only (free in #h4x).",
+			Arguments: []Arguments{{Argument: argMessage, Help: "Your short video idea or rough description.", Values: ""}},
+			Queueable: true,
+			Example:   "!h3 a woman walking through snow at night, lonely",
 		},
-		Queueable: true,
-		Example:   "!h3 a woman walking through snow at night, lonely",
-	})
-
-	return videoHelp
+		{
+			Name:      "sienfield",
+			Type:      typeVideo,
+			Help:      "Generate a video in the style of Seinfeld (90s NYC sitcom). Patreon-only (free in #h4x).",
+			Arguments: []Arguments{{Argument: argMessage, Help: "Your video idea, rendered Seinfeld-style.", Values: ""}},
+			Queueable: true,
+			Example:   "!sienfield arguing over who pays the check at the diner",
+		},
+		{
+			Name:      "garfield",
+			Type:      typeVideo,
+			Help:      "Generate a video in the style of Garfield (the lazy orange cat). Patreon-only (free in #h4x).",
+			Arguments: []Arguments{{Argument: argMessage, Help: "Your video idea, rendered Garfield-style.", Values: ""}},
+			Queueable: true,
+			Example:   "!garfield a monday morning that won't end",
+		},
+		{
+			Name:      "spongebob",
+			Type:      typeVideo,
+			Help:      "Generate a video in the style of SpongeBob SquarePants (Bikini Bottom). Patreon-only (free in #h4x).",
+			Arguments: []Arguments{{Argument: argMessage, Help: "Your video idea, rendered SpongeBob-style.", Values: ""}},
+			Queueable: true,
+			Example:   "!spongebob flipping krabby patties during the lunch rush",
+		},
+	}
 }
 
 func TextHelp() []Help {

@@ -1,6 +1,9 @@
 package commands
 
 import (
+	"os"
+	"path/filepath"
+	"runtime"
 	"testing"
 
 	"aibird/logger"
@@ -9,6 +12,13 @@ import (
 
 func TestMain(m *testing.M) {
 	logger.Init(logger.Config{Level: logger.LevelWarn, Format: "text"})
+
+	// Run from the project root so cwd-relative lookups (text/prompts/*,
+	// comfyuijson/*) resolve the same way the running bot sees them.
+	_, filename, _, _ := runtime.Caller(0)
+	projectRoot := filepath.Join(filepath.Dir(filename), "..", "..")
+	_ = os.Chdir(projectRoot)
+
 	m.Run()
 }
 

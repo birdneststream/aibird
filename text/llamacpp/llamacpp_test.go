@@ -226,10 +226,10 @@ func TestStripCodeFences(t *testing.T) {
 	}
 }
 
-func TestEnhancePromptH3_LoadsTemplate(t *testing.T) {
+func TestEnhancePromptWithTemplate_LoadsH3(t *testing.T) {
 	// Verify the H3 template is readable and begins with the /no_think directive.
-	// EnhancePromptH3 itself needs a live llama.cpp server; we test the template
-	// load path (the only pure part) at the GetPrompt level.
+	// EnhancePromptWithTemplate itself needs a live llama.cpp server; we test the
+	// template load path (the only pure part) at the GetPrompt level.
 	prompt, err := text.GetPrompt("h3.md")
 	require.NoError(t, err)
 	require.NotEmpty(t, prompt)

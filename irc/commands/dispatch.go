@@ -57,13 +57,17 @@ func RunQueueableCommand(ctx context.Context, s state.State, gpu meta.GPUType) {
 
 	logger.Debug("Routing queue command", "action", s.Action(), "actionLower", actionLower)
 
+	// Enhanced-video style commands (h3/sienfield/garfield/spongebob) share one
+	// code path: load a prompt template, enhance via llama.cpp, run m3. Handle
+	// them before the generic type-switch so the template map drives routing.
+	if tpl, ok := enhancedVideoTemplate(actionLower); ok {
+		logger.Debug("Command categorized as enhanced video", "action", s.Action())
+		parseEnhancedVideoCommand(s, tpl, gpu)
+		return
+	}
+
 	// Route based on the command action to existing handlers
 	switch {
-	case strings.EqualFold(s.Action(), "h3"):
-		// !h3 maps to the m3.json workflow; route to the dedicated handler that
-		// enhances the prompt via llama.cpp before invoking ComfyUI.
-		logger.Debug("Command categorized as h3 (MiniMax video)", "action", s.Action())
-		ParseH3WithGPU(s, gpu)
 	case IsTextCommand(actionLower):
 		logger.Debug("Command categorized as text", "action", s.Action())
 		ParseAiText(&s)
