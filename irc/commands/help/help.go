@@ -208,7 +208,22 @@ func ImageHelp(config settings.AiBird) []Help {
 }
 
 func VideoHelp(config settings.AiBird) []Help {
-	return getHelpForWorkflowType("video", config)
+	videoHelp := getHelpForWorkflowType("video", config)
+
+	// Manually add !h3 — it maps to the m3.json workflow but adds llama.cpp
+	// prompt enhancement before invoking ComfyUI, so it is not a plain workflow.
+	videoHelp = append(videoHelp, Help{
+		Name: "h3",
+		Type: "video",
+		Help: "Generate a MiniMax H3 video. Expands your idea into a full cinematic prompt via llama.cpp, then renders with the m3 workflow.",
+		Arguments: []Arguments{
+			{Argument: argMessage, Help: "Your short video idea or rough description.", Values: ""},
+		},
+		Queueable: true,
+		Example:   "!h3 a woman walking through snow at night, lonely",
+	})
+
+	return videoHelp
 }
 
 func TextHelp() []Help {
@@ -234,27 +249,6 @@ func TextHelp() []Help {
 			},
 			Queueable: true,
 			Example:   "!ai What are the latest developments in Go 1.25?",
-		},
-		{
-			Name: "glm",
-			Type: typeText,
-			Help: "Process a GLM (ChatGLM) request.",
-			Arguments: []Arguments{
-				{Argument: argMessage, Help: "Specify the message to process.", Values: ""},
-				{Argument: "reset", Help: "Reset the conversation cache.", Values: ""},
-			},
-			Queueable: false,
-		},
-		{
-			Name: "glm-img",
-			Type: typeText,
-			Help: "Generate an image using CogView-4 from Z.AI.",
-			Arguments: []Arguments{
-				{Argument: "<prompt>", Help: "Describe the image you want to generate.", Values: ""},
-				{Argument: "--size", Help: "Image size (default: 1024x1024).", Values: "1024x1024, 768x1024, 1024x768"},
-			},
-			Queueable: false,
-			Example:   "!glm-img a cute cat sitting on a windowsill --size=1024x1024",
 		},
 	}
 }

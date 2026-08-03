@@ -2,14 +2,23 @@ package comfyui
 
 // AibirdMeta defines the structure for the aibird_meta TOML file.
 type AibirdMeta struct {
-	Name         string                    `toml:"name"`
-	Command      string                    `toml:"command"`
-	Description  string                    `toml:"description"`
-	URL          string                    `toml:"url"`
-	Example      string                    `toml:"example"`
-	AccessLevel  int                       `toml:"accessLevel"`
-	Type         string                    `toml:"type"`
-	BigModel     bool                      `toml:"bigModel"`
+	Name        string `toml:"name"`
+	Command     string `toml:"command"`
+	Description string `toml:"description"`
+	URL         string `toml:"url"`
+	Example     string `toml:"example"`
+	AccessLevel int    `toml:"accessLevel"`
+	Type        string `toml:"type"`
+	BigModel    bool   `toml:"bigModel"`
+	// RawPrompt, when true, skips the aggressive CleanPrompt sanitization for the
+	// enhanced/positive prompt and only trims surrounding whitespace. Use ONLY for
+	// workflows whose prompt is produced by a trusted source (e.g. an LLM template
+	// like the MiniMax H3 prompt engineer) and requires structured formatting
+	// (newlines, brackets, timecodes, section headers). The BadWordsCheck safety
+	// filter still runs regardless of this flag. Defaults to false (unchanged
+	// behavior). Do NOT enable for workflows that accept raw, untrusted user input
+	// as the prompt.
+	RawPrompt    bool                      `toml:"raw_prompt"`
 	PromptTarget PromptTarget              `toml:"promptTarget"`
 	Parameters   map[string]ParameterDef   `toml:"parameters"`
 	Hardcoded    map[string]HardcodedValue `toml:"hardcoded"`

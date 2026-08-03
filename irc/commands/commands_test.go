@@ -146,8 +146,6 @@ func TestIsTextCommand(t *testing.T) {
 		expected bool
 	}{
 		{"ai", true},
-		{"glm", true},
-		{"glm-img", true},
 		{"hello", false},
 		{"debug", false},
 	}
@@ -166,9 +164,6 @@ func TestIsTextCommand(t *testing.T) {
 func TestIsTextCommand_CaseInsensitive(t *testing.T) {
 	if !IsTextCommand("AI") {
 		t.Error("IsTextCommand should be case-insensitive: 'AI' should match")
-	}
-	if !IsTextCommand("Glm") {
-		t.Error("IsTextCommand should be case-insensitive: 'Glm' should match")
 	}
 }
 
@@ -232,7 +227,6 @@ func TestIsQueueableFromHelp(t *testing.T) {
 		want   bool
 	}{
 		{"ai", true},       // text command, queueable
-		{"glm", false},     // text command, not queueable
 		{"hello", false},   // standard command, not queueable
 		{"user", false},    // admin command, not queueable
 		{"debug", false},   // owner command, not queueable

@@ -85,6 +85,13 @@ func TestIsVideoCommand_RegistryMatch(t *testing.T) {
 	assert.True(t, isVideoCommand(cmd), "registered video command %q should match", cmd)
 }
 
+// TestIsVideoCommand_H3 verifies the !h3 command is registered as a queueable
+// video command (it maps to the m3.json workflow but is not a plain workflow).
+func TestIsVideoCommand_H3(t *testing.T) {
+	assert.True(t, isVideoCommand("h3"), "h3 should be categorized as a video command")
+	assert.True(t, IsQueueableFromHelp("h3"), "h3 should be queueable")
+}
+
 // TestIsVideoCommand_NoMatch verifies non-video commands return false.
 func TestIsVideoCommand_NoMatch(t *testing.T) {
 	assert.False(t, isVideoCommand("hello"))

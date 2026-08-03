@@ -59,6 +59,11 @@ func RunQueueableCommand(ctx context.Context, s state.State, gpu meta.GPUType) {
 
 	// Route based on the command action to existing handlers
 	switch {
+	case strings.EqualFold(s.Action(), "h3"):
+		// !h3 maps to the m3.json workflow; route to the dedicated handler that
+		// enhances the prompt via llama.cpp before invoking ComfyUI.
+		logger.Debug("Command categorized as h3 (MiniMax video)", "action", s.Action())
+		ParseH3WithGPU(s, gpu)
 	case IsTextCommand(actionLower):
 		logger.Debug("Command categorized as text", "action", s.Action())
 		ParseAiText(&s)

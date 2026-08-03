@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"strings"
 	"testing"
 
 	"aibird/logger"
@@ -199,3 +200,38 @@ func TestGenerateLyrics_MissingPromptFile(t *testing.T) {
 // ChatRequest requires a fully constructed *state.State (with girc.Client, Network, User, etc.)
 // which is impractical in unit tests. It is tested indirectly via the SingleRequest tests above
 // which exercise the same HTTP call and response handling logic.
+
+func TestStripCodeFences(t *testing.T) {
+	tests := []struct {
+		name string
+		in   string
+		want string
+	}{
+		{"empty", "", ""},
+		{"no fence", "just some text", "just some text"},
+		{"no fence multiline", "line1\nline2\nline3", "line1\nline2\nline3"},
+		{"fenced no lang", "```\nsome content\n```", "some content"},
+		{"fenced with lang", "```json\n{\"a\": 1}\n```", "{\"a\": 1}"},
+		{"fenced single line content", "```\ncontent\n```", "content"},
+		{"only opening fence", "```", ""},
+		{"fence with inner backticks", "```\n VISUAL STYLE\nfoo\n```", "VISUAL STYLE\nfoo"},
+		{"preserves newlines and brackets", "```\n[0s-5s] Shot 1\nAUDIO layer\n```", "[0s-5s] Shot 1\nAUDIO layer"},
+		{"whitespace padded", "  ```\ncontent\n```  ", "content"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.Equal(t, tt.want, stripCodeFences(tt.in))
+		})
+	}
+}
+
+func TestEnhancePromptH3_LoadsTemplate(t *testing.T) {
+	// Verify the H3 template is readable and begins with the /no_think directive.
+	// EnhancePromptH3 itself needs a live llama.cpp server; we test the template
+	// load path (the only pure part) at the GetPrompt level.
+	prompt, err := text.GetPrompt("h3.md")
+	require.NoError(t, err)
+	require.NotEmpty(t, prompt)
+	assert.True(t, strings.HasPrefix(prompt, "/no_think"), "h3.md must start with /no_think directive")
+}

@@ -94,7 +94,7 @@ func processWithMeta(irc *state.State, aiEnhancedPrompt, model string, comfyUiCo
 	}()
 
 	// Prepare the message/prompt
-	message := preparePrompt(irc, aiEnhancedPrompt, model, comfyUiConfig)
+	message := preparePrompt(irc, aiEnhancedPrompt, model, comfyUiConfig, metaData.RawPrompt)
 
 	// Apply parameters to workflow widgets
 	widgetUpdates, err := applyParameters(irc, metaData, message, cudaDevice)
@@ -112,7 +112,7 @@ func workflowFile(model string) string {
 }
 
 // preparePrompt builds the final prompt string from user input.
-func preparePrompt(irc *state.State, aiEnhancedPrompt, model string, comfyUiConfig *settings.ComfyUiConfig) string {
+func preparePrompt(irc *state.State, aiEnhancedPrompt, model string, comfyUiConfig *settings.ComfyUiConfig, rawPrompt bool) string {
 	var message string
 	if !irc.IsAction("tts") {
 		message = CleanPrompt(irc.Message())
@@ -120,7 +120,14 @@ func preparePrompt(irc *state.State, aiEnhancedPrompt, model string, comfyUiConf
 		message = irc.Message()
 	}
 	if aiEnhancedPrompt != "" {
-		message = CleanPrompt(aiEnhancedPrompt)
+		if rawPrompt {
+			// Preserve structured LLM-curated output (newlines, brackets, timecodes).
+			// Only used by workflows that opt in via raw_prompt=true; the bad-words
+			// safety check below still applies.
+			message = strings.TrimSpace(aiEnhancedPrompt)
+		} else {
+			message = CleanPrompt(aiEnhancedPrompt)
+		}
 	}
 	if BadWordsCheck(message, comfyUiConfig) {
 		message = comfyUiConfig.BadWordsPrompt

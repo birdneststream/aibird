@@ -3,14 +3,10 @@ package commands
 import (
 	"context"
 	"fmt"
-	"os"
 	"regexp"
 	"strings"
-	"time"
 
 	"aibird/helpers"
-	"aibird/http/request"
-	"aibird/http/uploaders/birdhole"
 	"aibird/irc/state"
 	"aibird/logger"
 	"aibird/mcp"
@@ -201,75 +197,6 @@ func ParseAiText(irc *state.State) bool {
 			handleLlamaCppRequest(irc)
 			return true
 		}
-	}
-
-	if irc.IsAction("glm") && irc.Config.Glm.ApiKey != "" {
-		if irc.IsEmptyMessage() {
-			return true
-		}
-
-		irc.ReplyTo(girc.Fmt("🧠 Processing GLM request, please wait..."))
-
-		helpers.GoSafe(func() {
-			response, err := glm.Request(irc)
-			if err != nil {
-				logger.Error("GLM request failed", "error", err)
-				irc.SendError(fmt.Sprintf("🧠 GLM error: %s", err))
-			} else {
-				irc.TextToBirdhole(response)
-			}
-		})
-		return true
-	}
-
-	if irc.IsAction("glm-img") && irc.Config.Glm.ApiKey != "" {
-		if irc.IsEmptyMessage() {
-			irc.Send("Usage: !glm-img <prompt> [--size=1024x1024]")
-			return true
-		}
-
-		size, _ := irc.GetStringArg("size", "1024x1024")
-
-		irc.ReplyTo(girc.Fmt("🎨 Generating image with CogView-4, please wait..."))
-
-		helpers.GoSafe(func() {
-			imageUrl, err := glm.ImageRequest(irc.Message(), size, &irc.Config.Glm)
-			if err != nil {
-				logger.Error("GLM image request failed", "error", err)
-				irc.SendError(fmt.Sprintf("🎨 GLM image error: %s", err))
-				return
-			}
-
-			// Download the image to a temp file
-			tempFile := fmt.Sprintf("%s/glm-img-%d.png", os.TempDir(), time.Now().UnixNano())
-			downloadReq := request.Request{
-				Url:      imageUrl,
-				FileName: tempFile,
-			}
-			if dlErr := downloadReq.Download(); dlErr != nil {
-				logger.Error("Failed to download GLM image", "error", dlErr)
-				irc.SendError("Failed to download generated image")
-				return
-			}
-			defer os.Remove(tempFile)
-
-			// Upload to birdhole
-			fields := []request.Fields{
-				{Key: "tags", Value: "glm-img," + irc.Network.NetworkName},
-				{Key: "meta_network", Value: irc.Network.NetworkName},
-				{Key: "meta_nick", Value: irc.User.NickName},
-				{Key: "meta_prompt", Value: irc.Message()},
-			}
-			upload, err := birdhole.BirdHole(tempFile, irc.Message(), fields, &irc.Config.Birdhole)
-			if err != nil {
-				logger.Error("Birdhole upload failed", "error", err)
-				irc.SendError("Failed to upload image: " + err.Error())
-				return
-			}
-
-			irc.ReplyTo(fmt.Sprintf("🎨 %s", upload))
-		})
-		return true
 	}
 
 	return false

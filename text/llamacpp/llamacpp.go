@@ -119,6 +119,44 @@ func EnhancePrompt(message string, config settings.LlamaCppConfig) (string, erro
 	return SingleRequest(userPrompt, systemPrompt, config)
 }
 
+// EnhancePromptH3 expands a short video idea into a production-ready MiniMax H3
+// prompt using the dedicated H3 prompt-engineer template (text/prompts/h3.md).
+// The template carries a /no_think directive so the model skips reasoning and
+// returns only the expanded prompt. No other sanitization is applied — the
+// structured output (newlines, timecodes, section headers) must be preserved
+// verbatim for the downstream video workflow.
+func EnhancePromptH3(message string, config settings.LlamaCppConfig) (string, error) {
+	systemPrompt, err := text.GetPrompt("h3.md")
+	if err != nil {
+		return "", fmt.Errorf("load h3 prompt template: %w", err)
+	}
+	result, err := SingleRequest(message, systemPrompt, config)
+	if err != nil {
+		return "", err
+	}
+	return stripCodeFences(result), nil
+}
+
+// stripCodeFences removes a single surrounding triple-backtick fence if present.
+// Handles an optional language tag (e.g. ```json). Returns the input unchanged
+// when no fence is present or the input is empty. This is a safety net only —
+// the H3 template forbids code fences, but LLMs occasionally add them anyway.
+func stripCodeFences(s string) string {
+	s = strings.TrimSpace(s)
+	if s == "" || !strings.HasPrefix(s, "```") {
+		return s
+	}
+	// Drop the opening fence line (including any language tag).
+	idx := strings.Index(s, "\n")
+	if idx == -1 {
+		// Whole string was just the opening fence with no content.
+		return ""
+	}
+	s = strings.TrimSpace(s[idx+1:])
+	s = strings.TrimSuffix(s, "```")
+	return strings.TrimSpace(s)
+}
+
 // GenerateLyrics generates song lyrics based on the given topic.
 func GenerateLyrics(message string, config settings.LlamaCppConfig) (string, error) {
 	systemPrompt, err := text.GetPrompt("lyrics.md")

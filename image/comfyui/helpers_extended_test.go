@@ -554,14 +554,14 @@ func TestApplyParameters_ParameterError(t *testing.T) {
 func TestPreparePrompt_Normal(t *testing.T) {
 	irc := newState(nil, "sd", "a beautiful landscape")
 	config := &settings.ComfyUiConfig{}
-	result := preparePrompt(irc, "", "sd", config)
+	result := preparePrompt(irc, "", "sd", config, false)
 	assert.Equal(t, "a beautiful landscape", result)
 }
 
 func TestPreparePrompt_AIEnhanced(t *testing.T) {
 	irc := newState(nil, "sd", "a cat")
 	config := &settings.ComfyUiConfig{}
-	result := preparePrompt(irc, "enhanced cat description", "sd", config)
+	result := preparePrompt(irc, "enhanced cat description", "sd", config, false)
 	assert.Equal(t, "enhanced cat description", result)
 }
 
@@ -571,14 +571,14 @@ func TestPreparePrompt_BadWords(t *testing.T) {
 		BadWords:       []string{"greta"},
 		BadWordsPrompt: "FBI Agent making an arrest.",
 	}
-	result := preparePrompt(irc, "", "sd", config)
+	result := preparePrompt(irc, "", "sd", config, false)
 	assert.Equal(t, "FBI Agent making an arrest.", result)
 }
 
 func TestPreparePrompt_TTSNoClean(t *testing.T) {
 	irc := newState(nil, "tts", "special chars <>&* here")
 	config := &settings.ComfyUiConfig{}
-	result := preparePrompt(irc, "", "tts", config)
+	result := preparePrompt(irc, "", "tts", config, false)
 	// TTS skips CleanPrompt — special chars should be preserved
 	assert.Contains(t, result, "special chars")
 }
@@ -586,7 +586,7 @@ func TestPreparePrompt_TTSNoClean(t *testing.T) {
 func TestPreparePrompt_ErnieModel(t *testing.T) {
 	irc := newState(nil, "ernie", "a sunset")
 	config := &settings.ComfyUiConfig{}
-	result := preparePrompt(irc, "", "ernie", config)
+	result := preparePrompt(irc, "", "ernie", config, false)
 	assert.Contains(t, result, "a sunset")
 	assert.Contains(t, result, "SYSTEM_PROMPT")
 }
@@ -594,8 +594,53 @@ func TestPreparePrompt_ErnieModel(t *testing.T) {
 func TestPreparePrompt_EmptyMessage(t *testing.T) {
 	irc := newState(nil, "sd", "")
 	config := &settings.ComfyUiConfig{}
-	result := preparePrompt(irc, "", "sd", config)
+	result := preparePrompt(irc, "", "sd", config, false)
 	assert.Equal(t, "", result)
+}
+
+// =============================================================================
+// preparePrompt rawPrompt tests (raw_prompt meta flag for trusted LLM output)
+// =============================================================================
+
+func TestPreparePrompt_RawPrompt_PreservesStructure(t *testing.T) {
+	// rawPrompt=true must NOT run CleanPrompt on the enhanced prompt, so newlines,
+	// brackets, and timecodes survive verbatim.
+	irc := newState(nil, "sd", "a cat")
+	config := &settings.ComfyUiConfig{}
+	enhanced := "VISUAL STYLE\n[0s-5s] Shot 1: low angle\nAUDIO: cello note"
+	result := preparePrompt(irc, enhanced, "m3", config, true)
+	assert.Equal(t, enhanced, result)
+}
+
+func TestPreparePrompt_RawPrompt_TrimmedOnly(t *testing.T) {
+	// Surrounding whitespace is trimmed but inner structure preserved.
+	irc := newState(nil, "sd", "a cat")
+	config := &settings.ComfyUiConfig{}
+	enhanced := "\n\n  VISUAL STYLE\n[0s-5s] Shot 1  \n"
+	result := preparePrompt(irc, enhanced, "m3", config, true)
+	assert.Equal(t, "VISUAL STYLE\n[0s-5s] Shot 1", result)
+}
+
+func TestPreparePrompt_RawPrompt_BadWordsStillApply(t *testing.T) {
+	// The safety filter still runs even with rawPrompt=true.
+	irc := newState(nil, "sd", "greta thunberg")
+	config := &settings.ComfyUiConfig{
+		BadWords:       []string{"greta"},
+		BadWordsPrompt: "FBI Agent making an arrest.",
+	}
+	result := preparePrompt(irc, "enhanced greta content", "m3", config, true)
+	assert.Equal(t, "FBI Agent making an arrest.", result)
+}
+
+func TestPreparePrompt_RawPromptFalse_StillCleans(t *testing.T) {
+	// rawPrompt=false (default) must still CleanPrompt the enhanced prompt,
+	// stripping characters outside the allowed set (e.g. en-dash, newlines).
+	irc := newState(nil, "sd", "a cat")
+	config := &settings.ComfyUiConfig{}
+	enhanced := "VISUAL STYLE\n[0s-5s] Shot 1"
+	result := preparePrompt(irc, enhanced, "m3", config, false)
+	// Newlines collapse to spaces and the en-dash is removed by CleanPrompt.
+	assert.NotContains(t, result, "\n")
 }
 
 // =============================================================================
