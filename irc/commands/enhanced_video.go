@@ -2,6 +2,7 @@ package commands
 
 import (
 	"fmt"
+	"regexp"
 	"strings"
 	"time"
 
@@ -110,6 +111,25 @@ func loadStyleSystemPrompt(templateFile string) (string, error) {
 		return "", fmt.Errorf("load style overlay %s: %w", templateFile, err)
 	}
 	return base + "\n\n---\n\n" + overlay, nil
+}
+
+// doubleQuoteRe matches double-quoted strings (dialog markers). Single quotes
+// are deliberately excluded to avoid false positives on apostrophes ("it's",
+// "D'oh").
+var doubleQuoteRe = regexp.MustCompile(`"([^"]+)"`)
+
+// extractQuotedDialog pulls double-quoted strings from a message. Each is treated
+// as dialog the user wants preserved verbatim in the generated prompt. Returns
+// the inner text (without the surrounding quotes).
+func extractQuotedDialog(message string) []string {
+	matches := doubleQuoteRe.FindAllStringSubmatch(message, -1)
+	var dialog []string
+	for _, m := range matches {
+		if len(m) > 1 && strings.TrimSpace(m[1]) != "" {
+			dialog = append(dialog, m[1])
+		}
+	}
+	return dialog
 }
 
 // parseChatroomFlag detects the --chatroom flag in a message. When present it
@@ -292,6 +312,21 @@ func parseEnhancedVideoCommand(irc state.State, templateFile string, gpu meta.GP
 			return false
 		}
 		message = buildChatroomMessage(chatLog, location, extra)
+	}
+
+	// Extract any double-quoted dialog from the user's original input and append
+	// it as an explicit, unmissable verbatim requirement. The LLM drops or
+	// paraphrases dialog ~70% of the time when it's only a system-prompt rule;
+	// restating it in the user message as a hard constraint dramatically
+	// improves compliance.
+	if quotes := extractQuotedDialog(rawMessage); len(quotes) > 0 {
+		var b strings.Builder
+		b.WriteString("\n\nCRITICAL REQUIREMENT — the following dialog MUST appear WORD-FOR-WORD in the Storyboard section of your output, spoken by a character. Do not paraphrase, rephrase, shorten, or omit any of these lines:\n")
+		for _, q := range quotes {
+			fmt.Fprintf(&b, "- \"%s\"\n", q)
+		}
+		b.WriteString("If you do not include every line above exactly as written, the prompt is useless.")
+		message += b.String()
 	}
 
 	// Build the system prompt: the H3 base craft, plus a style overlay for

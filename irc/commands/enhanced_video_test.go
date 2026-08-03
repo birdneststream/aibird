@@ -125,6 +125,27 @@ func TestLoadStyleSystemPrompt(t *testing.T) {
 	assert.Error(t, err)
 }
 
+func TestExtractQuotedDialog(t *testing.T) {
+	tests := []struct {
+		name  string
+		input string
+		want  []string
+	}{
+		{"no quotes", "a cat on a roof", nil},
+		{"double-quoted dialog", `Homer says "D'oh!"`, []string{"D'oh!"}},
+		{"multiple quotes", `"hello" then "goodbye"`, []string{"hello", "goodbye"}},
+		{"single quotes not extracted (apostrophe)", "it's a test", nil},
+		{"empty quotes ignored", `say "" please`, nil},
+		{"mixed — only double extracted", `"yes" she said, it's fine`, []string{"yes"}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := extractQuotedDialog(tt.input)
+			assert.Equal(t, tt.want, got)
+		})
+	}
+}
+
 func TestParseChatroomFlag(t *testing.T) {
 	tests := []struct {
 		name          string
