@@ -221,6 +221,17 @@ func (c *Client) IsComfyUIRunning() (bool, error) {
 	return status.DockerStatus.ComfyUI, nil
 }
 
+// IsLlamaCppRunning returns true if the llama.cpp container is running, using
+// the same status service that powers !status (rather than a direct /health
+// ping which can false-negative when the model is mid-load or busy).
+func (c *Client) IsLlamaCppRunning() (bool, error) {
+	status, err := c.GetStatus()
+	if err != nil {
+		return false, err
+	}
+	return status.DockerStatus.LLamacpp, nil
+}
+
 // CheckCanUse returns whether the system allows GPU usage.
 // This is a simpler check than CheckModelExecution - it only validates
 // can_use flag and basic service availability.

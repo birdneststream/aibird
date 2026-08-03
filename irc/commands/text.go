@@ -41,9 +41,9 @@ const (
 )
 
 func checkLlamaCppAvailable(irc *state.State) bool {
-	isRunning, err := llamacpp.IsLlamaCppRunning(irc.Config.LlamaCpp.Url, irc.Config.LlamaCpp.Port)
+	isRunning, err := status.NewClient(&irc.Config.AiBird).IsLlamaCppRunning()
 	if err != nil {
-		logger.Warn("Health check failed, proceeding with llama.cpp request anyway", "error", err)
+		logger.Warn("llama.cpp status check failed, proceeding with request anyway", "error", err)
 		return true // Assume it's running and let the actual request fail if not
 	}
 
