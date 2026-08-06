@@ -23,14 +23,14 @@ func parseAiVideoInternal(irc state.State, gpu meta.GPUType) bool {
 		return false
 	}
 
-	aiEnhancedPrompt, displayMessage := preparePromptAndDisplay(&irc, gpu)
+	displayMessage := preparePromptAndDisplay(&irc, gpu)
 
-	response, err := comfyui.Process(&irc, aiEnhancedPrompt, gpu)
+	response, err := comfyui.Process(&irc, "", gpu)
 	if err != nil {
 		logger.Error("ComfyUI request failed", "error", err)
 		irc.SendError(err.Error())
 		return false
 	}
 
-	return uploadAndReply(&irc, response, displayMessage, aiEnhancedPrompt)
+	return uploadAndReply(&irc, response, displayMessage)
 }

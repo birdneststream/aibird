@@ -209,137 +209,23 @@ func ImageHelp(config settings.AiBird) []Help {
 }
 
 func VideoHelp(config settings.AiBird) []Help {
-	// Enhanced-video style commands (h3/sienfield/garfield/spongebob) load a
-	// prompt template, expand the idea via llama.cpp, and run the h3 workflow.
-	// Patreon-gated (free in #h4x).
+	// The h3 video command runs the MiniMax H3 workflow. Patreon-gated (free in
+	// #h4x).
 	videoHelp := getHelpForWorkflowType(typeVideo, config)
 	return append(videoHelp, enhancedVideoCommands()...)
 }
 
-// enhancedVideoCommands returns the help entries for the patreon-gated
-// enhanced-video style commands. Each maps to the h3 workflow and a prompt
-// template in text/prompts/. Kept in sync with commands.enhancedVideoTemplates.
+// enhancedVideoCommands returns the help entry for the patreon-gated h3 video
+// command, which runs the MiniMax H3 workflow. Patreon-gated (free in #h4x).
 func enhancedVideoCommands() []Help {
 	return []Help{
 		{
 			Name:      "h3",
 			Type:      typeVideo,
-			Help:      "Generate a MiniMax H3 video. Expands your idea into a full cinematic prompt via llama.cpp, then renders with the h3 workflow. Add --chatroom to recreate recent channel chat in-theme (optionally with a location: --chatroom in the diner). Patreon-only (free in #h4x).",
+			Help:      "Generate a MiniMax H3 video from your idea using the h3 workflow. Patreon-only (free in #h4x).",
 			Arguments: []Arguments{{Argument: argMessage, Help: "Your short video idea or rough description.", Values: ""}},
 			Queueable: true,
 			Example:   "!h3 a woman walking through snow at night, lonely",
-		},
-		{
-			Name:      "sienfield",
-			Type:      typeVideo,
-			Help:      "Generate a video in the style of Seinfeld (90s NYC sitcom). Patreon-only (free in #h4x).",
-			Arguments: []Arguments{{Argument: argMessage, Help: "Your video idea, rendered Seinfeld-style.", Values: ""}},
-			Queueable: true,
-			Example:   "!sienfield arguing over who pays the check at the diner",
-		},
-		{
-			Name:      "garfield",
-			Type:      typeVideo,
-			Help:      "Generate a video in the style of Garfield (the lazy orange cat). Patreon-only (free in #h4x).",
-			Arguments: []Arguments{{Argument: argMessage, Help: "Your video idea, rendered Garfield-style.", Values: ""}},
-			Queueable: true,
-			Example:   "!garfield a monday morning that won't end",
-		},
-		{
-			Name:      "spongebob",
-			Type:      typeVideo,
-			Help:      "Generate a video in the style of SpongeBob SquarePants (Bikini Bottom). Patreon-only (free in #h4x).",
-			Arguments: []Arguments{{Argument: argMessage, Help: "Your video idea, rendered SpongeBob-style.", Values: ""}},
-			Queueable: true,
-			Example:   "!spongebob flipping krabby patties during the lunch rush",
-		},
-		{
-			Name:      "simpsons",
-			Type:      typeVideo,
-			Help:      "Generate a video in the style of The Simpsons (Springfield). Patreon-only (free in #h4x).",
-			Arguments: []Arguments{{Argument: argMessage, Help: "Your video idea, rendered Simpsons-style.", Values: ""}},
-			Queueable: true,
-			Example:   "!simpsons homer reaching for the last donut in the box",
-		},
-		{
-			Name:      "southpark",
-			Type:      typeVideo,
-			Help:      "Generate a video in the style of South Park (snowy Colorado town). Patreon-only (free in #h4x).",
-			Arguments: []Arguments{{Argument: argMessage, Help: "Your video idea, rendered South Park-style.", Values: ""}},
-			Queueable: true,
-			Example:   "!southpark cartman scheming at the bus stop in the snow",
-		},
-		{
-			Name:      "rick",
-			Type:      typeVideo,
-			Help:      "Generate a video in the style of Rick and Morty (sci-fi multiverse). Patreon-only (free in #h4x).",
-			Arguments: []Arguments{{Argument: argMessage, Help: "Your video idea, rendered Rick and Morty-style.", Values: ""}},
-			Queueable: true,
-			Example:   "!rick stepping through a glowing green portal into an alien bazaar",
-		},
-		{
-			Name:      "looney",
-			Type:      typeVideo,
-			Help:      "Generate a video in the style of classic Looney Tunes (golden-age slapstick). Patreon-only (free in #h4x).",
-			Arguments: []Arguments{{Argument: argMessage, Help: "Your video idea, rendered Looney Tunes-style.", Values: ""}},
-			Queueable: true,
-			Example:   "!looney bugs bunny casually chewing a carrot while an anvil drops",
-		},
-		{
-			Name:      "futurama",
-			Type:      typeVideo,
-			Help:      "Generate a video in the style of Futurama (31st-century New New York). Patreon-only (free in #h4x).",
-			Arguments: []Arguments{{Argument: argMessage, Help: "Your video idea, rendered Futurama-style.", Values: ""}},
-			Queueable: true,
-			Example:   "!futurama bender cracking open a beer on the planet express ship",
-		},
-		{
-			Name:      "adventure",
-			Type:      typeVideo,
-			Help:      "Generate a video in the style of Adventure Time (the Land of Ooo). Patreon-only (free in #h4x).",
-			Arguments: []Arguments{{Argument: argMessage, Help: "Your video idea, rendered Adventure Time-style.", Values: ""}},
-			Queueable: true,
-			Example:   "!adventure finn and jake charging into a candy forest clearing",
-		},
-		{
-			Name:      "familyguy",
-			Type:      typeVideo,
-			Help:      "Generate a video in the style of Family Guy (Quahog, Rhode Island). Patreon-only (free in #h4x).",
-			Arguments: []Arguments{{Argument: argMessage, Help: "Your video idea, rendered Family Guy-style.", Values: ""}},
-			Queueable: true,
-			Example:   "!familyguy peter laughing in his recliner while the tv blares",
-		},
-		{
-			Name:      "tomjerry",
-			Type:      typeVideo,
-			Help:      "Generate a video in the style of classic Tom and Jerry (silent slapstick chase). Patreon-only (free in #h4x).",
-			Arguments: []Arguments{{Argument: argMessage, Help: "Your video idea, rendered Tom and Jerry-style.", Values: ""}},
-			Queueable: true,
-			Example:   "!tomjerry tom setting an elaborate mousetrap in the kitchen",
-		},
-		{
-			Name:      "scooby",
-			Type:      typeVideo,
-			Help:      "Generate a video in the style of Scooby-Doo (spooky mystery hijinks). Patreon-only (free in #h4x).",
-			Arguments: []Arguments{{Argument: argMessage, Help: "Your video idea, rendered Scooby-Doo-style.", Values: ""}},
-			Queueable: true,
-			Example:   "!scooby the gang running from a glowing ghost through a haunted mansion",
-		},
-		{
-			Name:      "koth",
-			Type:      typeVideo,
-			Help:      "Generate a video in the style of King of the Hill (dry Texas suburbia). Patreon-only (free in #h4x).",
-			Arguments: []Arguments{{Argument: argMessage, Help: "Your video idea, rendered King of the Hill-style.", Values: ""}},
-			Queueable: true,
-			Example:   "!koth hank grilling burgers in the backyard on a quiet afternoon",
-		},
-		{
-			Name:      "beavis",
-			Type:      typeVideo,
-			Help:      "Generate a video in the style of Beavis and Butt-Head (crude MTV grunge). Patreon-only (free in #h4x).",
-			Arguments: []Arguments{{Argument: argMessage, Help: "Your video idea, rendered Beavis and Butt-Head-style.", Values: ""}},
-			Queueable: true,
-			Example:   "!beavis two teens snickering at a music video on a dingy couch",
 		},
 	}
 }

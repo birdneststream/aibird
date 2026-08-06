@@ -138,5 +138,5 @@ func generateVibe(irc *state.State, messages []birdbase.ChannelMessage, hours in
 		return
 	}
 
-	uploadAndReply(irc, response, imagePrompt, "")
+	uploadAndReply(irc, response, imagePrompt)
 }

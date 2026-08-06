@@ -57,12 +57,12 @@ func RunQueueableCommand(ctx context.Context, s state.State, gpu meta.GPUType) {
 
 	logger.Debug("Routing queue command", "action", s.Action(), "actionLower", actionLower)
 
-	// Enhanced-video style commands (h3/sienfield/garfield/spongebob) share one
-	// code path: load a prompt template, enhance via llama.cpp, run h3. Handle
-	// them before the generic type-switch so the template map drives routing.
-	if tpl, ok := enhancedVideoTemplate(actionLower); ok {
+	// The h3 video command is a premium MiniMax H3 generation with an extended
+	// queue timeout. Handle it before the generic type-switch so its distinct
+	// runtime and access gating apply.
+	if isEnhancedVideoCommand(actionLower) {
 		logger.Debug("Command categorized as enhanced video", "action", s.Action())
-		parseEnhancedVideoCommand(s, tpl, gpu)
+		parseEnhancedVideoCommand(s, gpu)
 		return
 	}
 

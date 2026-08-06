@@ -92,62 +92,6 @@ func ChatRequest(irc *state.State) (string, error) {
 	return "", errors.New("no content found")
 }
 
-// EnhancePrompt expands a simple prompt into a more detailed one for image/video generation.
-func EnhancePrompt(message string, config settings.LlamaCppConfig) (string, error) {
-	systemPrompt := "your function is to expand out prompts from a simple sentence to a more complex one, including vivid detail and descriptions. Only include the expanded prompt, do not provide any explanations or things like Description:"
-	userPrompt := "Expand out the following prompt, include details such as camera movements and describe it as a movie scene:" + message
-
-	return SingleRequest(userPrompt, systemPrompt, config)
-}
-
-// EnhancePromptWithSystemPrompt expands a message using a pre-built system
-// prompt directly. This is used when combining a base template with a style
-// overlay (e.g. the H3 base craft prepended to a Simpsons style overlay).
-// Thinking is disabled at the model level, so the system prompt carries only
-// role and style instructions and the model returns just the expanded prompt.
-// stripCodeFences is applied as a safety net since LLMs occasionally wrap
-// output in a code block; the rest of the output is preserved verbatim for the
-// downstream video workflow.
-func EnhancePromptWithSystemPrompt(message, systemPrompt string, config settings.LlamaCppConfig) (string, error) {
-	result, err := SingleRequest(message, systemPrompt, config)
-	if err != nil {
-		return "", err
-	}
-	return stripCodeFences(result), nil
-}
-
-// EnhancePromptWithTemplate expands a message using a named prompt template from
-// text/prompts/. It is a thin wrapper around EnhancePromptWithSystemPrompt that
-// loads the template file. Used by the !h3 / !sienfield / !garfield /
-// !spongebob (and other style) video commands.
-func EnhancePromptWithTemplate(message, templateFile string, config settings.LlamaCppConfig) (string, error) {
-	systemPrompt, err := text.GetPrompt(templateFile)
-	if err != nil {
-		return "", fmt.Errorf("load prompt template %s: %w", templateFile, err)
-	}
-	return EnhancePromptWithSystemPrompt(message, systemPrompt, config)
-}
-
-// stripCodeFences removes a single surrounding triple-backtick fence if present.
-// Handles an optional language tag (e.g. ```json). Returns the input unchanged
-// when no fence is present or the input is empty. This is a safety net only —
-// the H3 template forbids code fences, but LLMs occasionally add them anyway.
-func stripCodeFences(s string) string {
-	s = strings.TrimSpace(s)
-	if s == "" || !strings.HasPrefix(s, "```") {
-		return s
-	}
-	// Drop the opening fence line (including any language tag).
-	idx := strings.Index(s, "\n")
-	if idx == -1 {
-		// Whole string was just the opening fence with no content.
-		return ""
-	}
-	s = strings.TrimSpace(s[idx+1:])
-	s = strings.TrimSuffix(s, "```")
-	return strings.TrimSpace(s)
-}
-
 // GenerateLyrics generates song lyrics based on the given topic.
 func GenerateLyrics(message string, config settings.LlamaCppConfig) (string, error) {
 	systemPrompt, err := text.GetPrompt("lyrics.md")

@@ -110,29 +110,6 @@ func TestSingleRequest_HTTPError(t *testing.T) {
 	require.Error(t, err)
 }
 
-func TestEnhancePrompt_Success(t *testing.T) {
-	expectedContent := "expanded prompt with vivid details"
-	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		resp := LlamaCppResponse{
-			Choices: []struct {
-				Index        int             `json:"index"`
-				Message      LlamaCppMessage `json:"message"`
-				FinishReason string          `json:"finish_reason"`
-			}{
-				{Message: LlamaCppMessage{Content: expectedContent}},
-			},
-		}
-		w.Header().Set("Content-Type", "application/json")
-		_ = json.NewEncoder(w).Encode(resp)
-	}))
-	defer ts.Close()
-
-	config := settings.LlamaCppConfig{Url: ts.URL, Port: "", DefaultModel: "test-model"}
-	result, err := EnhancePrompt("a cat sitting on a mat", config)
-	require.NoError(t, err)
-	assert.Equal(t, expectedContent, result)
-}
-
 func TestGenerateLyrics_Success(t *testing.T) {
 	expectedContent := "la la la, song lyrics here"
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -169,40 +146,3 @@ func TestGenerateLyrics_MissingPromptFile(t *testing.T) {
 // ChatRequest requires a fully constructed *state.State (with girc.Client, Network, User, etc.)
 // which is impractical in unit tests. It is tested indirectly via the SingleRequest tests above
 // which exercise the same HTTP call and response handling logic.
-
-func TestStripCodeFences(t *testing.T) {
-	tests := []struct {
-		name string
-		in   string
-		want string
-	}{
-		{"empty", "", ""},
-		{"no fence", "just some text", "just some text"},
-		{"no fence multiline", "line1\nline2\nline3", "line1\nline2\nline3"},
-		{"fenced no lang", "```\nsome content\n```", "some content"},
-		{"fenced with lang", "```json\n{\"a\": 1}\n```", "{\"a\": 1}"},
-		{"fenced single line content", "```\ncontent\n```", "content"},
-		{"only opening fence", "```", ""},
-		{"fence with inner backticks", "```\n VISUAL STYLE\nfoo\n```", "VISUAL STYLE\nfoo"},
-		{"preserves newlines and brackets", "```\n[0s-5s] Shot 1\nAUDIO layer\n```", "[0s-5s] Shot 1\nAUDIO layer"},
-		{"whitespace padded", "  ```\ncontent\n```  ", "content"},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			assert.Equal(t, tt.want, stripCodeFences(tt.in))
-		})
-	}
-}
-
-func TestEnhancePromptWithTemplate_LoadsH3(t *testing.T) {
-	// Verify the H3 template is readable and carries its MiniMax H3 role
-	// definition. Thinking is disabled at the model level, so the template no
-	// longer carries a /no_think directive. EnhancePromptWithTemplate itself
-	// needs a live llama.cpp server; we test the template load path (the only
-	// pure part) at the GetPrompt level.
-	prompt, err := text.GetPrompt("h3.md")
-	require.NoError(t, err)
-	require.NotEmpty(t, prompt)
-	assert.Contains(t, prompt, "MiniMax H3", "h3.md must define its MiniMax H3 role")
-}

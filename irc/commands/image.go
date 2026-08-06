@@ -15,7 +15,6 @@ import (
 	"aibird/irc/commands/help"
 	"aibird/irc/state"
 	"aibird/logger"
-	"aibird/text/llamacpp"
 
 	meta "aibird/shared/meta"
 
@@ -192,23 +191,11 @@ func ParseAiImageWithGPU(irc state.State, gpu meta.GPUType) bool {
 			return true
 		}
 
-		// ltx models always get AI enhancement (independent of --pe flag)
-		var ltxEnhanced string
-		if irc.IsAction("ltx") || irc.IsAction("img2ltx") {
-			irc.Send("✨ Enhancing prompt with ai! ✨")
-			ltxEnhanced, _ = llamacpp.EnhancePrompt(comfyui.CleanPrompt(irc.Message()), irc.Config.LlamaCpp)
-		}
-
-		// Shared prompt processing: clean, --pe enhancement, bad words check, processing message
-		aiEnhancedPrompt, displayMessage := preparePromptAndDisplay(&irc, gpu)
-
-		// Override with ltx enhancement if available (takes priority over --pe)
-		if ltxEnhanced != "" {
-			aiEnhancedPrompt = ltxEnhanced
-		}
+		// Shared prompt processing: clean, bad words check, processing message
+		displayMessage := preparePromptAndDisplay(&irc, gpu)
 
 		// Use the provided GPU parameter instead of hardcoded GPU4090
-		response, err := comfyui.Process(&irc, aiEnhancedPrompt, gpu)
+		response, err := comfyui.Process(&irc, "", gpu)
 		if err != nil {
 			logger.Error("ComfyUI request failed", "error", err)
 			irc.SendError(err.Error())
@@ -220,7 +207,7 @@ func ParseAiImageWithGPU(irc state.State, gpu meta.GPUType) bool {
 				return processAisciiCommand(&irc, response, displayMessage)
 			}
 
-			return uploadAndReply(&irc, response, displayMessage, aiEnhancedPrompt)
+			return uploadAndReply(&irc, response, displayMessage)
 		}
 	}
 
