@@ -91,10 +91,9 @@ WHERE n.name = 'networkname';
 
 ### Core System Components
 
-**Dual GPU Queue System** (`queue/`)
-- Manages workload distribution between RTX 4090 and RTX 2070 GPUs
-- `DualQueue` coordinates two separate queues with intelligent routing based on model requirements and user permissions
-- Automatic fallback from 4090 to 2070 when primary GPU is unavailable
+**GPU Queue System** (`queue/`)
+- Manages workload distribution for the single RTX 4090 GPU
+- `ProcessingQueue` coordinates a single priority queue
 - Priority queuing for privileged users (admin/owner/high access level)
 
 **IRC State Management** (`irc/state/`)
@@ -120,7 +119,7 @@ WHERE n.name = 'networkname';
 **Image Generation** (`image/comfyui/`)
 - ComfyUI integration using Comfy2Go library
 - Workflow-based image generation from JSON files in `comfyuijson/`
-- Each workflow contains metadata in `aibird_meta` node defining access levels and GPU requirements
+- Each workflow contains metadata in `aibird_meta` node defining access levels and parameter mapping
 - Automatic parameter mapping from IRC commands to workflow nodes
 
 **File Upload Service** (`http/uploaders/birdhole/`)
@@ -200,7 +199,7 @@ When adding new image generation commands:
 1. Place workflow JSON in `comfyuijson/` directory
 2. Ensure workflow contains `aibird_meta` node with TOML configuration
 3. Map command arguments to workflow node parameters in metadata
-4. Set appropriate access levels and GPU requirements in metadata
+4. Set appropriate access levels and parameter mapping in metadata
 
 ## Go Best Practices for This Codebase
 
@@ -255,7 +254,7 @@ When adding new image generation commands:
 - When modifying IRC state, always go through the state manager
 - Check user permissions before executing privileged commands
 - Use the configured logger rather than fmt.Print or log packages directly
-- Respect the queue system's GPU allocation logic
+- Respect the queue system's GPU priority logic
 - Handle IRC disconnections gracefully with automatic reconnection
 - Validate and sanitize all user input from IRC messages
 - Use TOML tags consistently for configuration structs

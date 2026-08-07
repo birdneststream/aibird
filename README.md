@@ -1,8 +1,8 @@
 # AI Bird IRC Bot 🐦
 
-A sophisticated multi-network IRC bot that provides AI-powered services including text generation, image generation, and audio processing. Built with Go and featuring a dual-GPU queue system, comprehensive state management, and modular architecture.
+A sophisticated multi-network IRC bot that provides AI-powered services including text generation, image generation, and audio processing. Built with Go and featuring a single-GPU (RTX 4090) priority queue system, comprehensive state management, and modular architecture.
 
-You can find the bot in use on popular IRC networks in the channel #birdnest. The main #birdnest channel is on efnet, however also on libera, rizon and a few other networks. It's free to use and so far compared to other online AI generation services for images, sounds or music - it has unlimited use and is less censored. Also as it's mostly ran from my local system here it's more private. The exception is when Google Gemini services are used. Everything else runs off the `airig` which has a 2070 and 4090 dual GPU setup which is networked with wireguard.
+You can find the bot in use on popular IRC networks in the channel #birdnest. The main #birdnest channel is on efnet, however also on libera, rizon and a few other networks. It's free to use and so far compared to other online AI generation services for images, sounds or music - it has unlimited use and is less censored. Also as it's mostly ran from my local system here it's more private. The exception is when Google Gemini services are used. Everything else runs off the `airig` which has an RTX 4090 GPU and is networked with wireguard.
 
 
 
@@ -21,7 +21,7 @@ This bot is a mix of maual coding (70%) with autocomplete, and LLM agent assiste
 
 - **Multi-Network IRC Support** - Connect to multiple IRC networks simultaneously
 - **AI-Powered Services** - Text generation, image generation, and audio processing
-- **Dual GPU Queue System** - Intelligent routing between RTX 4090 and RTX 2070
+- **GPU Queue System** - Priority queue for GPU-bound work on the RTX 4090
 - **Comprehensive State Management** - Robust IRC state tracking and user management
 - **Security & Moderation** - Flood protection, content filtering, and access control
 - **Graceful Shutdown** - Proper cleanup and resource management
@@ -33,7 +33,7 @@ The bot is built with a modular architecture featuring:
 
 - **Main Application** (`main.go`) - Entry point and orchestration
 - **Configuration Management** (`settings/`) - TOML-based configuration
-- **Dual Queue System** (`queue/`) - Intelligent GPU resource management
+- **Queue System** (`queue/`) - Priority GPU resource management
 - **IRC State Management** (`irc/state/`) - Comprehensive IRC state tracking
 - **Command System** (`irc/commands/`) - Permission-based command handling
 - **Image Processing** (`image/comfyui/`) - Advanced image generation
@@ -109,7 +109,7 @@ aibird/
 ├── main.go              # Application entry point
 ├── config.toml          # Main configuration (gitignored)
 ├── settings/            # Configuration management
-├── queue/               # Dual GPU queue system
+├── queue/               # GPU queue system
 ├── irc/                 # IRC client and state management
 ├── image/               # Image generation services
 ├── text/                # Text generation services
@@ -187,7 +187,7 @@ The project includes comprehensive inline documentation and comments throughout 
 - **Main Application** (`main.go`) - Entry point with detailed comments
 - **Configuration** (`settings/`) - Configuration management and validation
 - **IRC System** (`irc/`) - IRC client, state management, and commands
-- **Queue System** (`queue/`) - Dual GPU queue management
+- **Queue System** (`queue/`) - GPU queue management
 - **AI Services** (`text/`, `image/`) - Text and image generation services
 - **Utilities** (`helpers/`, `logger/`) - Helper functions and logging
 

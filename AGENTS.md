@@ -29,7 +29,7 @@ irc/users/                 — User types, admin/owner/ignored status, access le
 irc/users/modes/           — Mode types
 irc/servers/               — Server types, SSL, port configuration
 irc/participant/           — AI participant system for non-command chat messages
-queue/                     — Dual GPU queue (RTX 4090 + RTX 2070), priority routing, UserAccess interface
+queue/                     — Single-GPU (RTX 4090) priority queue, UserAccess interface
 image/comfyui/             — ComfyUI workflow integration, API-format graph loader, sidecar .meta.toml parsing
 image/comfyui/apiclient/   — Direct ComfyUI HTTP/WebSocket client (replaces comfy2go)
 image/ircart/              — ASCII art conversion from images
@@ -40,7 +40,7 @@ http/request/              — HTTP request utilities
 settings/                  — TOML configuration loading and types
 logger/                    — Centralized structured logging (slog-based)
 helpers/                   — Shared utilities (mode mapping, string helpers)
-shared/meta/               — Shared metadata types (GPUType enum, etc.)
+shared/meta/               — Shared metadata types (AibirdMeta, etc.)
 asciistore/                — ASCII art storage and retrieval
 status/                    — Status page integration
 comfyuijson/               — ComfyUI API-format workflow JSON files + sibling .meta.toml sidecars (gitignored)
@@ -51,8 +51,8 @@ comfyuijson/               — ComfyUI API-format workflow JSON files + sibling 
 ### State Struct (`irc/state/`)
 Central context object passed to all command handlers. Holds Client, Event, Network, User, Channel, Config. All IRC state modifications go through this centralized manager with mutex protection.
 
-### Dual GPU Queue (`queue/`)
-`DualQueue` manages two GPU queues (RTX 4090 primary, RTX 2070 fallback). Routes jobs based on model requirements and user permissions via `UserAccess` interface (`GetAccessLevel()`, `CanUsePremiumGPU()`, `CanSkipQueue()`). Priority queuing for privileged users.
+### GPU Queue (`queue/`)
+`ProcessingQueue` manages a single GPU queue for the RTX 4090. Priority routing via the `UserAccess` interface (`GetAccessLevel()`, `CanSkipQueue()`). Privileged users skip to the front of the queue.
 
 ### Command Dispatch (`irc/commands/`)
 Permission-based routing: owner > admin > standard. Commands categorized as queueable (GPU-bound: image/sound/video) vs immediate (text, help, leaderboard). Dynamic command loading from ComfyUI workflows in `comfyuijson/`.
