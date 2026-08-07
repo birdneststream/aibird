@@ -51,7 +51,7 @@ func hasPremiumAccess(irc *state.State) bool {
 	if irc.Channel != nil && strings.EqualFold(irc.Channel.Name, freeAccessChannel) {
 		return true
 	}
-	return irc.User != nil && irc.User.CanUsePremiumGPU()
+	return irc.User != nil && irc.User.CanSkipQueue()
 }
 
 // checkPremiumAccess is the guard used by premium commands. Returns true when
@@ -114,7 +114,7 @@ func parseEnhancedVideoCommand(ctx context.Context, irc state.State, gpu meta.GP
 
 	// Instant acknowledgment so the user knows the command was received before
 	// the ~8-minute GPU render begins.
-	if irc.User.CanUsePremiumGPU() {
+	if irc.User.CanSkipQueue() {
 		irc.Send(fmt.Sprintf("%s: Birdnest pal! Enjoy the 🔥rtx %s🔥 processing '%s'... please wait.", irc.User.NickName, gpu, displayMessage))
 	} else {
 		irc.Send(fmt.Sprintf("%s: Queued item '%s' has started processing... please wait.", irc.User.NickName, displayMessage))

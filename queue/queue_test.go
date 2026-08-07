@@ -25,14 +25,12 @@ func init() {
 
 // mockUser implements UserAccess for testing
 type mockUser struct {
-	accessLevel   int
-	canUsePremium bool
-	canSkip       bool
+	accessLevel int
+	canSkip     bool
 }
 
-func (m *mockUser) GetAccessLevel() int    { return m.accessLevel }
-func (m *mockUser) CanUsePremiumGPU() bool { return m.canUsePremium }
-func (m *mockUser) CanSkipQueue() bool     { return m.canSkip }
+func (m *mockUser) GetAccessLevel() int { return m.accessLevel }
+func (m *mockUser) CanSkipQueue() bool  { return m.canSkip }
 
 func makeQueueItem(action string) QueueItem {
 	return QueueItem{

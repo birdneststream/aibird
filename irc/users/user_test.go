@@ -40,28 +40,6 @@ func TestUser_CanSkipQueue(t *testing.T) {
 	}
 }
 
-func TestUser_CanUsePremiumGPU(t *testing.T) {
-	tests := []struct {
-		name        string
-		accessLevel int
-		isAdmin     bool
-		isOwner     bool
-		want        bool
-	}{
-		{"access level 2", 2, false, false, true},
-		{"access level 1", 1, false, false, false},
-		{"admin", 0, true, false, true},
-		{"owner", 0, false, true, true},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			u := &User{AccessLevel: tt.accessLevel, IsAdmin: tt.isAdmin, IsOwner: tt.isOwner}
-			assert.Equal(t, tt.want, u.CanUsePremiumGPU())
-		})
-	}
-}
-
 func TestUser_GetAccessLevelString(t *testing.T) {
 	tests := []struct {
 		level int

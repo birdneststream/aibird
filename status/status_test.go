@@ -653,9 +653,7 @@ func TestCheckModelExecution_Success(t *testing.T) {
 
 // mockUserAccess implements UserAccess for testing.
 type mockUserAccess struct {
-	level   int
-	premium bool
+	level int
 }
 
-func (m *mockUserAccess) GetAccessLevel() int    { return m.level }
-func (m *mockUserAccess) CanUsePremiumGPU() bool { return m.premium }
+func (m *mockUserAccess) GetAccessLevel() int { return m.level }

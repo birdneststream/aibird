@@ -25,7 +25,7 @@ func preparePromptAndDisplay(irc *state.State, gpu meta.GPUType) string {
 		displayMessage = irc.Config.ComfyUi.BadWordsPrompt
 	}
 
-	if irc.User.CanUsePremiumGPU() {
+	if irc.User.CanSkipQueue() {
 		irc.Send(fmt.Sprintf("%s: Birdnest pal! Enjoy the 🔥rtx %s🔥 processing '%s'... please wait.", irc.User.NickName, gpu, displayMessage))
 	} else {
 		irc.Send(fmt.Sprintf("%s: Queued item '%s' has started processing... please wait.", irc.User.NickName, displayMessage))

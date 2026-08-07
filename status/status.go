@@ -335,7 +335,6 @@ func (c *Client) GetFormattedStatus() (string, error) {
 // UserAccess defines the necessary methods for a user object to perform access checks.
 type UserAccess interface {
 	GetAccessLevel() int
-	CanUsePremiumGPU() bool
 }
 
 // CheckModelExecution performs pre-flight checks before executing a ComfyUI model.
@@ -353,7 +352,6 @@ func (c *Client) CheckModelExecution(metaData *meta.AibirdMeta, user UserAccess)
 		"comfyui", comfyUIRunning,
 		"canUse", canUse,
 		"userAccessLevel", user.GetAccessLevel(),
-		"canUsePremiumGPU", user.CanUsePremiumGPU(),
 	)
 
 	// Check if bot usage is allowed

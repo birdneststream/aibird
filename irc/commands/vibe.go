@@ -126,7 +126,7 @@ func generateVibe(irc *state.State, messages []birdbase.ChannelMessage, hours in
 	comfyState.Command.Action = "zimage"
 	comfyState.Command.Message = imagePrompt
 
-	if irc.User.CanUsePremiumGPU() {
+	if irc.User.CanSkipQueue() {
 		irc.Send(fmt.Sprintf("%s: Birdnest pal! Enjoy the 🔥rtx %s🔥 painting the vibe... please wait.", irc.User.NickName, meta.GPU4090))
 	} else {
 		irc.Send(fmt.Sprintf("%s: Vibe image is being generated... please wait.", irc.User.NickName))

@@ -33,6 +33,5 @@ type QueueItem struct {
 // UserAccess interface for queue items
 type UserAccess interface {
 	GetAccessLevel() int
-	CanUsePremiumGPU() bool
 	CanSkipQueue() bool
 }
