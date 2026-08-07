@@ -7,6 +7,7 @@ require (
 	github.com/dsoprea/go-png-image-structure/v2 v2.0.0-20210512210324-29b889a6093d
 	github.com/go-playground/validator/v10 v10.30.3
 	github.com/google/uuid v1.6.0
+	github.com/gorilla/websocket v1.5.3
 	github.com/hako/durafmt v0.0.0-20210608085754-5c1018a4e16b
 	github.com/lrstanley/girc v1.1.1
 	github.com/mattn/go-sqlite3 v1.14.49
@@ -26,7 +27,6 @@ require (
 	github.com/go-playground/locales v0.14.1 // indirect
 	github.com/go-playground/universal-translator v0.18.1 // indirect
 	github.com/golang/geo v0.0.0-20260713102120-857a528af641 // indirect
-	github.com/gorilla/websocket v1.5.3 // indirect
 	github.com/kr/pretty v0.3.1 // indirect
 	github.com/leodido/go-urn v1.5.0 // indirect
 	github.com/mitchellh/colorstring v0.0.0-20190213212951-d06e56a500db // indirect
