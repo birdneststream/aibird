@@ -121,9 +121,28 @@ aibird/
 
 ## ComfyUi Workflows
 
-Each ComfyUi workflow must be placed in the `comfyuiworkflows` directory for `aibird` to reconize as a command. Each workflow must also have a special API group, and in the group contains a text node `aibird_meta` which has some TOML information on how the workflow is used and what arguments override what node widget values.
+Each ComfyUI workflow lives in the `comfyuijson/` directory and is auto-registered as a command. Workflows must be exported from ComfyUI via **"Save (API Format)"** (the flat `{nodeID: {class_type, inputs, _meta}}` JSON that the `/prompt` endpoint expects). ComfyUI drops `Note` nodes from API-format exports, so each workflow's metadata lives in a **sibling sidecar file** named `<workflow>.meta.toml` (e.g. `comfyuijson/sd.json` + `comfyuijson/sd.meta.toml`).
 
-An example workflow is provided as `sd-example.json`.
+The sidecar TOML declares the command, access level, output type, and how user arguments map to **named node inputs** (not positional widget indices):
+
+```toml
+name = "SDXL"
+command = "sd"
+type = "image"
+accessLevel = 0
+
+[promptTarget]          # where the user's prompt text goes
+node = "Positive"       # matched by node _meta.title, class_type, or id
+input = "text"          # the named input on that node
+
+[[parameters.seed]]
+type = "int"
+[[parameters.seed.targets]]
+node = "KSampler"
+input = "seed"
+```
+
+See `image/comfyui/testdata/` for a committed example pair (`sd_api.json` + `sd_api.meta.toml`).
 
 ### Building
 
@@ -208,7 +227,7 @@ For support and questions:
 
 - Built with [Go](https://golang.org/)
 - IRC client using [girc](https://github.com/lrstanley/girc)
-- Image generation via [ComfyUI](https://github.com/comfyanonymous/ComfyUI) using [Comfy2Go](https://github.com/richinsley/comfy2go)
+- Image generation via [ComfyUI](https://github.com/comfyanonymous/ComfyUI) using a direct HTTP/WebSocket client ([gorilla/websocket](https://github.com/gorilla/websocket))
 - Configuration using [TOML](https://github.com/BurntSushi/toml)
 
 ---

@@ -6,6 +6,8 @@ newaibird
 # Configuration files (contains sensitive data)
 config.toml
 *.toml
+# ...but keep committed test fixtures (sidecar .meta.toml under image/comfyui/testdata)
+!image/comfyui/testdata/*.meta.toml
 deploy.sh
 
 # Database files
