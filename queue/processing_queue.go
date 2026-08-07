@@ -13,6 +13,15 @@ import (
 	"aibird/status"
 )
 
+// absoluteBackstop is the hard ceiling on any single queue item. It is a
+// last-resort safety net, NOT the normal timeout: a job that keeps making
+// progress is governed by the stall watchdog in comfyui.executeAndCollect
+// (interrupted after 1 min of no WS frames). This backstop only catches a
+// pathological job that emits heartbeats forever without completing, so it
+// can't pin the shared single-GPU queue indefinitely. The longest legit job
+// (H3 video ~9.5 min) should fit comfortably under it; raise it if H3 grows.
+const absoluteBackstop = 10 * time.Minute
+
 func NewProcessingQueue() *ProcessingQueue {
 	return &ProcessingQueue{
 		Queue: &Queue{},
@@ -83,12 +92,14 @@ func (pq *ProcessingQueue) processQueueItem(parentCtx context.Context, queue *Qu
 	if item != nil {
 		logger.Debug("Processing queue item", "action", item.State.Action())
 
-		// No fixed-duration deadline: jobs run as long as they make progress.
-		// ComfyUI jobs are guarded by a progress-based stall watchdog inside
+		// No normal deadline: jobs run as long as they make progress. ComfyUI
+		// jobs are guarded by the progress-based stall watchdog inside
 		// comfyui.executeAndCollect (interrupted after 1 min of no WS frames);
 		// non-ComfyUI jobs (e.g. llama.cpp) carry their own HTTP timeouts. The
-		// parent ctx governs queue shutdown and admin cancellation.
-		ctx, cancel := context.WithCancel(parentCtx)
+		// absoluteBackstop below is a last-resort ceiling on pathological
+		// forever-heartbeating jobs; the parent ctx governs queue shutdown and
+		// admin cancellation.
+		ctx, cancel := context.WithTimeout(parentCtx, absoluteBackstop)
 		defer cancel()
 
 		done := make(chan struct{})
