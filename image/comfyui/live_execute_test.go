@@ -45,8 +45,7 @@ func TestLiveExecutePath(t *testing.T) {
 		_ = client.Free(fctx, true, true)
 	}()
 
-	cudaDevice := "cuda:0"
-	updates, err := applyParameters(irc, metaData, "a tiny red square", cudaDevice)
+	updates, err := applyParameters(irc, metaData, "a tiny red square")
 	require.NoError(t, err)
 
 	// executeAndCollect needs an *state.State for the wan rate-limit branch; the

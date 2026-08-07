@@ -9,8 +9,6 @@ import (
 	"aibird/image/comfyui"
 	"aibird/irc/state"
 	"aibird/logger"
-
-	meta "aibird/shared/meta"
 )
 
 // premiumVideoWorkflow is the ComfyUI workflow the h3 video command runs. The
@@ -65,29 +63,16 @@ func checkPremiumAccess(irc *state.State) bool {
 	return false
 }
 
-// ParseEnhancedVideo handles the h3 video command (non-queued entry point,
-// kept for symmetry with the other Parse* commands).
-func ParseEnhancedVideo(irc *state.State) bool {
+// ParseEnhancedVideo runs the ComfyUI h3 workflow with the user's raw prompt
+// (no LLM expansion). Patreon access (#h4x-or-premium) is checked before any
+// expensive work. Workflow-level accessLevel inside comfyui.Process acts as a
+// final safety net. ctx allows cancellation on queue timeout/shutdown;
+// non-queued callers pass context.Background().
+func ParseEnhancedVideo(ctx context.Context, irc state.State) bool {
 	if !isEnhancedVideoCommand(irc.Action()) {
 		return false
 	}
-	return parseEnhancedVideoCommand(context.Background(), *irc, meta.GPU4090)
-}
 
-// ParseEnhancedVideoWithGPU handles the h3 video command with an explicit GPU
-// selection (queued path).
-func ParseEnhancedVideoWithGPU(ctx context.Context, irc state.State, gpu meta.GPUType) bool {
-	if !isEnhancedVideoCommand(irc.Action()) {
-		return false
-	}
-	return parseEnhancedVideoCommand(ctx, irc, gpu)
-}
-
-// parseEnhancedVideoCommand runs the ComfyUI h3 workflow with the user's raw
-// prompt (no LLM expansion). Patreon access (#h4x-or-premium) is checked before
-// any expensive work. Workflow-level accessLevel inside comfyui.Process acts as
-// a final safety net.
-func parseEnhancedVideoCommand(ctx context.Context, irc state.State, gpu meta.GPUType) bool {
 	// The h3 workflow may not be deployed yet — fail fast with a clear message.
 	if !comfyui.WorkflowExists(premiumVideoWorkflow) {
 		irc.SendError("The video workflow (h3) is not available yet")
@@ -115,7 +100,7 @@ func parseEnhancedVideoCommand(ctx context.Context, irc state.State, gpu meta.GP
 	// Instant acknowledgment so the user knows the command was received before
 	// the ~8-minute GPU render begins.
 	if irc.User.CanSkipQueue() {
-		irc.Send(fmt.Sprintf("%s: Birdnest pal! Enjoy the 🔥rtx %s🔥 processing '%s'... please wait.", irc.User.NickName, gpu, displayMessage))
+		irc.Send(fmt.Sprintf("%s: Birdnest pal! Enjoy the 🔥rtx 4090🔥 processing '%s'... please wait.", irc.User.NickName, displayMessage))
 	} else {
 		irc.Send(fmt.Sprintf("%s: Queued item '%s' has started processing... please wait.", irc.User.NickName, displayMessage))
 	}
@@ -125,7 +110,7 @@ func parseEnhancedVideoCommand(ctx context.Context, irc state.State, gpu meta.GP
 	// the caller's dispatch routing (which already matched on the command name).
 	irc.Command.Action = premiumVideoWorkflow
 
-	response, err := comfyui.Process(ctx, &irc, "", gpu)
+	response, err := comfyui.Process(ctx, &irc, "")
 	if err != nil {
 		logger.Error("Enhanced video ComfyUI request failed", "error", err)
 		irc.SendError(err.Error())

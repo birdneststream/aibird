@@ -9,15 +9,13 @@ import (
 	"aibird/image/comfyui"
 	"aibird/irc/state"
 	"aibird/logger"
-
-	meta "aibird/shared/meta"
 )
 
 // preparePromptAndDisplay handles the common pre-processing steps for media commands:
 // cleaning the prompt, checking bad words, and sending the "processing" status
 // message. It returns the display message (the cleaned prompt, or the bad-words
 // replacement when triggered).
-func preparePromptAndDisplay(irc *state.State, gpu meta.GPUType) string {
+func preparePromptAndDisplay(irc *state.State) string {
 	message := comfyui.CleanPrompt(irc.Message())
 
 	displayMessage := message
@@ -26,7 +24,7 @@ func preparePromptAndDisplay(irc *state.State, gpu meta.GPUType) string {
 	}
 
 	if irc.User.CanSkipQueue() {
-		irc.Send(fmt.Sprintf("%s: Birdnest pal! Enjoy the 🔥rtx %s🔥 processing '%s'... please wait.", irc.User.NickName, gpu, displayMessage))
+		irc.Send(fmt.Sprintf("%s: Birdnest pal! Enjoy the 🔥rtx 4090🔥 processing '%s'... please wait.", irc.User.NickName, displayMessage))
 	} else {
 		irc.Send(fmt.Sprintf("%s: Queued item '%s' has started processing... please wait.", irc.User.NickName, displayMessage))
 	}

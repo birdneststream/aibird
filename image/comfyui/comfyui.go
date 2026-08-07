@@ -20,7 +20,6 @@ import (
 	"aibird/irc/state"
 	"aibird/logger"
 	"aibird/settings"
-	"aibird/shared/meta"
 	"aibird/text/glm"
 
 	"github.com/schollz/progressbar/v3"
@@ -34,8 +33,8 @@ const (
 	paramTypeFloat  = "float"
 )
 
-func Process(ctx context.Context, irc *state.State, aiEnhancedPrompt string, gpu meta.GPUType) (string, error) {
-	logger.Debug("Starting comfyui.Process", "gpu", gpu, "action", irc.Action())
+func Process(ctx context.Context, irc *state.State, aiEnhancedPrompt string) (string, error) {
+	logger.Debug("Starting comfyui.Process", "action", irc.Action())
 	comfyUiConfig := irc.Config.ComfyUi
 	model := irc.Action()
 	metaData, err := GetAibirdMeta(workflowFile(model))
@@ -58,12 +57,6 @@ func processWithMeta(ctx context.Context, irc *state.State, aiEnhancedPrompt, mo
 		return "", fmt.Errorf("⛔️ Sorry, you need access level %d to use this command. Check !support for more info", metaData.AccessLevel)
 	}
 
-	// NOTE: The gpu parameter from callers is currently unused. The project
-	// uses a single RTX 4090 hardcoded to cuda:0. The parameter is reserved
-	// for future multi-GPU routing.
-	cudaDevice := "cuda:0"
-	logger.Debug("ComfyUI CUDA device selection", "gpu", meta.GPU4090, "cudaDevice", cudaDevice)
-
 	client := apiclient.New(comfyUiConfig.Url, comfyUiConfig.Port)
 	defer func() {
 		freeCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
@@ -77,7 +70,7 @@ func processWithMeta(ctx context.Context, irc *state.State, aiEnhancedPrompt, mo
 	message := preparePrompt(irc, aiEnhancedPrompt, model, comfyUiConfig, metaData.RawPrompt)
 
 	// Resolve user args + metadata into named-input updates
-	inputUpdates, err := applyParameters(irc, metaData, message, cudaDevice)
+	inputUpdates, err := applyParameters(irc, metaData, message)
 	if err != nil {
 		return "", err
 	}
@@ -133,7 +126,7 @@ func preparePrompt(irc *state.State, aiEnhancedPrompt, model string, comfyUiConf
 // API-format equivalent of the previous widget-index map; the new execute path
 // resolves each node reference to actual node ids via the graph's _meta.title /
 // class_type and applies the value to the named input.
-func applyParameters(irc *state.State, metaData *AibirdMeta, message, cudaDevice string) (map[string]map[string]interface{}, error) { //nolint:gocyclo
+func applyParameters(irc *state.State, metaData *AibirdMeta, message string) (map[string]map[string]interface{}, error) { //nolint:gocyclo
 	updates := make(map[string]map[string]interface{})
 
 	set := func(node, input string, value interface{}) {
@@ -170,16 +163,6 @@ func applyParameters(irc *state.State, metaData *AibirdMeta, message, cudaDevice
 			for _, target := range hardcodedDef.Targets {
 				logger.Debug("Setting hardcoded parameter", "param", paramName, "node", target.Node, "input", target.Input, "value", finalValue)
 				set(target.Node, target.Input, finalValue)
-			}
-		}
-	}
-
-	// --- Inject GPU device for GPU parameters ---
-	for paramName, paramDef := range metaData.Parameters {
-		if strings.HasPrefix(paramName, "gpu_") {
-			for _, target := range paramDef.Targets {
-				logger.Debug("Injecting GPU device", "param", paramName, "node", target.Node, "input", target.Input, "cudaDevice", cudaDevice)
-				set(target.Node, target.Input, cudaDevice)
 			}
 		}
 	}

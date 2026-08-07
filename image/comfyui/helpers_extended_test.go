@@ -348,7 +348,7 @@ func TestApplyParameters_PromptTarget(t *testing.T) {
 		Hardcoded:    map[string]HardcodedValue{},
 	}
 
-	result, err := applyParameters(irc, meta, "a woman walking", "cuda:0")
+	result, err := applyParameters(irc, meta, "a woman walking")
 	require.NoError(t, err)
 	assert.Equal(t, "a woman walking", result["sampler"]["text"])
 }
@@ -361,7 +361,7 @@ func TestApplyParameters_EmptyPromptTarget(t *testing.T) {
 		Hardcoded:    map[string]HardcodedValue{},
 	}
 
-	result, err := applyParameters(irc, meta, "test message", "cuda:0")
+	result, err := applyParameters(irc, meta, "test message")
 	require.NoError(t, err)
 	assert.Empty(t, result, "empty prompt target should produce no input updates")
 }
@@ -379,29 +379,9 @@ func TestApplyParameters_HardcodedValues(t *testing.T) {
 		},
 	}
 
-	result, err := applyParameters(irc, meta, "test", "cuda:0")
+	result, err := applyParameters(irc, meta, "test")
 	require.NoError(t, err)
 	assert.Equal(t, 1024, result["emptylatentimage"]["width"])
-}
-
-func TestApplyParameters_GPUParameter(t *testing.T) {
-	irc := newState([]state.Argument{}, "sd", "test")
-	meta := &AibirdMeta{
-		PromptTarget: PromptTarget{Node: "sampler", Input: "text"},
-		Parameters: map[string]ParameterDef{
-			"gpu_device": {
-				Type: "string",
-				Targets: []Target{
-					{Node: "loader", Input: "device"},
-				},
-			},
-		},
-		Hardcoded: map[string]HardcodedValue{},
-	}
-
-	result, err := applyParameters(irc, meta, "test", "cuda:1")
-	require.NoError(t, err)
-	assert.Equal(t, "cuda:1", result["loader"]["device"])
 }
 
 func TestApplyParameters_ParameterError(t *testing.T) {
@@ -423,7 +403,7 @@ func TestApplyParameters_ParameterError(t *testing.T) {
 	// Provide a value below the minimum
 	irc.Arguments = []state.Argument{{Key: "steps", Value: "5"}}
 
-	_, err := applyParameters(irc, meta, "test", "cuda:0")
+	_, err := applyParameters(irc, meta, "test")
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "too low")
 }

@@ -10,7 +10,6 @@ import (
 	"aibird/irc/state"
 	"aibird/logger"
 	"aibird/mcp"
-	"aibird/shared/meta"
 	"aibird/status"
 	"aibird/text/glm"
 	"aibird/text/llamacpp"
@@ -270,7 +269,7 @@ func handleAiResponse(irc *state.State, response string) {
 		irc.Command.Action = "tts"
 		irc.SetMessage(ttsResponse)
 
-		ProcessAndUploadAudio(context.Background(), irc, originalMessage, ttsResponse, meta.GPU4090)
+		ProcessAndUploadAudio(context.Background(), irc, originalMessage, ttsResponse)
 	} else {
 		irc.TextToBirdhole(response)
 	}
@@ -411,8 +410,8 @@ func CheckAiCanUse(irc *state.State) error {
 
 // ProcessLlamaCppAiRequest handles llama.cpp AI requests from the queue.
 // This is called by the queue processor, not directly by ParseAiText.
-// ctx and gpu are retained for queue-processor API compatibility but are not used
-// by the underlying handler.
-func ProcessLlamaCppAiRequest(_ context.Context, irc state.State, _ meta.GPUType) {
+// ctx is retained for queue-processor cancellation but is not used by the
+// underlying handler.
+func ProcessLlamaCppAiRequest(_ context.Context, irc state.State) {
 	handleLlamaCppRequest(&irc)
 }

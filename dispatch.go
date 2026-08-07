@@ -8,7 +8,6 @@ import (
 	"aibird/irc/state"
 	"aibird/logger"
 	"aibird/queue"
-	"aibird/shared/meta"
 
 	"github.com/lrstanley/girc"
 )
@@ -37,13 +36,12 @@ func dispatchCommand(irc *state.State, q *queue.ProcessingQueue) { //nolint:gocy
 		queueItem := queue.QueueItem{
 			Item: queue.Item{
 				State: *irc,
-				Function: func(ctx context.Context, s state.State, gpu meta.GPUType) {
-					commands.ProcessLlamaCppAiRequest(ctx, s, gpu)
+				Function: func(ctx context.Context, s state.State) {
+					commands.ProcessLlamaCppAiRequest(ctx, s)
 				},
 			},
 			Model: "llamacpp-ai", // Identifier for llama.cpp requests (with or without MCP)
 			User:  irc.User,
-			GPU:   meta.GPU4090,
 		}
 
 		msg, err := q.Enqueue(queueItem)
@@ -60,8 +58,8 @@ func dispatchCommand(irc *state.State, q *queue.ProcessingQueue) { //nolint:gocy
 		queueItem := queue.QueueItem{
 			Item: queue.Item{
 				State: *irc,
-				Function: func(ctx context.Context, s state.State, gpu meta.GPUType) {
-					commands.RunQueueableCommand(ctx, s, gpu)
+				Function: func(ctx context.Context, s state.State) {
+					commands.RunQueueableCommand(ctx, s)
 				},
 			},
 			Model:   irc.Action(), // Use the command as the model identifier
@@ -89,9 +87,9 @@ func dispatchCommand(irc *state.State, q *queue.ProcessingQueue) { //nolint:gocy
 		case commands.IsOwnerCommand(irc.Action()):
 			go commands.ParseOwner(irc)
 		case commands.IsSoundCommand(irc.Action()):
-			go commands.ParseAiSound(irc)
+			go commands.ParseAiSound(context.Background(), *irc)
 		case commands.IsVideoCommand(irc.Action()):
-			go commands.ParseAiVideo(irc)
+			go commands.ParseAiVideo(context.Background(), *irc)
 		default:
 			logger.Warn("Command was valid but no parser was found", "command", irc.Action())
 		}

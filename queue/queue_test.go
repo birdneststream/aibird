@@ -10,7 +10,6 @@ import (
 
 	"aibird/irc/state"
 	"aibird/logger"
-	"aibird/shared/meta"
 
 	"github.com/lrstanley/girc"
 	"github.com/stretchr/testify/assert"
@@ -41,7 +40,6 @@ func makeQueueItem(action string) QueueItem {
 		},
 		Model: action,
 		User:  &mockUser{},
-		GPU:   meta.GPU4090,
 	}
 }
 
@@ -328,7 +326,7 @@ func makeStateWithClient(action string) state.State {
 }
 
 // TestProcessingQueue_Enqueue_NonWorkflow verifies enqueuing a non-workflow item
-// defaults GPU to 4090 and uses regular enqueue.
+// uses regular enqueue.
 func TestProcessingQueue_Enqueue_NonWorkflow(t *testing.T) {
 	pq := NewProcessingQueue()
 	item := QueueItem{
@@ -343,10 +341,9 @@ func TestProcessingQueue_Enqueue_NonWorkflow(t *testing.T) {
 	require.NoError(t, err)
 	assert.Empty(t, msg)
 	assert.Equal(t, 1, pq.Queue.Len())
-	// GPU should default to 4090
 	dequeued := pq.Queue.Dequeue()
 	require.NotNil(t, dequeued)
-	assert.Equal(t, meta.GPU4090, dequeued.GPU)
+	assert.Equal(t, "nonexistent-model-xyz", dequeued.Model)
 }
 
 // TestProcessingQueue_Enqueue_SkipQueue verifies that a user with CanSkipQueue
@@ -381,20 +378,19 @@ func TestProcessingQueue_Enqueue_SkipQueue(t *testing.T) {
 func TestProcessQueueItem_Success(t *testing.T) {
 	pq := NewProcessingQueue()
 
-	var receivedGPU meta.GPUType
+	var called bool
 	item := QueueItem{
 		Item: Item{
 			State:    makeStateWithClient("test-action"),
-			Function: func(ctx context.Context, s state.State, gpu meta.GPUType) { receivedGPU = gpu },
+			Function: func(ctx context.Context, s state.State) { called = true },
 		},
 		Model: "test-action",
-		GPU:   meta.GPU4090,
 	}
 
 	_, _ = pq.Queue.Enqueue(item)
 	pq.processQueueItem(context.Background(), pq.Queue)
 
-	assert.Equal(t, meta.GPU4090, receivedGPU)
+	assert.True(t, called)
 	assert.False(t, pq.Queue.IsCurrentlyProcessing())
 	assert.Empty(t, pq.Queue.GetProcessingAction())
 }
@@ -407,13 +403,12 @@ func TestProcessQueueItem_Timeout(t *testing.T) {
 	item := QueueItem{
 		Item: Item{
 			State: makeStateWithClient("timeout-action"),
-			Function: func(ctx context.Context, s state.State, gpu meta.GPUType) {
+			Function: func(ctx context.Context, s state.State) {
 				// Block until context is canceled
 				<-ctx.Done()
 			},
 		},
 		Model: "timeout-action",
-		GPU:   meta.GPU4090,
 	}
 
 	_, _ = pq.Queue.Enqueue(item)
@@ -461,12 +456,11 @@ func TestProcessQueues_IntegratedHappyPath(t *testing.T) {
 	item := QueueItem{
 		Item: Item{
 			State: makeStateWithClient("happy-action"),
-			Function: func(ctx context.Context, s state.State, gpu meta.GPUType) {
+			Function: func(ctx context.Context, s state.State) {
 				processed <- struct{}{}
 			},
 		},
 		Model: "happy-action",
-		GPU:   meta.GPU4090,
 	}
 
 	_, _ = pq.Queue.Enqueue(item)

@@ -17,8 +17,6 @@ import (
 	"aibird/status"
 	"aibird/text"
 
-	meta "aibird/shared/meta"
-
 	"github.com/lrstanley/girc"
 )
 
@@ -35,8 +33,8 @@ func convertAudioToMp3AndAmplify(inputFile string) (string, error) {
 	return outputFile, nil
 }
 
-func ProcessAndUploadAudio(ctx context.Context, irc *state.State, message, response string, gpu meta.GPUType) {
-	audioFile, err := comfyui.Process(ctx, irc, "", gpu)
+func ProcessAndUploadAudio(ctx context.Context, irc *state.State, message, response string) {
+	audioFile, err := comfyui.Process(ctx, irc, "")
 	if err != nil {
 		logger.Error("Failed to process comfyui request", "error", err)
 		irc.SendError(err.Error())
@@ -69,17 +67,9 @@ func ProcessAndUploadAudio(ctx context.Context, irc *state.State, message, respo
 	}
 }
 
-// ParseAiSound handles sound commands (non-queued path)
-func ParseAiSound(irc *state.State) bool {
-	return parseAiSoundInternal(context.Background(), *irc, meta.GPU4090)
-}
-
-// ParseAiSoundWithGPU handles sound commands with explicit GPU selection (queued path)
-func ParseAiSoundWithGPU(ctx context.Context, irc state.State, gpu meta.GPUType) bool {
-	return parseAiSoundInternal(ctx, irc, gpu)
-}
-
-func parseAiSoundInternal(ctx context.Context, irc state.State, gpu meta.GPUType) bool {
+// ParseAiSound handles sound commands. ctx allows cancellation on queue
+// timeout/shutdown; non-queued callers pass context.Background().
+func ParseAiSound(ctx context.Context, irc state.State) bool {
 	if irc.IsAction("tts") {
 		if irc.GetBoolArg("help") || irc.IsEmptyMessage() {
 			irc.Send(girc.Fmt(help.FindHelp(&irc)))
@@ -110,7 +100,7 @@ func parseAiSoundInternal(ctx context.Context, irc state.State, gpu meta.GPUType
 		message := text.AppendFullStop(irc.Message())
 
 		irc.ReplyTo("🔊 Processing TTS request, please wait...")
-		ProcessAndUploadAudio(ctx, &irc, message, message, gpu)
+		ProcessAndUploadAudio(ctx, &irc, message, message)
 
 		return true
 	}
@@ -175,7 +165,7 @@ func parseAiSoundInternal(ctx context.Context, irc state.State, gpu meta.GPUType
 		}
 
 		irc.ReplyTo("🎵 Processing music request, please wait...")
-		ProcessAndUploadAudio(ctx, &irc, irc.Message(), irc.Message(), gpu)
+		ProcessAndUploadAudio(ctx, &irc, irc.Message(), irc.Message())
 
 		return true
 	}
@@ -187,7 +177,7 @@ func parseAiSoundInternal(ctx context.Context, irc state.State, gpu meta.GPUType
 		}
 
 		irc.ReplyTo("🔊 Processing sound request, please wait...")
-		ProcessAndUploadAudio(ctx, &irc, irc.Message(), irc.Message(), gpu)
+		ProcessAndUploadAudio(ctx, &irc, irc.Message(), irc.Message())
 
 		return true
 	}

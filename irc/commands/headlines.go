@@ -17,7 +17,6 @@ import (
 	"aibird/irc/state"
 	"aibird/queue"
 	"aibird/settings"
-	"aibird/shared/meta"
 )
 
 var (
@@ -139,13 +138,12 @@ func queueAIAndSend(irc *state.State, q *queue.ProcessingQueue, prompt string, m
 	queueItem := queue.QueueItem{
 		Item: queue.Item{
 			State: *irc,
-			Function: func(ctx context.Context, s state.State, gpu meta.GPUType) {
+			Function: func(ctx context.Context, s state.State) {
 				callAIAndSend(&s, prompt, message)
 			},
 		},
 		Model: model,
 		User:  irc.User,
-		GPU:   meta.GPU4090,
 	}
 
 	msg, err := q.Enqueue(queueItem)

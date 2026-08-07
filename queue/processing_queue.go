@@ -33,10 +33,6 @@ func (pq *ProcessingQueue) Enqueue(item QueueItem) (string, error) { //nolint:go
 		// Not a ComfyUI workflow (e.g. llama.cpp AI request)
 		logger.Debug("Enqueuing non-workflow command", "model", item.Model)
 
-		if item.GPU == "" {
-			item.GPU = meta.GPU4090
-		}
-
 		if item.User != nil && item.User.CanSkipQueue() {
 			return pq.Queue.EnqueueFront(item, "")
 		}
@@ -56,9 +52,6 @@ func (pq *ProcessingQueue) Enqueue(item QueueItem) (string, error) { //nolint:go
 	if err := statusClient.CheckModelExecution(statusMeta, item.User); err != nil {
 		return "", err
 	}
-
-	item.GPU = meta.GPU4090
-	logger.Info("Enqueue GPU selection", "model", item.Model, "gpu", item.GPU)
 
 	if item.User != nil && item.User.CanSkipQueue() {
 		return pq.Queue.EnqueueFront(item, "")
@@ -92,7 +85,7 @@ func (pq *ProcessingQueue) processQueueItem(parentCtx context.Context, queue *Qu
 	item := queue.Dequeue()
 	queue.setProcessingItem(item)
 	if item != nil {
-		logger.Debug("Processing queue item", "gpu", item.GPU, "action", item.State.Action())
+		logger.Debug("Processing queue item", "action", item.State.Action())
 
 		// Use the item's override timeout when set (e.g. long-running H3 video
 		// generation), otherwise fall back to the queue default.
@@ -106,15 +99,15 @@ func (pq *ProcessingQueue) processQueueItem(parentCtx context.Context, queue *Qu
 		done := make(chan struct{})
 
 		helpers.GoSafe(func() {
-			item.Function(ctx, item.State, item.GPU)
+			item.Function(ctx, item.State)
 			close(done)
 		})
 
 		select {
 		case <-done:
-			logger.Debug("Completed queue item", "gpu", item.GPU)
+			logger.Debug("Completed queue item")
 		case <-ctx.Done():
-			logger.Error("Queue item timed out", "gpu", item.GPU, "action", item.State.Action())
+			logger.Error("Queue item timed out", "action", item.State.Action())
 			item.State.SendError("An unknown error occurred, your request has been canceled. Please try again later.")
 		}
 

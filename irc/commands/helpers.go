@@ -10,7 +10,6 @@ import (
 	"aibird/irc/state"
 	"aibird/logger"
 	"aibird/queue"
-	"aibird/shared/meta"
 	"aibird/text"
 )
 
@@ -114,10 +113,9 @@ func parseIntSafe(s string) (int, error) {
 }
 
 // enqueueAITask wraps the common queue-enqueue pattern for AI text commands.
-// gpu parameter allows callers to specify GPU routing (all current callers use meta.GPU4090).
 // The closure captures state.State by value at enqueue time, so mutations to the
 // original *state.State after enqueue do not affect the queued item.
-func enqueueAITask(irc *state.State, q *queue.ProcessingQueue, model string, gpu meta.GPUType, generateFn func(*state.State)) {
+func enqueueAITask(irc *state.State, q *queue.ProcessingQueue, model string, generateFn func(*state.State)) {
 	if q == nil {
 		generateFn(irc)
 		return
@@ -125,13 +123,12 @@ func enqueueAITask(irc *state.State, q *queue.ProcessingQueue, model string, gpu
 	queueItem := queue.QueueItem{
 		Item: queue.Item{
 			State: *irc,
-			Function: func(_ context.Context, s state.State, _ meta.GPUType) {
+			Function: func(_ context.Context, s state.State) {
 				generateFn(&s)
 			},
 		},
 		Model: model,
 		User:  irc.User,
-		GPU:   gpu,
 	}
 	msg, err := q.Enqueue(queueItem)
 	if err != nil {
@@ -167,7 +164,7 @@ func fetchHistoryAndEnqueue(irc *state.State, q *queue.ProcessingQueue, model st
 		return
 	}
 
-	enqueueAITask(irc, q, model, meta.GPU4090, func(s *state.State) {
+	enqueueAITask(irc, q, model, func(s *state.State) {
 		generateFn(s, messages, hours)
 	})
 }

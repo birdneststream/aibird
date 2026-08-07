@@ -9,7 +9,6 @@ import (
 	"aibird/irc/state"
 	"aibird/logger"
 	"aibird/queue"
-	"aibird/shared/meta"
 	"aibird/text"
 )
 
@@ -77,7 +76,7 @@ func ParseVibe(irc *state.State, q *queue.ProcessingQueue) {
 	}
 
 	// Queue the entire vibe pipeline — both AI text gen and ComfyUI image gen use the GPU
-	enqueueAITask(irc, q, "vibe", meta.GPU4090, func(s *state.State) {
+	enqueueAITask(irc, q, "vibe", func(s *state.State) {
 		generateVibe(s, messages, hours)
 	})
 }
@@ -127,12 +126,12 @@ func generateVibe(irc *state.State, messages []birdbase.ChannelMessage, hours in
 	comfyState.Command.Message = imagePrompt
 
 	if irc.User.CanSkipQueue() {
-		irc.Send(fmt.Sprintf("%s: Birdnest pal! Enjoy the 🔥rtx %s🔥 painting the vibe... please wait.", irc.User.NickName, meta.GPU4090))
+		irc.Send(fmt.Sprintf("%s: Birdnest pal! Enjoy the 🔥rtx 4090🔥 painting the vibe... please wait.", irc.User.NickName))
 	} else {
 		irc.Send(fmt.Sprintf("%s: Vibe image is being generated... please wait.", irc.User.NickName))
 	}
 
-	response, err := comfyui.Process(context.Background(), &comfyState, "", meta.GPU4090)
+	response, err := comfyui.Process(context.Background(), &comfyState, "")
 	if err != nil {
 		logger.Error("ComfyUI vibe generation failed", "error", err)
 		irc.SendError(err.Error())

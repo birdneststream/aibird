@@ -17,8 +17,6 @@ import (
 	"aibird/irc/state"
 	"aibird/logger"
 
-	meta "aibird/shared/meta"
-
 	"github.com/lrstanley/girc"
 )
 
@@ -52,7 +50,7 @@ func convertToDetailURL(imageURL string) string {
 	return imageURL[:lastSlash] + "/detail" + imageURL[lastSlash:]
 }
 
-// processAisciiCommand handles the aiscii command processing for ParseAiImageWithGPU
+// processAisciiCommand handles the aiscii command processing for ParseAiImage
 func processAisciiCommand(irc *state.State, response, message string) bool {
 	logger.Debug("Processing aiscii command", "file", response)
 
@@ -143,8 +141,8 @@ func processAisciiCommand(irc *state.State, response, message string) bool {
 	return true
 }
 
-// ParseAiImageWithGPU handles image commands with explicit GPU selection
-func ParseAiImageWithGPU(ctx context.Context, irc state.State, gpu meta.GPUType) bool {
+// ParseAiImage handles image commands
+func ParseAiImage(ctx context.Context, irc state.State) bool {
 	if irc.IsAction("sd") {
 		if irc.GetBoolArg("help") {
 			irc.Send(girc.Fmt(help.FindHelp(&irc)))
@@ -193,10 +191,9 @@ func ParseAiImageWithGPU(ctx context.Context, irc state.State, gpu meta.GPUType)
 		}
 
 		// Shared prompt processing: clean, bad words check, processing message
-		displayMessage := preparePromptAndDisplay(&irc, gpu)
+		displayMessage := preparePromptAndDisplay(&irc)
 
-		// Use the provided GPU parameter instead of hardcoded GPU4090
-		response, err := comfyui.Process(ctx, &irc, "", gpu)
+		response, err := comfyui.Process(ctx, &irc, "")
 		if err != nil {
 			logger.Error("ComfyUI request failed", "error", err)
 			irc.SendError(err.Error())

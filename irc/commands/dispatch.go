@@ -8,7 +8,6 @@ import (
 	"aibird/image/comfyui"
 	"aibird/irc/state"
 	"aibird/logger"
-	"aibird/shared/meta"
 )
 
 // IsQueueableFromHelp checks if a command is queueable using the command registry.
@@ -52,7 +51,7 @@ func IsQueueableCommand(s state.State) bool {
 // RunQueueableCommand runs a command that has been taken from the queue.
 // It routes to the existing handlers that already have upload functionality.
 // The ctx parameter allows cancellation on timeout or queue shutdown.
-func RunQueueableCommand(ctx context.Context, s state.State, gpu meta.GPUType) {
+func RunQueueableCommand(ctx context.Context, s state.State) {
 	actionLower := strings.ToLower(s.Action())
 
 	logger.Debug("Routing queue command", "action", s.Action(), "actionLower", actionLower)
@@ -62,7 +61,7 @@ func RunQueueableCommand(ctx context.Context, s state.State, gpu meta.GPUType) {
 	// runtime and access gating apply.
 	if isEnhancedVideoCommand(actionLower) {
 		logger.Debug("Command categorized as enhanced video", "action", s.Action())
-		parseEnhancedVideoCommand(ctx, s, gpu)
+		ParseEnhancedVideo(ctx, s)
 		return
 	}
 
@@ -73,16 +72,16 @@ func RunQueueableCommand(ctx context.Context, s state.State, gpu meta.GPUType) {
 		ParseAiText(&s)
 	case isImageCommand(actionLower):
 		logger.Debug("Command categorized as image", "action", s.Action())
-		ParseAiImageWithGPU(ctx, s, gpu)
+		ParseAiImage(ctx, s)
 	case isVideoCommand(actionLower):
 		logger.Debug("Command categorized as video", "action", s.Action())
-		ParseAiVideoWithGPU(ctx, s, gpu)
+		ParseAiVideo(ctx, s)
 	case isSoundCommand(actionLower):
 		logger.Debug("Command categorized as sound", "action", s.Action())
-		ParseAiSoundWithGPU(ctx, s, gpu)
+		ParseAiSound(ctx, s)
 	default:
 		logger.Debug("Command categorized as default (image)", "action", s.Action())
-		ParseAiImageWithGPU(ctx, s, gpu)
+		ParseAiImage(ctx, s)
 	}
 }
 

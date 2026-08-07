@@ -10,7 +10,6 @@ import (
 	"aibird/birdbase"
 	"aibird/irc/state"
 	"aibird/settings"
-	"aibird/shared/meta"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -109,7 +108,7 @@ func TestEnqueueAITask_NilQueue_CallsGenerateFn(t *testing.T) {
 	// Create minimal state — the generateFn just needs to be called
 	irc := &state.State{}
 
-	enqueueAITask(irc, nil, "test", meta.GPU4090, func(s *state.State) {
+	enqueueAITask(irc, nil, "test", func(s *state.State) {
 		called = true
 	})
 

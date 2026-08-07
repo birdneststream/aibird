@@ -6,28 +6,18 @@ import (
 	"aibird/image/comfyui"
 	"aibird/irc/state"
 	"aibird/logger"
-
-	meta "aibird/shared/meta"
 )
 
-// ParseAiVideo handles video commands (non-queued path)
-func ParseAiVideo(irc *state.State) bool {
-	return parseAiVideoInternal(context.Background(), *irc, meta.GPU4090)
-}
-
-// ParseAiVideoWithGPU handles video commands with explicit GPU selection (queued path)
-func ParseAiVideoWithGPU(ctx context.Context, irc state.State, gpu meta.GPUType) bool {
-	return parseAiVideoInternal(ctx, irc, gpu)
-}
-
-func parseAiVideoInternal(ctx context.Context, irc state.State, gpu meta.GPUType) bool {
+// ParseAiVideo handles video commands. ctx allows cancellation on queue
+// timeout/shutdown; non-queued callers pass context.Background().
+func ParseAiVideo(ctx context.Context, irc state.State) bool {
 	if !comfyui.WorkflowExists(irc.Action()) {
 		return false
 	}
 
-	displayMessage := preparePromptAndDisplay(&irc, gpu)
+	displayMessage := preparePromptAndDisplay(&irc)
 
-	response, err := comfyui.Process(ctx, &irc, "", gpu)
+	response, err := comfyui.Process(ctx, &irc, "")
 	if err != nil {
 		logger.Error("ComfyUI request failed", "error", err)
 		irc.SendError(err.Error())
