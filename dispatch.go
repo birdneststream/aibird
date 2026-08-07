@@ -62,9 +62,8 @@ func dispatchCommand(irc *state.State, q *queue.ProcessingQueue) { //nolint:gocy
 					commands.RunQueueableCommand(ctx, s)
 				},
 			},
-			Model:   irc.Action(), // Use the command as the model identifier
-			User:    irc.User,     // User implements UserAccess interface
-			Timeout: commands.QueueItemTimeout(irc.Action()),
+			Model: irc.Action(), // Use the command as the model identifier
+			User:  irc.User,     // User implements UserAccess interface
 		}
 
 		msg, err := q.Enqueue(queueItem)

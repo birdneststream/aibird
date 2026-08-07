@@ -3,7 +3,6 @@ package queue
 import (
 	"context"
 	"sync"
-	"time"
 
 	"aibird/irc/state"
 )
@@ -23,9 +22,6 @@ type QueueItem struct {
 	Item
 	Model string
 	User  UserAccess
-	// Timeout, when > 0, overrides the queue's default per-item timeout. Used by
-	// long-running commands such as MiniMax H3 video generation (~8 minutes).
-	Timeout time.Duration
 }
 
 // UserAccess interface for queue items

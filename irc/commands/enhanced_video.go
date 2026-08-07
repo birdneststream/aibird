@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"strings"
-	"time"
 
 	"aibird/image/comfyui"
 	"aibird/irc/state"
@@ -20,25 +19,11 @@ const premiumVideoWorkflow = "h3"
 // requires Patreon-level access (see checkPremiumAccess).
 const freeAccessChannel = "#h4x"
 
-// enhancedVideoTimeout is the per-item queue timeout for H3 video generation.
-// H3 clips take roughly 8 minutes to render on the RTX 4090, so we allow 10.
-const enhancedVideoTimeout = 10 * time.Minute
-
 // isEnhancedVideoCommand reports whether action is the h3 premium video
 // command (case-insensitive). Kept as a predicate so dispatch and help routing
 // can treat it as a distinct, queueable video command with an extended runtime.
 func isEnhancedVideoCommand(action string) bool {
 	return strings.EqualFold(action, premiumVideoWorkflow)
-}
-
-// QueueItemTimeout returns the max runtime for a queued command. The h3 video
-// command (MiniMax H3 generation) takes up to ~8 minutes, so it gets an
-// extended window. Returns 0 for other commands so the queue default applies.
-func QueueItemTimeout(action string) time.Duration {
-	if isEnhancedVideoCommand(action) {
-		return enhancedVideoTimeout
-	}
-	return 0
 }
 
 // hasPremiumAccess reports whether the current user may run a Patreon-gated

@@ -13,10 +13,6 @@ import (
 	"aibird/status"
 )
 
-// queueItemTimeout is the maximum duration a queue item can run before
-// being canceled. This prevents GPU stalls from blocking the queue forever.
-const queueItemTimeout = 4 * time.Minute
-
 func NewProcessingQueue() *ProcessingQueue {
 	return &ProcessingQueue{
 		Queue: &Queue{},
@@ -87,13 +83,12 @@ func (pq *ProcessingQueue) processQueueItem(parentCtx context.Context, queue *Qu
 	if item != nil {
 		logger.Debug("Processing queue item", "action", item.State.Action())
 
-		// Use the item's override timeout when set (e.g. long-running H3 video
-		// generation), otherwise fall back to the queue default.
-		timeout := queueItemTimeout
-		if item.Timeout > 0 {
-			timeout = item.Timeout
-		}
-		ctx, cancel := context.WithTimeout(parentCtx, timeout)
+		// No fixed-duration deadline: jobs run as long as they make progress.
+		// ComfyUI jobs are guarded by a progress-based stall watchdog inside
+		// comfyui.executeAndCollect (interrupted after 1 min of no WS frames);
+		// non-ComfyUI jobs (e.g. llama.cpp) carry their own HTTP timeouts. The
+		// parent ctx governs queue shutdown and admin cancellation.
+		ctx, cancel := context.WithCancel(parentCtx)
 		defer cancel()
 
 		done := make(chan struct{})
@@ -107,7 +102,7 @@ func (pq *ProcessingQueue) processQueueItem(parentCtx context.Context, queue *Qu
 		case <-done:
 			logger.Debug("Completed queue item")
 		case <-ctx.Done():
-			logger.Error("Queue item timed out", "action", item.State.Action())
+			logger.Error("Queue item canceled", "action", item.State.Action())
 			item.State.SendError("An unknown error occurred, your request has been canceled. Please try again later.")
 		}
 

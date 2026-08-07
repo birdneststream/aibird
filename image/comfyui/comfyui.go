@@ -357,8 +357,8 @@ func parseLyrics(irc *state.State, paramDef *ParameterDef, rawUserInput interfac
 // HTTP/WebSocket client, applies the resolved named-input updates, streams
 // progress, and writes the first output artifact to disk.
 //
-// Context-aware cancellation: when ctx is canceled (e.g. the queue timeout
-// fires), the WebSocket stream is torn down (the apiclient watcher closes the
+// Context-aware cancellation: when ctx is canceled (queue shutdown or admin
+// cancel), the WebSocket stream is torn down (the apiclient watcher closes the
 // connection on ctx.Done), and /interrupt is sent so the server-side prompt
 // actually stops and frees GPU. The previous comfy2go channel loop could do
 // neither. WebSocket messages are filtered to the prompt id returned by
@@ -404,43 +404,87 @@ func executeAndCollect(ctx context.Context, irc *state.State, c *apiclient.Clien
 
 	var bar *progressbar.ProgressBar
 	var currentNode, capturedFile string
-loop:
-	for msg := range ch {
-		// Filter to our prompt (ComfyUI broadcasts every prompt on the conn).
-		if msg.PromptID != "" && msg.PromptID != promptID {
-			continue
+
+	// Stall watchdog: ComfyUI streams a message on essentially every step
+	// (executing/progress/progress_state/executed), so a gap of stallTimeout
+	// with no frames for our prompt means the job is wedged — e.g. a silent
+	// WebSocket drop, a server-side hang, or an OOM stall. We interrupt and
+	// bail rather than blocking the queue forever. This replaces the previous
+	// fixed-duration queue timeout: a job that keeps making progress (even an
+	// 8-minute H3 render) runs to completion; only genuinely-stalled jobs die.
+	const stallTimeout = 1 * time.Minute
+	stallTimer := time.NewTimer(stallTimeout)
+	defer stallTimer.Stop()
+
+	resetStall := func() {
+		if !stallTimer.Stop() {
+			// Drain the timer channel if it already fired, to avoid the
+			// reset-on-fired-timer no-op. Safe because we only get here from
+			// the msg branch (timer.C is not being concurrently selected).
+			select {
+			case <-stallTimer.C:
+			default:
+			}
 		}
-		switch msg.Type {
-		case apiclient.TypeExecuting:
-			bar = nil
-			currentNode = msg.Node
-			if msg.Node != "" {
-				logger.Debug("Executing node", "node_id", msg.Node)
+		stallTimer.Reset(stallTimeout)
+	}
+
+loop:
+	for {
+		select {
+		case msg, ok := <-ch:
+			if !ok {
+				break loop // channel closed (WS teardown)
 			}
-		case apiclient.TypeProgress:
-			if bar == nil {
-				bar = progressbar.Default(int64(msg.Max), currentNode)
+			// Filter to our prompt (ComfyUI broadcasts every prompt on the conn).
+			if msg.PromptID != "" && msg.PromptID != promptID {
+				continue
 			}
-			_ = bar.Set(msg.Value)
-		case apiclient.TypeExecutionError:
-			return "", fmt.Errorf("comfyui execution error: %s: %s", msg.ExceptionType, msg.ExceptionMessage)
-		case apiclient.TypeExecutionInterrupted:
-			break loop
-		case apiclient.TypeExecuted:
-			if capturedFile == "" {
-				f, ferr := collectOutput(ctx, c, &msg)
-				if ferr != nil {
-					return "", ferr
+			// Any frame for our prompt means progress — keep the watchdog alive.
+			resetStall()
+			switch msg.Type {
+			case apiclient.TypeExecuting:
+				bar = nil
+				currentNode = msg.Node
+				if msg.Node != "" {
+					logger.Debug("Executing node", "node_id", msg.Node)
 				}
-				capturedFile = f
+			case apiclient.TypeProgress:
+				if bar == nil {
+					bar = progressbar.Default(int64(msg.Max), currentNode)
+				}
+				_ = bar.Set(msg.Value)
+			case apiclient.TypeExecutionError:
+				return "", fmt.Errorf("comfyui execution error: %s: %s", msg.ExceptionType, msg.ExceptionMessage)
+			case apiclient.TypeExecutionInterrupted:
+				break loop
+			case apiclient.TypeExecuted:
+				if capturedFile == "" {
+					f, ferr := collectOutput(ctx, c, &msg)
+					if ferr != nil {
+						return "", ferr
+					}
+					capturedFile = f
+				}
+			case apiclient.TypeExecutionSuccess:
+				break loop // terminal; stop reading (do NOT rely on the WS closing)
 			}
-		case apiclient.TypeExecutionSuccess:
-			break loop // terminal; stop reading (do NOT rely on the WS closing)
+		case <-stallTimer.C:
+			// No progress for stallTimeout — interrupt and report a stall.
+			logger.Warn("ComfyUI job stalled — no progress, interrupting", "prompt_id", promptID, "stall", stallTimeout)
+			interruptCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+			if iErr := c.Interrupt(interruptCtx); iErr != nil {
+				logger.Warn("Failed to interrupt stalled ComfyUI prompt", "prompt_id", promptID, "error", iErr)
+			}
+			cancel()
+			return "", fmt.Errorf("comfyui job stalled: no progress for %v", stallTimeout)
+		case <-ctx.Done():
+			break loop // queue shutdown / admin cancel
 		}
 	}
 
 	// If the context was canceled mid-run, stop the server-side job and bail.
-	// This is what actually delivers queue-timeout cancellation.
+	// This is what actually delivers queue/admin cancellation to ComfyUI.
 	if ctxErr := ctx.Err(); ctxErr != nil {
 		interruptCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		if iErr := c.Interrupt(interruptCtx); iErr != nil {
