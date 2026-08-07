@@ -114,10 +114,16 @@ func ParseStandardWithQueue(irc *state.State, q *queue.ProcessingQueue) {
 			var messages []string
 
 			if processingAction != "" {
+				// Append live ComfyUI progress (current node, sampling step,
+				// node completion, elapsed) when a generation is active.
+				detail := ""
+				if act := comfyui.CurrentActivity(); act != nil {
+					detail = act.Detail()
+				}
 				if status.QueueLength > 0 {
-					messages = append(messages, fmt.Sprintf("🟢 GPU: Processing (%s) | 🟡 %d queued (%s)", processingAction, status.QueueLength, strings.Join(status.QueueItems, ", ")))
+					messages = append(messages, fmt.Sprintf("🟢 GPU: Processing (%s)%s | 🟡 %d queued (%s)", processingAction, detail, status.QueueLength, strings.Join(status.QueueItems, ", ")))
 				} else {
-					messages = append(messages, fmt.Sprintf("🟢 GPU: Processing (%s)", processingAction))
+					messages = append(messages, fmt.Sprintf("🟢 GPU: Processing (%s)%s", processingAction, detail))
 				}
 			} else if status.QueueLength > 0 {
 				messages = append(messages, fmt.Sprintf("🟡 GPU: %d queued (%s)", status.QueueLength, strings.Join(status.QueueItems, ", ")))

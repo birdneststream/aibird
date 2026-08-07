@@ -116,6 +116,19 @@ func (g *APIGraph) ApplyInput(nodeRef, inputName string, value interface{}, appe
 	return nil
 }
 
+// nodeTitle resolves a human-readable title for a node id from the graph,
+// preferring _meta.title, then class_type, falling back to the raw id when the
+// node is unknown. Used to surface "current node" names in !status.
+func (g *APIGraph) nodeTitle(nodeID string) string {
+	if n, ok := (*g)[nodeID]; ok {
+		if n.Meta.Title != "" {
+			return n.Meta.Title
+		}
+		return n.ClassType
+	}
+	return nodeID
+}
+
 // PromptJSON returns the graph in the map form POST /prompt expects
 // (map[nodeID]{class_type, inputs, _meta}). Note nodes are absent from
 // API-format exports, so there is nothing to strip.

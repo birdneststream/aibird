@@ -402,6 +402,12 @@ func executeAndCollect(ctx context.Context, irc *state.State, c *apiclient.Clien
 	}
 	logger.Info("Queued ComfyUI prompt", "prompt_id", promptID, "model", model)
 
+	// Publish live progress so !status can report the current node / step /
+	// elapsed. Cleared on every exit path below (success, error, stall, cancel).
+	act := Activity{Action: model, PromptID: promptID, StartedAt: time.Now()}
+	SetActivity(act)
+	defer ClearActivity()
+
 	var bar *progressbar.ProgressBar
 	var currentNode, capturedFile string
 
@@ -446,14 +452,33 @@ loop:
 			case apiclient.TypeExecuting:
 				bar = nil
 				currentNode = msg.Node
+				// New node started: reset step counters and surface its title.
+				// Skip the title update on the terminal executing frame, where
+				// ComfyUI sends an empty node to signal "execution done" — we
+				// don't want to wipe the last node's title before success.
 				if msg.Node != "" {
-					logger.Debug("Executing node", "node_id", msg.Node)
+					act.NodeTitle = graph.nodeTitle(msg.Node)
+					act.Step, act.Max = 0, 0
+					SetActivity(act)
+					logger.Debug("Executing node", "node_id", msg.Node, "title", act.NodeTitle)
 				}
 			case apiclient.TypeProgress:
 				if bar == nil {
 					bar = progressbar.Default(int64(msg.Max), currentNode)
 				}
 				_ = bar.Set(msg.Value)
+				act.Step, act.Max = msg.Value, msg.Max
+				SetActivity(act)
+			case apiclient.TypeProgressState:
+				// Whole-graph snapshot: derive node completion counts and the
+				// running node's display title. progress_state is the most
+				// reliable liveness + completion signal ComfyUI sends.
+				done, total, runningTitle := summarizeProgressState(msg.ProgressState)
+				act.NodesDone, act.NodesTotal = done, total
+				if runningTitle != "" {
+					act.NodeTitle = runningTitle
+				}
+				SetActivity(act)
 			case apiclient.TypeExecutionError:
 				return "", fmt.Errorf("comfyui execution error: %s: %s", msg.ExceptionType, msg.ExceptionMessage)
 			case apiclient.TypeExecutionInterrupted:
@@ -510,6 +535,23 @@ loop:
 		birdbase.RateLimiter.SetRateLimit(cacheKey, 3*time.Hour)
 	}
 	return capturedFile, nil
+}
+
+// summarizeProgressState reduces a progress_state snapshot (node id -> state)
+// into whole-graph completion counts plus the display title of the first
+// running node. Returns (finishedCount, totalCount, runningTitle); runningTitle
+// is "" when no node is currently running. Used to drive the !status detail.
+func summarizeProgressState(states map[string]apiclient.NodeState) (done, total int, runningTitle string) {
+	total = len(states)
+	for _, ns := range states {
+		if ns.State == nodeStateFinished {
+			done++
+		}
+		if ns.IsRunning() && runningTitle == "" && ns.DisplayNodeID != "" {
+			runningTitle = ns.DisplayNodeID
+		}
+	}
+	return
 }
 
 // outputFromHistory polls /history/{promptID} as a fallback for output
