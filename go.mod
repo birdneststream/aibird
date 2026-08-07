@@ -11,7 +11,6 @@ require (
 	github.com/hako/durafmt v0.0.0-20210608085754-5c1018a4e16b
 	github.com/lrstanley/girc v1.1.1
 	github.com/mattn/go-sqlite3 v1.14.49
-	github.com/richinsley/comfy2go v0.7.1
 	github.com/schollz/progressbar/v3 v3.19.1
 	github.com/stretchr/testify v1.11.1
 	golang.org/x/crypto v0.54.0

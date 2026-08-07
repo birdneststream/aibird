@@ -1,9 +1,6 @@
 package comfyui
 
 import (
-	"encoding/json"
-	"errors"
-	"fmt"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -12,8 +9,6 @@ import (
 
 	"aibird/logger"
 	"aibird/settings"
-
-	"github.com/BurntSushi/toml"
 )
 
 // Workflow cache for performance — avoids repeated disk reads on every command dispatch.
@@ -254,7 +249,11 @@ func buildWorkflowCache() map[string]*AibirdMeta {
 		name := strings.ToLower(strings.TrimSuffix(filepath.Base(file), ".json"))
 		meta, err := GetAibirdMeta(file)
 		if err != nil {
-			logger.Debug("Skipping workflow in cache", "file", name, "error", err)
+			// A workflow without a sidecar .meta.toml is not a registered
+			// command. Warn (not debug) so missing sidecars are obvious during
+			// the API-format migration — the workflow will be invisible to
+			// !help/!models until its sidecar exists.
+			logger.Warn("Skipping workflow: missing or invalid sidecar .meta.toml", "workflow", name, "file", file, "error", err)
 			continue
 		}
 		cache[name] = meta
@@ -421,80 +420,10 @@ func BadWordsCheck(message string, config *settings.ComfyUiConfig) bool {
 	return false
 }
 
-func GetAibirdMeta(workflowFile string) (*AibirdMeta, error) { //nolint:gocyclo
-	// aibird_meta node title
-	const metaNodeTitle = "aibird_meta"
-
-	// Validate file path to prevent path traversal
-	if strings.Contains(workflowFile, "..") {
-		return nil, fmt.Errorf("invalid workflow file path: %s", workflowFile)
-	}
-
-	// Read the workflow JSON file
-	data, err := os.ReadFile(workflowFile) // #nosec G304 - Path traversal already validated above
-	if err != nil {
-		logger.Error("Failed to read workflow file", "file", workflowFile, "error", err)
-		return nil, fmt.Errorf("failed to read workflow file %s: %w", workflowFile, err)
-	}
-
-	// Unmarshal JSON into a generic map
-	var workflowData map[string]interface{}
-	if err := json.Unmarshal(data, &workflowData); err != nil {
-		logger.Error("Failed to unmarshal workflow json", "file", workflowFile, "error", err)
-		return nil, fmt.Errorf("failed to unmarshal workflow json: %w", err)
-	}
-
-	// Find the aibird_meta node
-	nodes, ok := workflowData["nodes"].([]interface{})
-	if !ok {
-		return nil, errors.New("workflow has no nodes")
-	}
-
-	var metaNode map[string]interface{}
-	for _, n := range nodes {
-		node, nodeOk := n.(map[string]interface{})
-		if !nodeOk {
-			continue
-		}
-
-		// v1 legacy comfyui support
-		properties, propOk := node["properties"].(map[string]interface{})
-		if propOk {
-			if title, titleOk := properties["title"].(string); titleOk && title == metaNodeTitle {
-				metaNode = node
-				break
-			}
-		}
-
-		// v2 current comfyui support
-		if title, titleOk := node["title"].(string); titleOk && title == metaNodeTitle {
-			metaNode = node
-			break
-		}
-
-	}
-
-	if metaNode == nil {
-		return nil, fmt.Errorf("workflow %s has no %s node", workflowFile, metaNodeTitle)
-	}
-
-	// Extract the TOML string from widget_values
-	widgetValues, ok := metaNode["widgets_values"].([]interface{})
-	if !ok || len(widgetValues) == 0 {
-		return nil, fmt.Errorf("node %s has no widget_values", metaNodeTitle)
-	}
-
-	tomlString, ok := widgetValues[0].(string)
-	if !ok {
-		return nil, fmt.Errorf("first widget value in node %s is not a string", metaNodeTitle)
-	}
-
-	// Decode the TOML string into the AibirdMeta struct
-	var meta AibirdMeta
-	if _, err := toml.Decode(tomlString, &meta); err != nil {
-		logger.Error("Failed to decode aibird_meta TOML", "error", err)
-		return nil, fmt.Errorf("failed to decode aibird_meta TOML: %w", err)
-	}
-
-	return &meta, nil
+// GetAibirdMeta reads the sidecar metadata for a workflow file. The metadata
+// lives in a sibling "<basename>.meta.toml" file (ComfyUI drops Note nodes from
+// API-format exports, so the aibird_meta can no longer be embedded in the graph
+// and must live in a sidecar). workflowFile is the path to the workflow JSON.
+func GetAibirdMeta(workflowFile string) (*AibirdMeta, error) {
+	return loadSidecarMeta(workflowFile)
 }

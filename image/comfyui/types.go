@@ -24,10 +24,13 @@ type AibirdMeta struct {
 	Hardcoded    map[string]HardcodedValue `toml:"hardcoded"`
 }
 
-// PromptTarget defines where the main prompt text should go.
+// PromptTarget defines where the main prompt text should go. Node is matched
+// against a workflow node's _meta.title (or class_type as fallback); Input is
+// the named input field on that node (ComfyUI API-format inputs are keyed by
+// name, e.g. "text" for CLIPTextEncode, "seed" for KSampler).
 type PromptTarget struct {
-	Node        string `toml:"node"`
-	WidgetIndex int    `toml:"widget_index"`
+	Node  string `toml:"node"`
+	Input string `toml:"input"`
 }
 
 // ParameterDef defines the structure for a user-configurable parameter.
@@ -47,8 +50,12 @@ type HardcodedValue struct {
 	Targets []Target    `toml:"targets"`
 }
 
-// Target defines a specific widget in a ComfyUI workflow to update.
+// Target defines a specific named input on a ComfyUI workflow node to update.
+// Node is matched against a node's _meta.title (or class_type); Input is the
+// named input field. This replaces the previous positional widget_index scheme,
+// which was fragile across ComfyUI versions and not representable in API-format
+// exports (which have no widgets_values arrays, only named inputs).
 type Target struct {
-	Node        string `toml:"node"`
-	WidgetIndex int    `toml:"widget_index"`
+	Node  string `toml:"node"`
+	Input string `toml:"input"`
 }

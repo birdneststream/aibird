@@ -270,7 +270,7 @@ func handleAiResponse(irc *state.State, response string) {
 		irc.Command.Action = "tts"
 		irc.SetMessage(ttsResponse)
 
-		ProcessAndUploadAudio(irc, originalMessage, ttsResponse, meta.GPU4090)
+		ProcessAndUploadAudio(context.Background(), irc, originalMessage, ttsResponse, meta.GPU4090)
 	} else {
 		irc.TextToBirdhole(response)
 	}

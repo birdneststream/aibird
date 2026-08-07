@@ -2,6 +2,7 @@
 package comfyui
 
 import (
+	"context"
 	"crypto/rand"
 	"errors"
 	"fmt"
@@ -9,18 +10,19 @@ import (
 	"math/big"
 	"net/http"
 	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
 
 	"aibird/birdbase"
+	"aibird/image/comfyui/apiclient"
 	"aibird/irc/state"
 	"aibird/logger"
 	"aibird/settings"
 	"aibird/shared/meta"
 	"aibird/text/glm"
 
-	"github.com/richinsley/comfy2go/client"
 	"github.com/schollz/progressbar/v3"
 )
 
@@ -32,48 +34,25 @@ const (
 	paramTypeFloat  = "float"
 )
 
-func freeVram(clientAddr string, clientPort int) error {
-	url := fmt.Sprintf("http://%s:%d/free", clientAddr, clientPort)
-	req, err := http.NewRequest("POST", url, http.NoBody)
-	if err != nil {
-		return fmt.Errorf("could not create free request: %w", err)
-	}
-
-	// It seems we need to include the client_id, but the value doesn't matter
-	req.Header.Set("Content-Type", "application/json")
-	body := `{"unload_models": true, "free_memory": true}`
-	req.Body = io.NopCloser(strings.NewReader(body))
-	req.ContentLength = int64(len(body))
-
-	resp, err := http.DefaultClient.Do(req)
-	if err != nil {
-		return fmt.Errorf("could not send free request: %w", err)
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		return fmt.Errorf("free request failed with status: %s", resp.Status)
-	}
-
-	logger.Info("Successfully sent free VRAM request to ComfyUI")
-	return nil
-}
-
-func Process(irc *state.State, aiEnhancedPrompt string, gpu meta.GPUType) (string, error) {
+func Process(ctx context.Context, irc *state.State, aiEnhancedPrompt string, gpu meta.GPUType) (string, error) {
 	logger.Debug("Starting comfyui.Process", "gpu", gpu, "action", irc.Action())
 	comfyUiConfig := irc.Config.ComfyUi
 	model := irc.Action()
 	metaData, err := GetAibirdMeta(workflowFile(model))
 	if err == nil {
 		logger.Info("Using V2 metadata-driven processing", "model", model)
-		return processWithMeta(irc, aiEnhancedPrompt, model, &comfyUiConfig, metaData)
+		return processWithMeta(ctx, irc, aiEnhancedPrompt, model, &comfyUiConfig, metaData)
 	}
 	logger.Error("Failed to load workflow metadata", "error", err)
 	return "", fmt.Errorf("failed to process workflow metadata for %s: %w", model, err)
 }
 
-// processWithMeta handles the V2 metadata-driven workflow processing.
-func processWithMeta(irc *state.State, aiEnhancedPrompt, model string, comfyUiConfig *settings.ComfyUiConfig, metaData *AibirdMeta) (string, error) {
+// processWithMeta handles the metadata-driven workflow processing via the
+// direct ComfyUI HTTP/WebSocket client (apiclient). Workflows must be in
+// ComfyUI API JSON format with metadata in a sibling .meta.toml sidecar. The
+// context governs cancellation: on ctx cancellation the running ComfyUI prompt
+// is interrupted via /interrupt and the call returns promptly.
+func processWithMeta(ctx context.Context, irc *state.State, aiEnhancedPrompt, model string, comfyUiConfig *settings.ComfyUiConfig, metaData *AibirdMeta) (string, error) {
 	if irc.User.GetAccessLevel() < metaData.AccessLevel {
 		logger.Error("Access level too low", "required", metaData.AccessLevel, "user", irc.User.GetAccessLevel())
 		return "", fmt.Errorf("⛔️ Sorry, you need access level %d to use this command. Check !support for more info", metaData.AccessLevel)
@@ -85,10 +64,11 @@ func processWithMeta(irc *state.State, aiEnhancedPrompt, model string, comfyUiCo
 	cudaDevice := "cuda:0"
 	logger.Debug("ComfyUI CUDA device selection", "gpu", meta.GPU4090, "cudaDevice", cudaDevice)
 
-	clientAddr := comfyUiConfig.Url
-	clientPort := comfyUiConfig.Port
+	client := apiclient.New(comfyUiConfig.Url, comfyUiConfig.Port)
 	defer func() {
-		if err := freeVram(clientAddr, clientPort); err != nil {
+		freeCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		defer cancel()
+		if err := client.Free(freeCtx, true, true); err != nil {
 			logger.Error("Error freeing VRAM", "error", err)
 		}
 	}()
@@ -96,14 +76,13 @@ func processWithMeta(irc *state.State, aiEnhancedPrompt, model string, comfyUiCo
 	// Prepare the message/prompt
 	message := preparePrompt(irc, aiEnhancedPrompt, model, comfyUiConfig, metaData.RawPrompt)
 
-	// Apply parameters to workflow widgets
-	widgetUpdates, err := applyParameters(irc, metaData, message, cudaDevice)
+	// Resolve user args + metadata into named-input updates
+	inputUpdates, err := applyParameters(irc, metaData, message, cudaDevice)
 	if err != nil {
 		return "", err
 	}
 
-	// Execute workflow and collect results
-	return executeAndCollect(irc, model, clientAddr, clientPort, workflowFile(model), widgetUpdates, metaData)
+	return executeAndCollect(ctx, irc, client, model, workflowFile(model), inputUpdates, metaData)
 }
 
 // workflowFile returns the path for a given workflow model name.
@@ -135,7 +114,8 @@ func preparePrompt(irc *state.State, aiEnhancedPrompt, model string, comfyUiConf
 
 	// Special case for ernie: construct the full prompt enhancement template in Go
 	// to bypass the erroring StringReplace ComfyUI node in the workflow.
-	// No manual quote escaping needed — comfy2go's json.Marshal handles JSON serialization.
+	// No manual quote escaping needed — the workflow JSON is serialized by the
+	// direct client; the prompt value is set on the named input as a plain string.
 	// TODO: Consider making this generic via a prompt_template field in aibird_meta.
 	if model == "ernie" {
 		message = strings.ReplaceAll(
@@ -148,16 +128,24 @@ func preparePrompt(irc *state.State, aiEnhancedPrompt, model string, comfyUiConf
 	return message
 }
 
-// applyParameters processes user arguments and metadata to build widget update map.
-func applyParameters(irc *state.State, metaData *AibirdMeta, message, cudaDevice string) (map[string]map[int]interface{}, error) { //nolint:gocyclo
-	widgetUpdates := make(map[string]map[int]interface{})
+// applyParameters processes user arguments and metadata to build a named-input
+// update map: node (title or class_type) -> input name -> value. This is the
+// API-format equivalent of the previous widget-index map; the new execute path
+// resolves each node reference to actual node ids via the graph's _meta.title /
+// class_type and applies the value to the named input.
+func applyParameters(irc *state.State, metaData *AibirdMeta, message, cudaDevice string) (map[string]map[string]interface{}, error) { //nolint:gocyclo
+	updates := make(map[string]map[string]interface{})
+
+	set := func(node, input string, value interface{}) {
+		if _, ok := updates[node]; !ok {
+			updates[node] = make(map[string]interface{})
+		}
+		updates[node][input] = value
+	}
 
 	// --- Process Prompt ---
-	if metaData.PromptTarget.Node != "" {
-		if _, ok := widgetUpdates[metaData.PromptTarget.Node]; !ok {
-			widgetUpdates[metaData.PromptTarget.Node] = make(map[int]interface{})
-		}
-		widgetUpdates[metaData.PromptTarget.Node][metaData.PromptTarget.WidgetIndex] = message
+	if metaData.PromptTarget.Node != "" && metaData.PromptTarget.Input != "" {
+		set(metaData.PromptTarget.Node, metaData.PromptTarget.Input, message)
 	}
 
 	// --- Generic Parameter Processing ---
@@ -166,18 +154,12 @@ func applyParameters(irc *state.State, metaData *AibirdMeta, message, cudaDevice
 		if finalValue == nil {
 			continue
 		}
-		// Check if processParameter returned an error
 		if errVal, ok := finalValue.(error); ok {
 			return nil, errVal
 		}
-
-		// Apply value to all targets
 		for _, target := range paramDef.Targets {
-			if _, ok := widgetUpdates[target.Node]; !ok {
-				widgetUpdates[target.Node] = make(map[int]interface{})
-			}
-			logger.Debug("Setting parameter", "param", paramName, "node", target.Node, "widget", target.WidgetIndex, "value", finalValue)
-			widgetUpdates[target.Node][target.WidgetIndex] = finalValue
+			logger.Debug("Setting parameter", "param", paramName, "node", target.Node, "input", target.Input, "value", finalValue)
+			set(target.Node, target.Input, finalValue)
 		}
 	}
 
@@ -186,11 +168,8 @@ func applyParameters(irc *state.State, metaData *AibirdMeta, message, cudaDevice
 		finalValue := hardcodedDef.Value
 		if finalValue != nil {
 			for _, target := range hardcodedDef.Targets {
-				if _, ok := widgetUpdates[target.Node]; !ok {
-					widgetUpdates[target.Node] = make(map[int]interface{})
-				}
-				logger.Debug("Setting hardcoded parameter", "param", paramName, "node", target.Node, "widget", target.WidgetIndex, "value", finalValue)
-				widgetUpdates[target.Node][target.WidgetIndex] = finalValue
+				logger.Debug("Setting hardcoded parameter", "param", paramName, "node", target.Node, "input", target.Input, "value", finalValue)
+				set(target.Node, target.Input, finalValue)
 			}
 		}
 	}
@@ -199,16 +178,13 @@ func applyParameters(irc *state.State, metaData *AibirdMeta, message, cudaDevice
 	for paramName, paramDef := range metaData.Parameters {
 		if strings.HasPrefix(paramName, "gpu_") {
 			for _, target := range paramDef.Targets {
-				if _, ok := widgetUpdates[target.Node]; !ok {
-					widgetUpdates[target.Node] = make(map[int]interface{})
-				}
-				logger.Debug("Injecting GPU device", "param", paramName, "node", target.Node, "widget", target.WidgetIndex, "cudaDevice", cudaDevice)
-				widgetUpdates[target.Node][target.WidgetIndex] = cudaDevice
+				logger.Debug("Injecting GPU device", "param", paramName, "node", target.Node, "input", target.Input, "cudaDevice", cudaDevice)
+				set(target.Node, target.Input, cudaDevice)
 			}
 		}
 	}
 
-	return widgetUpdates, nil
+	return updates, nil
 }
 
 // processParameter handles a single parameter definition, returning the resolved value.
@@ -394,119 +370,221 @@ func parseLyrics(irc *state.State, paramDef *ParameterDef, rawUserInput interfac
 }
 
 // executeAndCollect creates a ComfyUI client, runs the workflow, and collects output files.
-func executeAndCollect(irc *state.State, model, clientAddr string, clientPort int, workflowFile string, widgetUpdates map[string]map[int]interface{}, metaData *AibirdMeta) (string, error) { //nolint:gocyclo
-	// Create ComfyUI client
-	c := client.NewComfyClient(clientAddr, clientPort, nil)
-	if !c.IsInitialized() {
-		if err := c.Init(); err != nil {
-			return "", fmt.Errorf("error initializing client: %w", err)
-		}
-	}
-
-	// Load the workflow graph
-	graph, _, err := c.NewGraphFromJsonFile(workflowFile)
+// executeAndCollect runs the workflow against ComfyUI via the direct
+// HTTP/WebSocket client, applies the resolved named-input updates, streams
+// progress, and writes the first output artifact to disk.
+//
+// Context-aware cancellation: when ctx is canceled (e.g. the queue timeout
+// fires), the WebSocket stream is torn down (the apiclient watcher closes the
+// connection on ctx.Done), and /interrupt is sent so the server-side prompt
+// actually stops and frees GPU. The previous comfy2go channel loop could do
+// neither. WebSocket messages are filtered to the prompt id returned by
+// QueuePrompt so a shared ComfyUI server does not cross-talk between concurrent
+// prompts.
+func executeAndCollect(ctx context.Context, irc *state.State, c *apiclient.Client, model, workflowFile string, inputUpdates map[string]map[string]interface{}, metaData *AibirdMeta) (string, error) { //nolint:gocyclo
+	// Load the API-format workflow graph and apply each resolved input. The
+	// prompt target uses append semantics so the workflow's default positive
+	// prompt text is preserved and extended with the user's message.
+	graph, err := LoadAPIGraph(workflowFile)
 	if err != nil {
 		return "", fmt.Errorf("error loading graph JSON: %w", err)
 	}
-
-	// Get only the nodes in the "API" group
-	apiNodes := graph.GetNodesInGroup(graph.GetGroupWithTitle("API"))
-
-	// Apply the updates to the graph nodes
-	for _, node := range apiNodes {
-		updates, typeExists := widgetUpdates[node.Type]
-		if !typeExists {
-			updates = widgetUpdates[node.Title]
-		}
-
-		if typeExists || (updates != nil) {
-			if values, ok := node.WidgetValues.([]interface{}); ok {
-				for widgetIndex, value := range updates {
-					if widgetIndex < len(values) {
-						// Special handling for the original prompt which might be a concatenation
-						if (node.Title == metaData.PromptTarget.Node || node.Type == metaData.PromptTarget.Node) && widgetIndex == metaData.PromptTarget.WidgetIndex {
-							if originalPrompt, ok := values[widgetIndex].(string); ok && originalPrompt != "" {
-								if strVal, ok := value.(string); ok {
-									values[widgetIndex] = originalPrompt + " " + strVal
-								}
-							} else {
-								values[widgetIndex] = value
-							}
-						} else {
-							values[widgetIndex] = value
-						}
-						logger.Debug("Set widget value", "widget", widgetIndex, "node", node.Title, "type", node.Type, "value", value)
-					}
-				}
+	graph = graph.Clone()
+	for nodeRef, inputs := range inputUpdates {
+		for inputName, value := range inputs {
+			appendPrompt := nodeRef == metaData.PromptTarget.Node && inputName == metaData.PromptTarget.Input
+			if applyErr := graph.ApplyInput(nodeRef, inputName, value, appendPrompt); applyErr != nil {
+				return "", fmt.Errorf("error applying input %s.%s: %w", nodeRef, inputName, applyErr)
 			}
 		}
 	}
 
-	// Queue the prompt
-	item, err := c.QueuePrompt(graph)
+	// Connect the WebSocket BEFORE queueing the prompt. This eliminates the
+	// race where a fast prompt completes between QueuePrompt and Connect,
+	// causing us to miss the terminal execution_success frame and hang until
+	// the context deadline. ComfyUI broadcasts messages for all prompts on the
+	// connection, so messages for other clients (prompt_id != ours) are
+	// filtered out below. The /history fallback recovers output if any frame
+	// is still missed.
+	ch, stop, err := c.Connect(ctx)
+	if err != nil {
+		return "", fmt.Errorf("failed to open ws stream: %w", err)
+	}
+	defer stop()
+
+	// Queue the prompt.
+	promptID, err := c.QueuePrompt(ctx, graph.PromptJSON())
 	if err != nil {
 		return "", fmt.Errorf("failed to queue prompt: %w", err)
 	}
+	logger.Info("Queued ComfyUI prompt", "prompt_id", promptID, "model", model)
 
-	// --- Handle Queue and Get Result ---
-	var bar *progressbar.ProgressBar = nil
-	var currentNodeTitle string
-	for continueLoop := true; continueLoop; {
-		msg := <-item.Messages
+	var bar *progressbar.ProgressBar
+	var currentNode, capturedFile string
+loop:
+	for msg := range ch {
+		// Filter to our prompt (ComfyUI broadcasts every prompt on the conn).
+		if msg.PromptID != "" && msg.PromptID != promptID {
+			continue
+		}
 		switch msg.Type {
-		case "started":
-			qm := msg.ToPromptMessageStarted()
-			logger.Info("Start executing prompt", "prompt_id", qm.PromptID)
-		case "executing":
+		case apiclient.TypeExecuting:
 			bar = nil
-			qm := msg.ToPromptMessageExecuting()
-			currentNodeTitle = qm.Title
-			logger.Debug("Executing node", "node_id", qm.NodeID)
-		case "progress":
-			qm := msg.ToPromptMessageProgress()
+			currentNode = msg.Node
+			if msg.Node != "" {
+				logger.Debug("Executing node", "node_id", msg.Node)
+			}
+		case apiclient.TypeProgress:
 			if bar == nil {
-				bar = progressbar.Default(int64(qm.Max), currentNodeTitle)
+				bar = progressbar.Default(int64(msg.Max), currentNode)
 			}
-			bar.Set(qm.Value)
-		case "stopped":
-			qm := msg.ToPromptMessageStopped()
-			if qm.Exception != nil {
-				return "", fmt.Errorf("execution stopped with exception: %s: %s", qm.Exception.ExceptionType, qm.Exception.ExceptionMessage)
-			}
-			continueLoop = false
-		case "data":
-			qm := msg.ToPromptMessageData()
-			for k, v := range qm.Data {
-				if k == "images" || k == "gifs" || k == "audio" {
-					for _, output := range v {
-						imgData, err := c.GetImage(output)
-						if err != nil {
-							return "", fmt.Errorf("failed to get image: %w", err)
-						}
-						f, err := os.Create(output.Filename)
-						if err != nil {
-							return "", fmt.Errorf("failed to write image: %w", err)
-						}
-
-						if _, err := f.Write(*imgData); err != nil {
-							f.Close()
-							return "", fmt.Errorf("failed to write image data: %w", err)
-						}
-						f.Close()
-
-						// Post-generation rate limit for wan models
-						if strings.Contains(model, "wan") && irc.User.GetAccessLevel() <= 2 {
-							cacheKey := fmt.Sprintf("img2wan_%s", irc.User.NickName)
-							birdbase.RateLimiter.SetRateLimit(cacheKey, 3*time.Hour)
-						}
-
-						return output.Filename, nil
-					}
+			_ = bar.Set(msg.Value)
+		case apiclient.TypeExecutionError:
+			return "", fmt.Errorf("comfyui execution error: %s: %s", msg.ExceptionType, msg.ExceptionMessage)
+		case apiclient.TypeExecutionInterrupted:
+			break loop
+		case apiclient.TypeExecuted:
+			if capturedFile == "" {
+				f, ferr := collectOutput(ctx, c, &msg)
+				if ferr != nil {
+					return "", ferr
 				}
+				capturedFile = f
 			}
+		case apiclient.TypeExecutionSuccess:
+			break loop // terminal; stop reading (do NOT rely on the WS closing)
 		}
 	}
 
-	logger.Debug("Finishing comfyui.Process", "action", irc.Action())
-	return "", errors.New("error processing comfyui: no output file received")
+	// If the context was canceled mid-run, stop the server-side job and bail.
+	// This is what actually delivers queue-timeout cancellation.
+	if ctxErr := ctx.Err(); ctxErr != nil {
+		interruptCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		if iErr := c.Interrupt(interruptCtx); iErr != nil {
+			logger.Warn("Failed to interrupt ComfyUI prompt after cancellation", "prompt_id", promptID, "error", iErr)
+		}
+		cancel()
+		return "", fmt.Errorf("comfyui job canceled: %w", ctxErr)
+	}
+
+	// Success path: prefer the captured artifact, then fall back to /history
+	// (in case the executed frame was missed on a brief reconnect).
+	if capturedFile == "" {
+		capturedFile = outputFromHistory(ctx, c, promptID)
+	}
+	if capturedFile == "" {
+		logger.Debug("Finishing comfyui.Process with no output", "action", irc.Action(), "prompt_id", promptID)
+		return "", errors.New("error processing comfyui: no output file received")
+	}
+
+	// Post-generation rate limit for wan models.
+	if strings.Contains(model, "wan") && irc.User.GetAccessLevel() <= 2 {
+		cacheKey := fmt.Sprintf("img2wan_%s", irc.User.NickName)
+		birdbase.RateLimiter.SetRateLimit(cacheKey, 3*time.Hour)
+	}
+	return capturedFile, nil
+}
+
+// outputFromHistory polls /history/{promptID} as a fallback for output
+// discovery when no "executed" WebSocket frame was captured. Returns the local
+// filename of the first artifact written, or "" if none was found. Failures are
+// logged at debug; this is best-effort.
+func outputFromHistory(ctx context.Context, c *apiclient.Client, promptID string) string {
+	hist, err := c.History(ctx, promptID)
+	if err != nil {
+		logger.Debug("history fallback failed", "prompt_id", promptID, "error", err)
+		return ""
+	}
+	if hist == nil {
+		return ""
+	}
+	entry, ok := hist[promptID].(map[string]interface{})
+	if !ok {
+		return ""
+	}
+	outputs, ok := entry["outputs"].(map[string]interface{})
+	if !ok {
+		return ""
+	}
+	for _, v := range outputs {
+		nodeOut, ok := v.(map[string]interface{})
+		if !ok {
+			continue
+		}
+		if f := firstHistoryArtifact(ctx, c, nodeOut); f != "" {
+			return f
+		}
+	}
+	return ""
+}
+
+// firstHistoryArtifact scans one node's /history output map for the first
+// images/gifs/audio artifact, downloads it, and returns the local filename.
+func firstHistoryArtifact(ctx context.Context, c *apiclient.Client, nodeOut map[string]interface{}) string {
+	for _, kind := range []string{"images", "gifs", "audio"} {
+		items, ok := nodeOut[kind].([]interface{})
+		if !ok {
+			continue
+		}
+		for _, raw := range items {
+			item, okItem := raw.(map[string]interface{})
+			if !okItem {
+				continue
+			}
+			filename, okFn := item["filename"].(string)
+			if !okFn || filename == "" {
+				continue
+			}
+			subfolder, okSub := item["subfolder"].(string)
+			fileType, okType := item["type"].(string)
+			if !okSub || !okType {
+				continue
+			}
+			if f, ferr := downloadArtifact(ctx, c, filename, subfolder, fileType); ferr == nil {
+				return f
+			}
+		}
+	}
+	return ""
+}
+
+// collectOutput downloads the first images/gifs/audio artifact from an Executed
+// message via /view and writes it to disk under a sanitized basename, returning
+// the local filename. It returns "" if the message had no fetchable artifact.
+func collectOutput(ctx context.Context, c *apiclient.Client, msg *apiclient.Message) (string, error) { //nolint:gocritic // hugeParam: pass by ptr; Message is a snapshot we read once.
+	for _, kind := range []string{"images", "gifs", "audio"} {
+		items, ok := msg.Output[kind]
+		if !ok {
+			continue
+		}
+		for _, item := range items {
+			return downloadArtifact(ctx, c, item.Filename, item.Subfolder, item.Type)
+		}
+	}
+	return "", nil
+}
+
+// downloadArtifact fetches one output via /view and writes it to the current
+// directory under filepath.Base(filename) (sanitized — the filename comes from
+// the ComfyUI server response and must not be trusted as a path).
+func downloadArtifact(ctx context.Context, c *apiclient.Client, filename, subfolder, fileType string) (string, error) {
+	rc, err := c.View(ctx, filename, subfolder, fileType)
+	if err != nil {
+		return "", fmt.Errorf("failed to fetch output %s: %w", filename, err)
+	}
+	defer rc.Close()
+	safeName := filepath.Base(filename) // #nosec G304 - sanitized to a bare basename
+	if safeName == "." || safeName == string(filepath.Separator) || safeName == "" {
+		return "", fmt.Errorf("comfyui returned an invalid output filename: %q", filename)
+	}
+	f, err := os.Create(safeName) // #nosec G304 - safeName is filepath.Base(filename), cannot escape CWD
+	if err != nil {
+		return "", fmt.Errorf("failed to create output file %s: %w", safeName, err)
+	}
+	if _, err := io.Copy(f, rc); err != nil {
+		f.Close()
+		return "", fmt.Errorf("failed to write output %s: %w", safeName, err)
+	}
+	f.Close()
+	return safeName, nil
 }

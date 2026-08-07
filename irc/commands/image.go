@@ -1,6 +1,7 @@
 package commands
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"os"
@@ -143,7 +144,7 @@ func processAisciiCommand(irc *state.State, response, message string) bool {
 }
 
 // ParseAiImageWithGPU handles image commands with explicit GPU selection
-func ParseAiImageWithGPU(irc state.State, gpu meta.GPUType) bool {
+func ParseAiImageWithGPU(ctx context.Context, irc state.State, gpu meta.GPUType) bool {
 	if irc.IsAction("sd") {
 		if irc.GetBoolArg("help") {
 			irc.Send(girc.Fmt(help.FindHelp(&irc)))
@@ -195,7 +196,7 @@ func ParseAiImageWithGPU(irc state.State, gpu meta.GPUType) bool {
 		displayMessage := preparePromptAndDisplay(&irc, gpu)
 
 		// Use the provided GPU parameter instead of hardcoded GPU4090
-		response, err := comfyui.Process(&irc, "", gpu)
+		response, err := comfyui.Process(ctx, &irc, "", gpu)
 		if err != nil {
 			logger.Error("ComfyUI request failed", "error", err)
 			irc.SendError(err.Error())

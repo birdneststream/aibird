@@ -1,6 +1,7 @@
 package commands
 
 import (
+	"context"
 	"fmt"
 	"strings"
 	"time"
@@ -70,23 +71,23 @@ func ParseEnhancedVideo(irc *state.State) bool {
 	if !isEnhancedVideoCommand(irc.Action()) {
 		return false
 	}
-	return parseEnhancedVideoCommand(*irc, meta.GPU4090)
+	return parseEnhancedVideoCommand(context.Background(), *irc, meta.GPU4090)
 }
 
 // ParseEnhancedVideoWithGPU handles the h3 video command with an explicit GPU
 // selection (queued path).
-func ParseEnhancedVideoWithGPU(irc state.State, gpu meta.GPUType) bool {
+func ParseEnhancedVideoWithGPU(ctx context.Context, irc state.State, gpu meta.GPUType) bool {
 	if !isEnhancedVideoCommand(irc.Action()) {
 		return false
 	}
-	return parseEnhancedVideoCommand(irc, gpu)
+	return parseEnhancedVideoCommand(ctx, irc, gpu)
 }
 
 // parseEnhancedVideoCommand runs the ComfyUI h3 workflow with the user's raw
 // prompt (no LLM expansion). Patreon access (#h4x-or-premium) is checked before
 // any expensive work. Workflow-level accessLevel inside comfyui.Process acts as
 // a final safety net.
-func parseEnhancedVideoCommand(irc state.State, gpu meta.GPUType) bool {
+func parseEnhancedVideoCommand(ctx context.Context, irc state.State, gpu meta.GPUType) bool {
 	// The h3 workflow may not be deployed yet — fail fast with a clear message.
 	if !comfyui.WorkflowExists(premiumVideoWorkflow) {
 		irc.SendError("The video workflow (h3) is not available yet")
@@ -124,7 +125,7 @@ func parseEnhancedVideoCommand(irc state.State, gpu meta.GPUType) bool {
 	// the caller's dispatch routing (which already matched on the command name).
 	irc.Command.Action = premiumVideoWorkflow
 
-	response, err := comfyui.Process(&irc, "", gpu)
+	response, err := comfyui.Process(ctx, &irc, "", gpu)
 	if err != nil {
 		logger.Error("Enhanced video ComfyUI request failed", "error", err)
 		irc.SendError(err.Error())

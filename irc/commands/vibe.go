@@ -1,6 +1,7 @@
 package commands
 
 import (
+	"context"
 	"fmt"
 
 	"aibird/birdbase"
@@ -131,7 +132,7 @@ func generateVibe(irc *state.State, messages []birdbase.ChannelMessage, hours in
 		irc.Send(fmt.Sprintf("%s: Vibe image is being generated... please wait.", irc.User.NickName))
 	}
 
-	response, err := comfyui.Process(&comfyState, "", meta.GPU4090)
+	response, err := comfyui.Process(context.Background(), &comfyState, "", meta.GPU4090)
 	if err != nil {
 		logger.Error("ComfyUI vibe generation failed", "error", err)
 		irc.SendError(err.Error())

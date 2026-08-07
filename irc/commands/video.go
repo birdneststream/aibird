@@ -1,6 +1,8 @@
 package commands
 
 import (
+	"context"
+
 	"aibird/image/comfyui"
 	"aibird/irc/state"
 	"aibird/logger"
@@ -10,22 +12,22 @@ import (
 
 // ParseAiVideo handles video commands (non-queued path)
 func ParseAiVideo(irc *state.State) bool {
-	return parseAiVideoInternal(*irc, meta.GPU4090)
+	return parseAiVideoInternal(context.Background(), *irc, meta.GPU4090)
 }
 
 // ParseAiVideoWithGPU handles video commands with explicit GPU selection (queued path)
-func ParseAiVideoWithGPU(irc state.State, gpu meta.GPUType) bool {
-	return parseAiVideoInternal(irc, gpu)
+func ParseAiVideoWithGPU(ctx context.Context, irc state.State, gpu meta.GPUType) bool {
+	return parseAiVideoInternal(ctx, irc, gpu)
 }
 
-func parseAiVideoInternal(irc state.State, gpu meta.GPUType) bool {
+func parseAiVideoInternal(ctx context.Context, irc state.State, gpu meta.GPUType) bool {
 	if !comfyui.WorkflowExists(irc.Action()) {
 		return false
 	}
 
 	displayMessage := preparePromptAndDisplay(&irc, gpu)
 
-	response, err := comfyui.Process(&irc, "", gpu)
+	response, err := comfyui.Process(ctx, &irc, "", gpu)
 	if err != nil {
 		logger.Error("ComfyUI request failed", "error", err)
 		irc.SendError(err.Error())

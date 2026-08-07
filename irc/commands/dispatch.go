@@ -62,7 +62,7 @@ func RunQueueableCommand(ctx context.Context, s state.State, gpu meta.GPUType) {
 	// runtime and access gating apply.
 	if isEnhancedVideoCommand(actionLower) {
 		logger.Debug("Command categorized as enhanced video", "action", s.Action())
-		parseEnhancedVideoCommand(s, gpu)
+		parseEnhancedVideoCommand(ctx, s, gpu)
 		return
 	}
 
@@ -73,16 +73,16 @@ func RunQueueableCommand(ctx context.Context, s state.State, gpu meta.GPUType) {
 		ParseAiText(&s)
 	case isImageCommand(actionLower):
 		logger.Debug("Command categorized as image", "action", s.Action())
-		ParseAiImageWithGPU(s, gpu)
+		ParseAiImageWithGPU(ctx, s, gpu)
 	case isVideoCommand(actionLower):
 		logger.Debug("Command categorized as video", "action", s.Action())
-		ParseAiVideoWithGPU(s, gpu)
+		ParseAiVideoWithGPU(ctx, s, gpu)
 	case isSoundCommand(actionLower):
 		logger.Debug("Command categorized as sound", "action", s.Action())
-		ParseAiSoundWithGPU(s, gpu)
+		ParseAiSoundWithGPU(ctx, s, gpu)
 	default:
 		logger.Debug("Command categorized as default (image)", "action", s.Action())
-		ParseAiImageWithGPU(s, gpu)
+		ParseAiImageWithGPU(ctx, s, gpu)
 	}
 }
 
