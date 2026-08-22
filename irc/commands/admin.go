@@ -20,6 +20,7 @@ const (
 	cmdKick  = "kick"
 	cmdJoin  = "join"
 	cmdPart  = "part"
+	cmdLive  = "live"
 )
 
 // ParseAdminCommands handles admin-level IRC commands.
@@ -185,6 +186,9 @@ func ParseAdminCommands(irc *state.State, q *queue.ProcessingQueue) {
 			} else {
 				irc.Send("ℹ️ No items currently processing")
 			}
+			return
+		case cmdLive:
+			ParseLive(irc)
 			return
 
 		}

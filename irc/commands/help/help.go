@@ -494,6 +494,17 @@ func AdminHelp() []Help {
 			Arguments: []Arguments{},
 			Queueable: false,
 		},
+		{
+			Name: "live",
+			Type: typeAdmin,
+			Help: "Announce a YouTube live stream: highlights the channel, sets an ON AIR topic, and auto-updates the topic when the stream ends (auto-detect needs [youtube] apiKey). No arguments shows the current status.",
+			Arguments: []Arguments{
+				{Argument: "<youtube_url>", Help: "YouTube watch or share URL of the stream.", Values: ""},
+				{Argument: "off", Help: "End the on-air state and set the WAS LIVE topic.", Values: ""},
+			},
+			Queueable: false,
+			Example:   "!live https://www.youtube.com/watch?v=dQw4w9WgXcQ",
+		},
 	}
 }
 
