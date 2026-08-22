@@ -29,6 +29,10 @@ const (
 
 	// liveAutoDetectOff is the status suffix shown when monitoring is disabled.
 	liveAutoDetectOff = "off"
+
+	// liveCallToActionFormat is sent after the highlight chunks so the final
+	// message of the announcement burst carries the stream URL (%s = URL).
+	liveCallToActionFormat = "BIRDNEST IS LIVE NOW CHECK IT %s"
 )
 
 // gircNotifier adapts a girc client to the live.Notifier interface.
@@ -136,13 +140,15 @@ func startLive(irc *state.State) {
 			irc.GetActionTrigger() + "live off when done.")
 	}
 
-	sendLiveHighlights(irc)
+	sendLiveHighlights(irc, canonicalURL)
 }
 
 // sendLiveHighlights mass-highlights everyone currently in the channel so they
-// get pinged about the stream. Nicks come from girc's live channel state; if
-// names aren't known yet the highlight is skipped silently.
-func sendLiveHighlights(irc *state.State) {
+// get pinged about the stream, then follows with a call-to-action so the last
+// message of the burst carries the URL. Nicks come from girc's live channel
+// state; if names aren't known yet the highlight and CTA are skipped silently
+// (the announcement message already contains the URL).
+func sendLiveHighlights(irc *state.State, streamURL string) {
 	if irc.Client == nil {
 		return
 	}
@@ -158,6 +164,14 @@ func sendLiveHighlights(irc *state.State) {
 			time.Sleep(highlightPace)
 		}
 		irc.Client.Cmd.Message(irc.Channel.Name, chunk)
+	}
+
+	// Client notification previews should land on the URL, not a wall of
+	// nicks, so the CTA trails the highlight burst.
+	if len(chunks) > 0 {
+		time.Sleep(highlightPace)
+		irc.Client.Cmd.Message(irc.Channel.Name,
+			fmt.Sprintf(liveCallToActionFormat, streamURL))
 	}
 }
 
