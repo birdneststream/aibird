@@ -15,6 +15,7 @@ import (
 	"aibird/irc/commands"
 	"aibird/irc/networks"
 	"aibird/irc/participant"
+	"aibird/live"
 	"aibird/logger"
 	"aibird/queue"
 	"aibird/settings"
@@ -76,6 +77,23 @@ func main() {
 			logger.Error("Queue processing error", "error", err)
 		}
 	}()
+
+	// Init the live stream monitor: announces !live streams and, when a
+	// YouTube API key is configured, auto-flips the topic when they end.
+	// Without a key the poller stays off and !live works manually.
+	var liveChecker live.Checker
+	if config.YouTube.ApiKey != "" {
+		liveChecker = live.NewYouTubeChecker(config.YouTube.ApiKey)
+	}
+	liveMgr := live.NewManager(liveChecker, time.Duration(config.YouTube.PollIntervalSecs)*time.Second)
+	live.Init(liveMgr)
+	if liveChecker != nil {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			liveMgr.Run(ctx)
+		}()
+	}
 
 	for i := range config.Networks {
 		network := config.Networks[i]
