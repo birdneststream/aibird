@@ -15,6 +15,7 @@ type (
 		Birdhole BirdholeConfig              `toml:"birdhole" validate:"required"`
 		Logging  logger.Config               `toml:"logging" validate:"required"`
 		Mcp      McpConfig                   `toml:"mcp"`
+		YouTube  YouTubeConfig               `toml:"youtube"`
 	}
 
 	AiBird struct {
@@ -104,5 +105,14 @@ type (
 		Url    string `toml:"url" validate:"omitempty,url"`
 		Port   string `toml:"port"`
 		ApiKey string `toml:"apiKey" json:"-"`
+	}
+
+	// YouTubeConfig configures the !live stream monitor. When ApiKey is empty,
+	// stream-end auto-detection is disabled and !live only supports manual
+	// announce/off. The key must never be logged or echoed to IRC.
+	// PollIntervalSecs <= 0 means the 120s default; values 1-29 clamp to 30s.
+	YouTubeConfig struct {
+		ApiKey           string `toml:"apiKey"`
+		PollIntervalSecs int    `toml:"pollIntervalSecs" validate:"gte=0"`
 	}
 )
