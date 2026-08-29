@@ -12,7 +12,7 @@ import (
 )
 
 // liveAnnounce is the channel announcement sent when a stream starts.
-const liveAnnounce = "🔴 BIRDNEST IS NOW LIVE!"
+const liveAnnounce = "🔴 BIRDNEST IS STARTING SOON, TUNE IN!"
 
 const (
 	// liveCmdOff and liveCmdEnd manually end the on-air state.
