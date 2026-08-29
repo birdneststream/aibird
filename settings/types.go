@@ -16,6 +16,7 @@ type (
 		Logging  logger.Config               `toml:"logging" validate:"required"`
 		Mcp      McpConfig                   `toml:"mcp"`
 		YouTube  YouTubeConfig               `toml:"youtube"`
+		Live     LiveConfig                  `toml:"live"`
 	}
 
 	AiBird struct {
@@ -114,5 +115,16 @@ type (
 	YouTubeConfig struct {
 		ApiKey           string `toml:"apiKey"`
 		PollIntervalSecs int    `toml:"pollIntervalSecs" validate:"gte=0"`
+	}
+
+	// LiveConfig configures the periodic in-stream promo broadcast. While a
+	// !live stream is active in PromoNetwork/PromoChannel, the promo lines
+	// are repeated every PromoIntervalMins. Zero values fall back to the
+	// efnet #birdnest defaults with a 30 minute interval; a negative
+	// PromoIntervalMins disables the promo entirely.
+	LiveConfig struct {
+		PromoNetwork      string `toml:"promoNetwork"`
+		PromoChannel      string `toml:"promoChannel"`
+		PromoIntervalMins int    `toml:"promoIntervalMins"`
 	}
 )

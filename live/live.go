@@ -23,10 +23,36 @@ const (
 	EndMessage = "🔴 Stream has ended — topic updated."
 )
 
+// DefaultPromoLines is the promo broadcast repeated in the main channel
+// while a stream is active. Empty lines become single-space separator
+// messages on IRC.
+func DefaultPromoLines() []string {
+	return []string{
+		"HAVE YOUR MESSAGE APPEAR ON THE STREAM LIVE",
+		"WITH TEXT TO SPEECH:",
+		"https://streamlabs.com/birdnestshow tip",
+		"",
+		"[PATREON] https://www.patreon.com/birdneststream",
+		"",
+		"[YT] https://www.youtube.com/@birdneststream",
+		"",
+		"[GITHUB] https://github.com/birdneststream/",
+		"",
+		"[SOUNDCLOUD] https://soundcloud.com/birdneststream",
+	}
+}
+
 const (
 	defaultPollInterval  = 120 * time.Second
 	minPollInterval      = 30 * time.Second
 	maxConsecutiveErrors = 5
+
+	// defaultPromoInterval is the fallback promo cadence.
+	defaultPromoInterval = 30 * time.Minute
+	// minPromoInterval guards against config typos spamming the channel.
+	minPromoInterval = time.Minute
+	// promoLinePace throttles consecutive promo lines for flood safety.
+	promoLinePace = 300 * time.Millisecond
 )
 
 // Notifier abstracts IRC output so the manager can update a channel's topic
@@ -55,12 +81,23 @@ type Stream struct {
 }
 
 // Manager tracks active streams keyed by "network|channel" and polls them
-// for completion when a Checker is configured.
+// for completion when a Checker is configured. It can also repeat a promo
+// broadcast in a designated channel while that channel's stream is active.
 type Manager struct {
 	mu           sync.Mutex
 	streams      map[string]*Stream
 	checker      Checker
 	pollInterval time.Duration
+
+	// Promo state (immutable after EnablePromo except lastPromoAt).
+	promoNetwork  string
+	promoChannel  string
+	promoInterval time.Duration
+	promoLines    []string
+	lastPromoAt   time.Time
+
+	// now is swappable for tests.
+	now func() time.Time
 }
 
 var (
@@ -84,7 +121,45 @@ func NewManager(checker Checker, pollInterval time.Duration) *Manager {
 		streams:      make(map[string]*Stream),
 		checker:      checker,
 		pollInterval: pollInterval,
+		now:          time.Now,
 	}
+}
+
+// PromoConfig describes the periodic promo broadcast for an active stream.
+type PromoConfig struct {
+	Network  string
+	Channel  string
+	Interval time.Duration
+	Lines    []string
+}
+
+// EnablePromo arms the periodic promo broadcast. While a stream started via
+// Start is active in cfg.Network/cfg.Channel, the promo lines repeat every
+// cfg.Interval. The interval is normalized: <= 0 becomes the 30m default and
+// values below one minute clamp up to one minute.
+//
+// Contract: call once at startup, before Run starts, and never while Run is
+// live — promo fields are read without the manager lock inside the Run loop
+// (safe only because of the goroutine-start happens-before edge).
+func (m *Manager) EnablePromo(cfg PromoConfig) {
+	switch {
+	case cfg.Interval <= 0:
+		cfg.Interval = defaultPromoInterval
+	case cfg.Interval < minPromoInterval:
+		cfg.Interval = minPromoInterval
+	}
+
+	m.mu.Lock()
+	m.promoNetwork = cfg.Network
+	m.promoChannel = cfg.Channel
+	m.promoInterval = cfg.Interval
+	m.promoLines = cfg.Lines
+	m.mu.Unlock()
+}
+
+// promoEnabled reports whether a promo target is configured.
+func (m *Manager) promoEnabled() bool {
+	return m != nil && m.promoNetwork != "" && m.promoChannel != "" && m.promoInterval > 0
 }
 
 // Init sets the package-level manager used by the commands package. A nil
@@ -144,12 +219,17 @@ func (m *Manager) Start(network, channel, videoID, url string, n Notifier) {
 		Channel:   channel,
 		VideoID:   videoID,
 		URL:       url,
-		StartedAt: time.Now(),
+		StartedAt: m.now(),
 		notifier:  n,
 	}
 
 	m.mu.Lock()
 	m.streams[key] = s
+	// A fresh !live in the promo target channel restarts the promo cadence,
+	// so the first promo lands a full interval into the new stream.
+	if key == streamKey(m.promoNetwork, m.promoChannel) {
+		m.lastPromoAt = s.StartedAt
+	}
 	m.mu.Unlock()
 
 	if n != nil {
@@ -263,18 +343,55 @@ func (m *Manager) pollStream(ctx context.Context, s *Stream) {
 	m.mu.Unlock()
 }
 
-// Run polls all active streams until ctx is canceled, sleeping a full
-// interval after each pass so cycles never overlap. It returns immediately
-// when no checker is configured.
-func (m *Manager) Run(ctx context.Context) {
-	if m.checker == nil {
-		logger.Info("Live monitor disabled: no YouTube API key configured")
+// promoPass sends the promo broadcast into the promo target channel when its
+// stream is active and the interval has elapsed. Sends happen outside the
+// lock; lastPromoAt is claimed under the lock first so a concurrent pass
+// can't double-send.
+func (m *Manager) promoPass() {
+	if !m.promoEnabled() {
 		return
 	}
 
-	logger.Info("Live monitor started", "poll_interval", m.pollInterval)
+	m.mu.Lock()
+	s := m.streams[streamKey(m.promoNetwork, m.promoChannel)]
+	if s == nil || m.now().Sub(m.lastPromoAt) < m.promoInterval {
+		m.mu.Unlock()
+		return
+	}
+	m.lastPromoAt = m.now()
+	notifier := s.notifier
+	channel := s.Channel
+	m.mu.Unlock()
+
+	if notifier == nil {
+		return
+	}
+
+	for _, line := range m.promoLines {
+		if strings.TrimSpace(line) == "" {
+			line = " " // blank separator line, mirroring State.Send behavior
+		}
+		notifier.MessageChannel(channel, line)
+		time.Sleep(promoLinePace)
+	}
+}
+
+// Run polls all active streams and runs the promo cadence until ctx is
+// canceled, sleeping a full interval after each pass so cycles never
+// overlap. It returns immediately when neither a checker nor a promo is
+// configured.
+func (m *Manager) Run(ctx context.Context) {
+	if m.checker == nil && !m.promoEnabled() {
+		logger.Info("Live monitor disabled: no YouTube API key or promo configured")
+		return
+	}
+
+	logger.Info("Live monitor started", "poll_interval", m.pollInterval, "promo_enabled", m.promoEnabled())
 	for {
-		m.RunOnce(ctx)
+		if m.checker != nil {
+			m.RunOnce(ctx)
+		}
+		m.promoPass()
 
 		select {
 		case <-ctx.Done():

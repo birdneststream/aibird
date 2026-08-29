@@ -266,7 +266,7 @@ func TestManager_MonitoringEnabled(t *testing.T) {
 	assert.False(t, withoutChecker.MonitoringEnabled())
 }
 
-func TestManager_Run_ReturnsImmediatelyWithoutChecker(t *testing.T) {
+func TestManager_Run_ReturnsImmediatelyWithoutCheckerOrPromo(t *testing.T) {
 	m := NewManager(nil, 0)
 	done := make(chan struct{})
 	go func() {
@@ -276,8 +276,190 @@ func TestManager_Run_ReturnsImmediatelyWithoutChecker(t *testing.T) {
 
 	select {
 	case <-done:
-		// Expected: Run exits immediately when monitoring is disabled.
+		// Expected: Run exits immediately when monitoring and promo are disabled.
 	case <-time.After(2 * time.Second):
-		t.Fatal("Run should return immediately when no checker is configured")
+		t.Fatal("Run should return immediately when no checker or promo is configured")
+	}
+}
+
+// newPromoTestManager builds a manager with a promo target and an injectable
+// clock so cadence tests never sleep.
+func newPromoTestManager(interval time.Duration) (*Manager, *fakeNotifier) {
+	n := newFakeNotifier()
+	m := NewManager(nil, 0)
+	m.EnablePromo(PromoConfig{
+		Network:  "efnet",
+		Channel:  "#birdnest",
+		Interval: interval,
+		Lines:    []string{"L1", "", "L2"},
+	})
+	return m, n
+}
+
+func TestManager_Promo_Cadence(t *testing.T) {
+	m, n := newPromoTestManager(30 * time.Minute)
+	cur := time.Now()
+	m.now = func() time.Time { return cur }
+
+	m.Start("efnet", "#birdnest", "aaaaaaaaaaa", "https://youtu.be/aaaaaaaaaaa", n)
+
+	// Not due immediately: the !live announcement burst just happened.
+	m.promoPass()
+	assert.Empty(t, n.messages, "no promo before the interval elapses")
+
+	// Due after the interval.
+	cur = cur.Add(31 * time.Minute)
+	m.promoPass()
+	assert.Equal(t, []string{"L1", " ", "L2"}, n.messages, "promo lines should be sent with blank lines as separators")
+
+	// Suppressed until the next interval.
+	n.messages = nil
+	m.promoPass()
+	assert.Empty(t, n.messages, "second pass within the interval must be suppressed")
+
+	cur = cur.Add(30 * time.Minute)
+	m.promoPass()
+	assert.Equal(t, []string{"L1", " ", "L2"}, n.messages)
+}
+
+func TestManager_Promo_RequiresTargetStream(t *testing.T) {
+	m, n := newPromoTestManager(30 * time.Minute)
+	cur := time.Now()
+	m.now = func() time.Time { return cur }
+
+	// Stream active, but in a different channel than the promo target.
+	m.Start("supernets", "#h4x", "aaaaaaaaaaa", "https://youtu.be/aaaaaaaaaaa", n)
+	cur = cur.Add(2 * time.Hour)
+	m.promoPass()
+	assert.Empty(t, n.messages, "promo must only target its configured channel")
+
+	// And a stream on the right network but wrong channel.
+	n.messages = nil
+	m.Start("efnet", "#other", "bbbbbbbbbbb", "https://youtu.be/bbbbbbbbbbb", n)
+	cur = cur.Add(2 * time.Hour)
+	m.promoPass()
+	assert.Empty(t, n.messages)
+}
+
+func TestManager_Promo_StopsWhenStreamEnds(t *testing.T) {
+	m, n := newPromoTestManager(30 * time.Minute)
+	cur := time.Now()
+	m.now = func() time.Time { return cur }
+
+	m.Start("efnet", "#birdnest", "aaaaaaaaaaa", "https://youtu.be/aaaaaaaaaaa", n)
+	cur = cur.Add(31 * time.Minute)
+	m.promoPass()
+	assert.NotEmpty(t, n.messages)
+
+	// Stream goes off air: no further promos.
+	n.messages = nil
+	m.Stop("efnet", "#birdnest")
+	cur = cur.Add(2 * time.Hour)
+	m.promoPass()
+	assert.Empty(t, n.messages, "promo must stop once the stream ends")
+}
+
+func TestManager_Promo_RestartResetsCadence(t *testing.T) {
+	m, n := newPromoTestManager(30 * time.Minute)
+	cur := time.Now()
+	m.now = func() time.Time { return cur }
+
+	m.Start("efnet", "#birdnest", "aaaaaaaaaaa", "https://youtu.be/aaaaaaaaaaa", n)
+	cur = cur.Add(20 * time.Minute)
+
+	// Admin re-runs !live with a new URL: cadence restarts.
+	m.Start("efnet", "#birdnest", "bbbbbbbbbbb", "https://youtu.be/bbbbbbbbbbb", n)
+	cur = cur.Add(25 * time.Minute)
+	m.promoPass()
+	assert.Empty(t, n.messages, "promo must be a full interval after the new !live")
+
+	cur = cur.Add(6 * time.Minute)
+	m.promoPass()
+	assert.Equal(t, []string{"L1", " ", "L2"}, n.messages)
+}
+
+func TestEnablePromo_IntervalNormalization(t *testing.T) {
+	tests := []struct {
+		name     string
+		input    time.Duration
+		expected time.Duration
+	}{
+		{"zero uses default", 0, defaultPromoInterval},
+		{"negative uses default", -1, defaultPromoInterval},
+		{"sub-minute clamps up", 5 * time.Second, minPromoInterval},
+		{"explicit value kept", time.Hour, time.Hour},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			m := NewManager(nil, 0)
+			m.EnablePromo(PromoConfig{Network: "efnet", Channel: "#birdnest", Interval: tt.input, Lines: nil})
+			m.mu.Lock()
+			got := m.promoInterval
+			m.mu.Unlock()
+			if got != tt.expected {
+				t.Errorf("promo interval = %v, want %v", got, tt.expected)
+			}
+		})
+	}
+}
+
+func TestManager_Promo_DisabledWithoutEnablePromo(t *testing.T) {
+	m := NewManager(nil, 0)
+	m.promoPass() // must be a no-op, not a panic
+	assert.False(t, m.promoEnabled())
+}
+
+func TestManager_Run_ContinuesWithPromoOnly(t *testing.T) {
+	// No YouTube checker, but a promo is configured: Run must keep looping
+	// (guarding the "returns only when BOTH are absent" condition) and exit
+	// cleanly on cancellation.
+	m, n := newPromoTestManager(30 * time.Minute)
+	m.Start("efnet", "#birdnest", "aaaaaaaaaaa", "https://youtu.be/aaaaaaaaaaa", n)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	done := make(chan struct{})
+	go func() {
+		m.Run(ctx)
+		close(done)
+	}()
+
+	select {
+	case <-done:
+		t.Fatal("Run must keep looping when a promo is configured even without a checker")
+	case <-time.After(200 * time.Millisecond):
+		// Still running as expected.
+	}
+
+	cancel()
+	select {
+	case <-done:
+	case <-time.After(2 * time.Second):
+		t.Fatal("Run must exit after context cancellation")
+	}
+}
+
+func TestDefaultPromoLines(t *testing.T) {
+	lines := DefaultPromoLines()
+	if len(lines) != 11 {
+		t.Fatalf("expected 11 promo lines, got %d", len(lines))
+	}
+	want := []string{
+		"HAVE YOUR MESSAGE APPEAR ON THE STREAM LIVE",
+		"WITH TEXT TO SPEECH:",
+		"https://streamlabs.com/birdnestshow tip",
+		"",
+		"[PATREON] https://www.patreon.com/birdneststream",
+		"",
+		"[YT] https://www.youtube.com/@birdneststream",
+		"",
+		"[GITHUB] https://github.com/birdneststream/",
+		"",
+		"[SOUNDCLOUD] https://soundcloud.com/birdneststream",
+	}
+	for i, w := range want {
+		if lines[i] != w {
+			t.Errorf("promo line %d = %q, want %q", i, lines[i], w)
+		}
 	}
 }

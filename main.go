@@ -80,20 +80,41 @@ func main() {
 
 	// Init the live stream monitor: announces !live streams and, when a
 	// YouTube API key is configured, auto-flips the topic when they end.
-	// Without a key the poller stays off and !live works manually.
+	// The promo broadcast repeats in the main channel while a stream is
+	// active. Run exits on its own when everything is disabled.
 	var liveChecker live.Checker
 	if config.YouTube.ApiKey != "" {
 		liveChecker = live.NewYouTubeChecker(config.YouTube.ApiKey)
 	}
 	liveMgr := live.NewManager(liveChecker, time.Duration(config.YouTube.PollIntervalSecs)*time.Second)
 	live.Init(liveMgr)
-	if liveChecker != nil {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-			liveMgr.Run(ctx)
-		}()
+
+	promoNetwork := config.Live.PromoNetwork
+	if promoNetwork == "" {
+		promoNetwork = "efnet"
 	}
+	promoChannel := config.Live.PromoChannel
+	if promoChannel == "" {
+		promoChannel = "#birdnest"
+	}
+	promoMins := config.Live.PromoIntervalMins
+	if promoMins == 0 {
+		promoMins = 30
+	}
+	if promoMins > 0 {
+		liveMgr.EnablePromo(live.PromoConfig{
+			Network:  promoNetwork,
+			Channel:  promoChannel,
+			Interval: time.Duration(promoMins) * time.Minute,
+			Lines:    live.DefaultPromoLines(),
+		})
+	}
+
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		liveMgr.Run(ctx)
+	}()
 
 	for i := range config.Networks {
 		network := config.Networks[i]
