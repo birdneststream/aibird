@@ -32,7 +32,7 @@ const (
 
 	// liveCallToActionFormat is sent after the highlight chunks so the final
 	// message of the announcement burst carries the stream URL (%s = URL).
-	liveCallToActionFormat = "BIRDNEST IS LIVE NOW CHECK IT %s"
+	liveCallToActionFormat = "BIRDNEST IS STARTING SOON CHECK IT %s"
 )
 
 // gircNotifier adapts a girc client to the live.Notifier interface.
