@@ -23,6 +23,11 @@ func handlePrivMsg(c *girc.Client, e girc.Event, network *networks.Network, conf
 		return
 	}
 
+	// Known spam bot: kick immediately and stop processing the message.
+	if kickSpamBotIfMatch(c, e, network) {
+		return
+	}
+
 	// Check if this is a command (starts with trigger)
 	isCommand := strings.HasPrefix(e.Last(), config.AiBird.ActionTrigger)
 
@@ -61,6 +66,63 @@ func handlePrivMsg(c *girc.Client, e girc.Event, network *networks.Network, conf
 
 		dispatchCommand(&irc, q)
 	}
+}
+
+// spamBotSignature is the normalized fingerprint of a known spam-bot
+// message. Matching is done on a normalized form (lowercase, punctuation and
+// apostrophe variants stripped, whitespace collapsed) so quote-style and
+// casing tweaks don't evade it.
+const spamBotSignature = "hi guys its madeleine czura just thought id leave my number here in case youre lonely"
+
+// normalizeForSpam lowers the text, keeps ASCII alphanumerics and spaces,
+// drops everything else (apostrophes, punctuation, unicode), and collapses
+// runs of whitespace to single spaces.
+func normalizeForSpam(s string) string {
+	lowered := strings.ToLower(s)
+
+	var b strings.Builder
+	b.Grow(len(lowered))
+	for _, r := range lowered {
+		switch {
+		case r >= 'a' && r <= 'z', r >= '0' && r <= '9':
+			b.WriteRune(r)
+		case r == ' ' || r == '\t' || r == '\n' || r == '\r':
+			b.WriteRune(' ')
+		}
+		// Everything else (punctuation, apostrophes, unicode) is dropped.
+	}
+
+	return strings.Join(strings.Fields(b.String()), " ")
+}
+
+// isSpamBotMessage reports whether the text contains the known spam-bot
+// fingerprint (normalized substring match).
+func isSpamBotMessage(msg string) bool {
+	return strings.Contains(normalizeForSpam(msg), spamBotSignature)
+}
+
+// kickSpamBotIfMatch kicks the sender when a channel message matches the
+// known spam-bot fingerprint. It reports whether the message was handled
+// (spam messages are neither stored nor processed further). PMs can't be
+// kicked and are ignored here. Note the match is substring-based, so anyone
+// quoting the spam verbatim is also kicked — this stops retransmission.
+func kickSpamBotIfMatch(c *girc.Client, e girc.Event, network *networks.Network) bool { //nolint:gocritic // girc library mandates Event by value
+	if e.Source == nil || e.IsFromUser() || len(e.Params) == 0 || !strings.HasPrefix(e.Params[0], "#") {
+		return false
+	}
+
+	// Never act on our own messages (nicks are case-insensitive on IRC).
+	if strings.EqualFold(e.Source.Name, network.Nick) {
+		return false
+	}
+
+	if !isSpamBotMessage(e.Last()) {
+		return false
+	}
+
+	logger.Info("Kicking known spam bot", "network", network.NetworkName, "channel", e.Params[0], "nick", e.Source.Name)
+	c.Cmd.Kick(e.Params[0], e.Source.Name, "Spam bot detected")
+	return true
 }
 
 // isZncBufferPlayback checks if a message is likely ZNC buffer replay and should be ignored.
