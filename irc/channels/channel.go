@@ -3,6 +3,7 @@ package channels
 
 import (
 	"fmt"
+	"strings"
 
 	"aibird/helpers"
 	"aibird/irc/users"
@@ -31,9 +32,12 @@ func (c *Channel) GetUserWithNick(nick string) (*users.User, error) {
 		return nil, fmt.Errorf("GetUserWithNick called on nil *Channel")
 	}
 
+	// IRC nicks are case-insensitive, so matching must be too — otherwise
+	// "!seen Bob" misses an entry stored as "bob" and reports a stale
+	// duplicate (or nobody at all).
 	var foundUsers []*users.User
 	for _, user := range c.Users {
-		if user.NickName == nick {
+		if strings.EqualFold(user.NickName, nick) {
 			foundUsers = append(foundUsers, user)
 		}
 	}

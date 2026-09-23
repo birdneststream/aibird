@@ -86,18 +86,7 @@ func ParseStandardWithQueue(irc *state.State, q *queue.ProcessingQueue) {
 		irc.Send(girc.Fmt("{b}hello{b} {blue}" + irc.User.NickName + "{c}!"))
 		return
 	case cmdSeen:
-		user, _ := irc.Channel.GetUserWithNick(irc.Message())
-		if user == nil {
-			irc.Send("I have not seen this user")
-			return
-		}
-
-		if irc.Event.Source.Name == user.NickName {
-			irc.ReplyTo(girc.Fmt("{b}Hey pal you are seen!{b}"))
-			return
-		}
-
-		irc.Send(user.Seen())
+		ParseSeen(irc)
 		return
 	case cmdStatus:
 		client := status.NewClient(&irc.Config.AiBird)

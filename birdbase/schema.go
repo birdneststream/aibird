@@ -219,6 +219,8 @@ CREATE INDEX IF NOT EXISTS idx_channel_messages_lookup
     ON channel_messages(network_id, channel_name, timestamp);
 CREATE INDEX IF NOT EXISTS idx_channel_messages_timestamp 
     ON channel_messages(timestamp);
+CREATE INDEX IF NOT EXISTS idx_channel_messages_nick 
+    ON channel_messages(network_id, channel_name, lower(nickname), timestamp);
 
 -- Schema version tracking
 CREATE TABLE IF NOT EXISTS schema_version (

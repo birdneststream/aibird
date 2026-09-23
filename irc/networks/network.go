@@ -6,6 +6,7 @@ import (
 	"database/sql"
 	"fmt"
 	"math/big"
+	"strings"
 	"sync"
 	"time"
 
@@ -104,9 +105,10 @@ func (n *Network) GetUserWithIdentAndHost(ident, host string) *users.User {
 }
 
 func (n *Network) GetUserWithNick(nick string) *users.User {
+	// Case-insensitive: IRC treats nicks case-insensitively (see Channel.GetUserWithNick).
 	var foundUsers []*users.User
 	for i := range n.Users {
-		if n.Users[i].NickName == nick {
+		if strings.EqualFold(n.Users[i].NickName, nick) {
 			foundUsers = append(foundUsers, &n.Users[i])
 		}
 	}

@@ -2,6 +2,7 @@ package birdbase
 
 import (
 	"database/sql"
+	"errors"
 	"fmt"
 	"strings"
 	"sync"
@@ -42,6 +43,29 @@ var messageChan chan storedMessage
 // messageWorkerDone is closed by messageWriteWorker when it exits,
 // allowing tests to wait for clean shutdown.
 var messageWorkerDone chan struct{}
+
+// pendingSeen records the newest event seen per (network, channel, nick) as
+// soon as StoreChannelMessage accepts it, before the batched write worker has
+// flushed the row to disk. Reads consult it so a message sent moments ago is
+// never reported as "not seen" or attributed an older timestamp.
+//
+// Values are *pendingSeenEntry. It is a best-effort cache: entries are lost on
+// restart, at which point the database becomes the sole source of truth.
+var pendingSeen sync.Map
+
+// pendingSeenEntry holds the newest activity known for a nick. It is mutated
+// in place under mu so repeated lookups do not reallocate map entries.
+type pendingSeenEntry struct {
+	mu        sync.Mutex
+	timestamp int64
+	eventType string
+}
+
+// pendingSeenKey builds the map key. The channel and nick are lowercased
+// because IRC channels and nicks are case-insensitive.
+func pendingSeenKey(networkID int64, channelName, nickname string) string {
+	return fmt.Sprintf("%d\x1f%s\x1f%s", networkID, strings.ToLower(channelName), strings.ToLower(nickname))
+}
 
 func initMessageWorker() {
 	messageChan = make(chan storedMessage, messageBufferSize)
@@ -196,10 +220,141 @@ func StoreChannelMessage(networkID int64, channelName, nickname, eventType, mess
 
 	select {
 	case messageChan <- msg:
+		recordPendingSeen(&msg)
 	default:
 		// Buffer full, drop message rather than block
 		logger.Warn("Message storage buffer full, dropping message", "channel", channelName, "nick", nickname)
 	}
+}
+
+// pendingEntryFor returns the cache entry for the given key, creating it when
+// absent. The second result is false only if the map held an unexpected type,
+// which cannot happen as long as every writer stores *pendingSeenEntry.
+func pendingEntryFor(key string, create bool) (*pendingSeenEntry, bool) {
+	if !create {
+		value, ok := pendingSeen.Load(key)
+		if !ok {
+			return nil, false
+		}
+		entry, ok := value.(*pendingSeenEntry)
+		return entry, ok
+	}
+
+	value, _ := pendingSeen.LoadOrStore(key, &pendingSeenEntry{})
+	entry, ok := value.(*pendingSeenEntry)
+	return entry, ok
+}
+
+// recordPendingSeen updates the in-memory newest-activity cache for a message
+// that was accepted into the write buffer. Older events arriving out of order
+// (possible when the worker replays a batch) never move a timestamp backwards.
+func recordPendingSeen(msg *storedMessage) {
+	if msg == nil || msg.Nickname == "" {
+		return
+	}
+
+	entry, ok := pendingEntryFor(pendingSeenKey(msg.NetworkID, msg.ChannelName, msg.Nickname), true)
+	if !ok {
+		return
+	}
+
+	entry.mu.Lock()
+	defer entry.mu.Unlock()
+	if msg.Timestamp >= entry.timestamp {
+		entry.timestamp = msg.Timestamp
+		entry.eventType = msg.EventType
+	}
+}
+
+// TouchUserActivity advances irc_users.latest_activity for a single user.
+//
+// It updates only that column rather than re-writing the whole row: the chat
+// path fires on every line, and a full upsert would also carry mode data that
+// other goroutines may be mutating concurrently. Timestamps only move forward,
+// so an out-of-order call can never regress the stored value.
+func TouchUserActivity(networkName, ident, host string, timestamp int64) error {
+	return Data.TouchUserActivity(networkName, ident, host, timestamp)
+}
+
+func (s *SQLiteDB) TouchUserActivity(networkName, ident, host string, timestamp int64) error {
+	if timestamp <= 0 {
+		return nil
+	}
+
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	res, err := s.db.Exec(`
+		UPDATE irc_users
+		SET latest_activity = ?, updated_at = datetime('now')
+		WHERE network_id = (SELECT id FROM networks WHERE network_name = ?)
+		  AND ident = ? AND host = ?
+		  AND latest_activity < ?
+	`, timestamp, networkName, ident, host, timestamp)
+	if err != nil {
+		return fmt.Errorf("failed to update latest_activity for %s@%s: %w", ident, host, err)
+	}
+
+	// A missing row means we never saw this ident/host before, which the caller
+	// treats as harmless — the join/WHO path will insert the user properly.
+	if affected, err := res.RowsAffected(); err == nil && affected == 0 {
+		logger.Debug("No irc_users row to touch", "network", networkName, "ident", ident, "host", host)
+	}
+
+	return nil
+}
+
+// LastSeenResult reports when the bot last recorded activity for a nick.
+type LastSeenResult struct {
+	Timestamp int64  // Unix seconds; 0 when the nick has no recorded activity
+	EventType string // privmsg, action, join, part, quit, kick
+	Found     bool
+}
+
+// LastSeen returns the newest recorded activity for a nick on a channel.
+//
+// It reads the channel_messages table, which is written for every non-command
+// chat message as well as join/part/quit/kick events, and then layers the
+// in-memory pending cache on top so buffered-but-unflushed events still count.
+// Matching on the nickname is case-insensitive, as IRC nicks are.
+func LastSeen(networkID int64, channelName, nickname string) (LastSeenResult, error) {
+	return Data.LastSeen(networkID, channelName, nickname)
+}
+
+func (s *SQLiteDB) LastSeen(networkID int64, channelName, nickname string) (LastSeenResult, error) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
+	result := LastSeenResult{}
+
+	var dbTimestamp int64
+	var dbEventType string
+	err := s.db.QueryRow(`
+		SELECT timestamp, event_type FROM channel_messages
+		WHERE network_id = ? AND channel_name = ? AND lower(nickname) = lower(?)
+		ORDER BY timestamp DESC
+		LIMIT 1
+	`, networkID, strings.ToLower(channelName), nickname).Scan(&dbTimestamp, &dbEventType)
+	switch {
+	case err == nil:
+		result = LastSeenResult{Timestamp: dbTimestamp, EventType: dbEventType, Found: true}
+	case !errors.Is(err, sql.ErrNoRows):
+		return result, fmt.Errorf("failed to look up last seen for %q: %w", nickname, err)
+	}
+
+	// The pending cache can be newer than the table, never older in practice,
+	// but compare explicitly so a partial flush cannot go backwards.
+	if entry, ok := pendingEntryFor(pendingSeenKey(networkID, channelName, nickname), false); ok {
+		entry.mu.Lock()
+		pending := LastSeenResult{Timestamp: entry.timestamp, EventType: entry.eventType, Found: true}
+		entry.mu.Unlock()
+
+		if pending.Timestamp > result.Timestamp {
+			return pending, nil
+		}
+	}
+
+	return result, nil
 }
 
 // GetChannelMessages retrieves messages for a channel within the given hours, capped at maxMessages.

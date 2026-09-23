@@ -23,6 +23,14 @@ func handlePrivMsg(c *girc.Client, e girc.Event, network *networks.Network, conf
 		return
 	}
 
+	// Troll problem user: any user whose ident is "anonymous" is censored.
+	// Reply with a canned message and skip all processing (commands and chat).
+	if e.Source != nil && isCensoredIdent(e.Source.Ident) {
+		logger.Info("Censored ident, refusing to process", "network", network.NetworkName, "nick", e.Source.Name, "ident", e.Source.Ident)
+		c.Cmd.Reply(e, "lol censored !!!")
+		return
+	}
+
 	// Known spam bot: kick immediately and stop processing the message.
 	if kickSpamBotIfMatch(c, e, network) {
 		return
@@ -33,6 +41,10 @@ func handlePrivMsg(c *girc.Client, e girc.Event, network *networks.Network, conf
 
 	if !isCommand {
 		storeChannelEvent(e, network)
+		// Ordinary chat counts as activity too. Without this, LatestActivity is
+		// only ever refreshed when someone invokes a bot command, so a user who
+		// just talks in the channel looks weeks stale to anything that reads it.
+		touchChatSender(network, e)
 		// Not a command - check if we should handle it as a chat message for participant system
 		participant.HandleChatMessage(c, e, network, config)
 		return
@@ -66,6 +78,19 @@ func handlePrivMsg(c *girc.Client, e girc.Event, network *networks.Network, conf
 
 		dispatchCommand(&irc, q)
 	}
+}
+
+// censoredIdent is the ident of a known troll problem user. Matching is
+// case-insensitive so casing tweaks ("Anonymous", "ANONYMOUS") don't evade it.
+const censoredIdent = "anonymous"
+
+// isCensoredIdent reports whether the sender's ident is on the censored list.
+// Censored users get a canned reply and no bot processing of any kind.
+// A leading "~" is stripped first: IRC servers prepend it when the user has
+// no identd, so the troll shows up as "~anonymous" (see admin.go's lookup
+// fallback for the same pattern).
+func isCensoredIdent(ident string) bool {
+	return strings.EqualFold(strings.TrimPrefix(ident, "~"), censoredIdent)
 }
 
 // spamBotSignature is the normalized fingerprint of a known spam-bot
@@ -123,6 +148,35 @@ func kickSpamBotIfMatch(c *girc.Client, e girc.Event, network *networks.Network)
 	logger.Info("Kicking known spam bot", "network", network.NetworkName, "channel", e.Params[0], "nick", e.Source.Name)
 	c.Cmd.Kick(e.Params[0], e.Source.Name, "Spam bot detected")
 	return true
+}
+
+// touchChatSender records activity for the sender of a non-command message.
+//
+// Touching the in-memory user is done immediately so anything reading
+// LatestActivity sees it right away. The database write is debounced per
+// (network, ident, host) — a burst of chatter should cost one row update, not
+// one per line. The persisted value is a snapshot taken at touch time, which
+// is safe here because SaveSingleUser upserts by (network, ident, host) and
+// the newest timestamp is all this path is responsible for.
+func touchChatSender(network *networks.Network, e girc.Event) { //nolint:gocritic // girc library mandates Event by value
+	if e.Source == nil || e.Source.Name == "" {
+		return
+	}
+
+	// Our own output is not user activity.
+	if strings.EqualFold(e.Source.Name, network.Nick) {
+		return
+	}
+
+	user := network.GetUserWithIdentAndHost(e.Source.Ident, e.Source.Host)
+	if user == nil {
+		return
+	}
+
+	user.Touch(e.Last())
+
+	snapshot := user.LatestActivity
+	birdbase.TouchUserActivity(network.NetworkName, e.Source.Ident, e.Source.Host, snapshot)
 }
 
 // isZncBufferPlayback checks if a message is likely ZNC buffer replay and should be ignored.

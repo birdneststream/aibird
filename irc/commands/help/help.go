@@ -90,7 +90,7 @@ func StandardHelp() []Help {
 		{
 			Name: "seen",
 			Type: typeStandard,
-			Help: "Checks if a user has been active recently.",
+			Help: "Reports when a user was last seen in this channel (chat, join, part, quit).",
 			Arguments: []Arguments{
 				{Argument: argNickname, Help: "Specify the nickname of the user to check.", Values: ""},
 			},
