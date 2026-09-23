@@ -418,7 +418,10 @@ func executeAndCollect(ctx context.Context, irc *state.State, c *apiclient.Clien
 	// bail rather than blocking the queue forever. This replaces the previous
 	// fixed-duration queue timeout: a job that keeps making progress (even an
 	// 8-minute H3 render) runs to completion; only genuinely-stalled jobs die.
-	const stallTimeout = 1 * time.Minute
+	// 5 minutes because long silent phases are legitimate: llama.cpp inference
+	// inside H3PromptComposer, model loads, and final video encode can each go
+	// well past 60s with no frames for our prompt.
+	const stallTimeout = 5 * time.Minute
 	stallTimer := time.NewTimer(stallTimeout)
 	defer stallTimer.Stop()
 
